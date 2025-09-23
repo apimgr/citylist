@@ -1,0 +1,81 @@
+<div class="hero">
+    <h1>🌍 CityList API</h1>
+    <p>Comprehensive worldwide city database with geographic coordinates</p>
+</div>
+
+<div class="stats">
+    <div class="stat-card">
+        <div class="stat-number"><%= cityCount || '200K+' %></div>
+        <div class="stat-label">Cities Worldwide</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-number">195+</div>
+        <div class="stat-label">Countries</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-number">API v1</div>
+        <div class="stat-label">Latest Version</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-number">GeoNames</div>
+        <div class="stat-label">Data Source</div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>🚀 Quick Start</h2>
+    <p>Get started with the CityList API in seconds:</p>
+    
+    <h3>Search Cities</h3>
+    <pre><code>GET /api/v1/cities/search?q=london</code></pre>
+    
+    <h3>Get City by ID</h3>
+    <pre><code>GET /api/v1/cities/2643743</code></pre>
+    
+    <h3>Get Cities by Country</h3>
+    <pre><code>GET /api/v1/cities/country/US</code></pre>
+    
+    <h3>Find Nearest City</h3>
+    <pre><code>GET /api/v1/cities/coordinates?longitude=-0.12574&latitude=51.50853</code></pre>
+    
+    <h3>Get Full Dataset</h3>
+    <pre><code>GET /api/data</code></pre>
+</div>
+
+<div class="card">
+    <h2>📊 Features</h2>
+    <ul style="list-style: none; padding-left: 0;">
+        <li style="margin-bottom: 0.5rem;">✅ <strong>200,000+</strong> cities worldwide</li>
+        <li style="margin-bottom: 0.5rem;">✅ <strong>Geographic coordinates</strong> (latitude, longitude)</li>
+        <li style="margin-bottom: 0.5rem;">✅ <strong>Country codes</strong> (ISO 3166-1 alpha-2)</li>
+        <li style="margin-bottom: 0.5rem;">✅ <strong>Compatible</strong> with OpenWeatherMap API</li>
+        <li style="margin-bottom: 0.5rem;">✅ <strong>RESTful API</strong> with JSON responses</li>
+        <li style="margin-bottom: 0.5rem;">✅ <strong>Rate limiting</strong> (1000 requests/hour)</li>
+        <li style="margin-bottom: 0.5rem;">✅ <strong>CORS enabled</strong> for web applications</li>
+        <li style="margin-bottom: 0.5rem;">✅ <strong>Swagger documentation</strong> available</li>
+        <li style="margin-bottom: 0.5rem;">✅ <strong>Geolocation support</strong> for finding nearest cities</li>
+    </ul>
+</div>
+
+<div class="card">
+    <h2>🔗 Quick Links</h2>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: 1rem;">
+        <a href="/search" class="btn" style="text-align: center; display: block; padding: 1rem;">🔍 Search Cities</a>
+        <a href="/coordinates" class="btn" style="text-align: center; display: block; padding: 1rem;">📍 Find Nearest</a>
+        <a href="/api/v1/cities" class="btn" style="text-align: center; display: block; padding: 1rem;">📡 API Endpoint</a>
+        <a href="/docs" class="btn" style="text-align: center; display: block; padding: 1rem;">📚 Documentation</a>
+    </div>
+</div>
+
+<div class="card">
+    <h2>💡 Example Response</h2>
+    <pre><code>{
+  "id": 2643743,
+  "name": "London",
+  "country": "GB",
+  "coord": {
+    "lon": -0.12574,
+    "lat": 51.50853
+  }
+}</code></pre>
+</div>

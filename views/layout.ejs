@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="<%= typeof description !== 'undefined' ? description : 'CityList - Worldwide city data with geographic coordinates' %>">
+    <title><%= typeof title !== 'undefined' ? title + ' - ' : '' %>CityList</title>
+    <link rel="stylesheet" href="/css/dracula.css">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+</head>
+<body>
+    <header>
+        <nav class="nav">
+            <div>
+                <a href="/" style="font-size: 1.5rem; font-weight: bold; color: var(--dracula-purple);">🌍 CityList</a>
+            </div>
+            <ul class="nav-links">
+                <li><a href="/">Home</a></li>
+                <li><a href="/search">Search Cities</a></li>
+                <li><a href="/coordinates">Find Nearest</a></li>
+                <li><a href="/api/v1/cities" target="_blank">API</a></li>
+                <li><a href="/docs" target="_blank">Documentation</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main class="container">
+        <%- body %>
+    </main>
+
+    <script>
+        // Basic search functionality
+        function searchCities(query) {
+            if (!query || query.length < 2) return;
+            
+            fetch(`/api/v1/cities/search?q=${encodeURIComponent(query)}`)
+                .then(response => response.json())
+                .then(data => {
+                    displayResults(data);
+                })
+                .catch(error => {
+                    console.error('Search error:', error);
+                });
+        }
+
+        function displayResults(cities) {
+            const resultsContainer = document.getElementById('search-results');
+            if (!resultsContainer) return;
+
+            if (!cities || cities.length === 0) {
+                resultsContainer.innerHTML = '<div class="error">No cities found</div>';
+                return;
+            }
+
+            const html = cities.map(city => `
+                <div class="city-item">
+                    <div class="city-name">${city.name}</div>
+                    <span class="city-country">${city.country}</span>
+                    <div class="city-coords">
+                        Lat: ${city.coord.lat}, Lon: ${city.coord.lon} | ID: ${city.id}
+                    </div>
+                </div>
+            `).join('');
+
+            resultsContainer.innerHTML = html;
+        }
+
+        // Add event listener for search input with debounce
+        document.addEventListener('DOMContentLoaded', function() {
+            const searchInput = document.getElementById('city-search');
+            if (searchInput) {
+                let timeout;
+                searchInput.addEventListener('input', function(e) {
+                    clearTimeout(timeout);
+                    timeout = setTimeout(() => {
+                        searchCities(e.target.value);
+                    }, 300);
+                });
+            }
+        });
+    </script>
+</body>
+</html>
