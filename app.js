@@ -11,8 +11,8 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
 
-// Trust proxy for reverse proxy support
-app.set('trust proxy', true);
+// Trust proxy for reverse proxy support (trust first proxy only)
+app.set('trust proxy', 1);
 
 app.use(helmet({
   contentSecurityPolicy: {
@@ -27,7 +27,10 @@ app.use(helmet({
 const limiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: 1000, // limit each IP to 1000 requests per windowMs
-  message: 'Too many requests from this IP, please try again after an hour.'
+  message: 'Too many requests from this IP, please try again after an hour.',
+  trustProxy: 1, // Trust first proxy only (safer than true)
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
 });
 app.use(limiter);
 
