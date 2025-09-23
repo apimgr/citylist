@@ -1,0 +1,361 @@
+/* Swagger UI Custom Dracula Theme */
+:root {
+  --dracula-bg: #282a36;
+  --dracula-current-line: #44475a;
+  --dracula-foreground: #f8f8f2;
+  --dracula-comment: #6272a4;
+  --dracula-cyan: #8be9fd;
+  --dracula-green: #50fa7b;
+  --dracula-orange: #ffb86c;
+  --dracula-pink: #ff79c6;
+  --dracula-purple: #bd93f9;
+  --dracula-red: #ff5555;
+  --dracula-yellow: #f1fa8c;
+}
+
+/* Main background */
+.swagger-ui {
+  background-color: var(--dracula-bg) !important;
+  color: var(--dracula-foreground) !important;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace !important;
+}
+
+/* Headers */
+.swagger-ui .info .title {
+  color: var(--dracula-purple) !important;
+  font-size: 2.5rem !important;
+  text-align: center !important;
+}
+
+.swagger-ui .info .description {
+  color: var(--dracula-foreground) !important;
+  text-align: center !important;
+  margin-bottom: 2rem !important;
+}
+
+.swagger-ui .info .base-url {
+  color: var(--dracula-cyan) !important;
+}
+
+/* Sections */
+.swagger-ui .scheme-container {
+  background-color: var(--dracula-current-line) !important;
+  border: 1px solid var(--dracula-comment) !important;
+  border-radius: 8px !important;
+  padding: 1rem !important;
+}
+
+.swagger-ui .opblock-tag {
+  background-color: var(--dracula-current-line) !important;
+  border: 1px solid var(--dracula-comment) !important;
+  border-radius: 8px !important;
+  color: var(--dracula-foreground) !important;
+}
+
+.swagger-ui .opblock-tag:hover {
+  background-color: var(--dracula-comment) !important;
+}
+
+.swagger-ui .opblock-tag-section {
+  background-color: transparent !important;
+}
+
+.swagger-ui .opblock-tag small {
+  color: var(--dracula-comment) !important;
+}
+
+/* Operation blocks */
+.swagger-ui .opblock {
+  background-color: var(--dracula-current-line) !important;
+  border: 1px solid var(--dracula-comment) !important;
+  border-radius: 8px !important;
+  margin-bottom: 1rem !important;
+}
+
+.swagger-ui .opblock.opblock-get {
+  border-left: 4px solid var(--dracula-green) !important;
+}
+
+.swagger-ui .opblock.opblock-post {
+  border-left: 4px solid var(--dracula-orange) !important;
+}
+
+.swagger-ui .opblock.opblock-put {
+  border-left: 4px solid var(--dracula-yellow) !important;
+}
+
+.swagger-ui .opblock.opblock-delete {
+  border-left: 4px solid var(--dracula-red) !important;
+}
+
+.swagger-ui .opblock .opblock-summary {
+  border-bottom: 1px solid var(--dracula-comment) !important;
+}
+
+.swagger-ui .opblock .opblock-summary-method {
+  background-color: var(--dracula-green) !important;
+  color: var(--dracula-bg) !important;
+  font-weight: bold !important;
+}
+
+.swagger-ui .opblock.opblock-post .opblock-summary-method {
+  background-color: var(--dracula-orange) !important;
+}
+
+.swagger-ui .opblock .opblock-summary-path {
+  color: var(--dracula-cyan) !important;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace !important;
+}
+
+.swagger-ui .opblock .opblock-summary-description {
+  color: var(--dracula-foreground) !important;
+}
+
+/* Parameters */
+.swagger-ui .parameters-container {
+  background-color: var(--dracula-bg) !important;
+}
+
+.swagger-ui .parameter__name {
+  color: var(--dracula-cyan) !important;
+  font-weight: bold !important;
+}
+
+.swagger-ui .parameter__type {
+  color: var(--dracula-purple) !important;
+}
+
+.swagger-ui .parameter__in {
+  color: var(--dracula-comment) !important;
+}
+
+.swagger-ui .parameter__description {
+  color: var(--dracula-foreground) !important;
+}
+
+/* Try it out button */
+.swagger-ui .btn.try-out__btn {
+  background-color: var(--dracula-purple) !important;
+  border: 1px solid var(--dracula-purple) !important;
+  color: var(--dracula-bg) !important;
+}
+
+.swagger-ui .btn.try-out__btn:hover {
+  background-color: var(--dracula-pink) !important;
+  border-color: var(--dracula-pink) !important;
+}
+
+.swagger-ui .btn.execute {
+  background-color: var(--dracula-green) !important;
+  border: 1px solid var(--dracula-green) !important;
+  color: var(--dracula-bg) !important;
+}
+
+.swagger-ui .btn.execute:hover {
+  background-color: var(--dracula-cyan) !important;
+  border-color: var(--dracula-cyan) !important;
+}
+
+/* Inputs */
+.swagger-ui input[type="text"],
+.swagger-ui input[type="number"],
+.swagger-ui textarea,
+.swagger-ui select {
+  background-color: var(--dracula-current-line) !important;
+  border: 1px solid var(--dracula-comment) !important;
+  color: var(--dracula-foreground) !important;
+  border-radius: 4px !important;
+}
+
+.swagger-ui input[type="text"]:focus,
+.swagger-ui input[type="number"]:focus,
+.swagger-ui textarea:focus,
+.swagger-ui select:focus {
+  border-color: var(--dracula-cyan) !important;
+  box-shadow: 0 0 0 2px rgba(139, 233, 253, 0.3) !important;
+}
+
+/* Response section */
+.swagger-ui .responses-wrapper {
+  background-color: var(--dracula-bg) !important;
+}
+
+.swagger-ui .response-col_status {
+  color: var(--dracula-green) !important;
+  font-weight: bold !important;
+}
+
+.swagger-ui .response-col_description {
+  color: var(--dracula-foreground) !important;
+}
+
+/* Code blocks */
+.swagger-ui .highlight-code,
+.swagger-ui .microlight {
+  background-color: var(--dracula-current-line) !important;
+  border: 1px solid var(--dracula-comment) !important;
+  border-radius: 4px !important;
+  color: var(--dracula-foreground) !important;
+}
+
+.swagger-ui .copy-to-clipboard {
+  background-color: var(--dracula-purple) !important;
+  border: 1px solid var(--dracula-purple) !important;
+  color: var(--dracula-bg) !important;
+}
+
+.swagger-ui .copy-to-clipboard:hover {
+  background-color: var(--dracula-pink) !important;
+}
+
+/* JSON syntax highlighting */
+.swagger-ui .microlight .hljs-attr {
+  color: var(--dracula-cyan) !important;
+}
+
+.swagger-ui .microlight .hljs-string {
+  color: var(--dracula-yellow) !important;
+}
+
+.swagger-ui .microlight .hljs-number {
+  color: var(--dracula-purple) !important;
+}
+
+.swagger-ui .microlight .hljs-literal {
+  color: var(--dracula-purple) !important;
+}
+
+/* Models section */
+.swagger-ui .model-container {
+  background-color: var(--dracula-current-line) !important;
+  border: 1px solid var(--dracula-comment) !important;
+  border-radius: 4px !important;
+}
+
+.swagger-ui .model .property {
+  color: var(--dracula-cyan) !important;
+}
+
+.swagger-ui .model .type {
+  color: var(--dracula-purple) !important;
+}
+
+.swagger-ui .model .description {
+  color: var(--dracula-foreground) !important;
+}
+
+/* Server selection */
+.swagger-ui .servers select {
+  background-color: var(--dracula-current-line) !important;
+  border: 1px solid var(--dracula-comment) !important;
+  color: var(--dracula-foreground) !important;
+}
+
+/* Authorization */
+.swagger-ui .auth-wrapper {
+  background-color: var(--dracula-current-line) !important;
+  border: 1px solid var(--dracula-comment) !important;
+  border-radius: 8px !important;
+}
+
+.swagger-ui .auth-container .auth-btn-wrapper .btn.modal-btn.auth.authorize {
+  background-color: var(--dracula-green) !important;
+  border: 1px solid var(--dracula-green) !important;
+  color: var(--dracula-bg) !important;
+}
+
+/* Download button */
+.swagger-ui .download-url-button {
+  background-color: var(--dracula-cyan) !important;
+  border: 1px solid var(--dracula-cyan) !important;
+  color: var(--dracula-bg) !important;
+}
+
+.swagger-ui .download-url-button:hover {
+  background-color: var(--dracula-purple) !important;
+}
+
+/* Custom header styles */
+.swagger-ui::before {
+  content: "🌍 CityList API Documentation";
+  display: block;
+  text-align: center;
+  font-size: 2rem;
+  color: var(--dracula-purple);
+  font-weight: bold;
+  margin-bottom: 1rem;
+  padding: 2rem 0;
+  background: linear-gradient(135deg, var(--dracula-purple), var(--dracula-pink));
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Scrollbar styling */
+.swagger-ui ::-webkit-scrollbar {
+  width: 12px;
+}
+
+.swagger-ui ::-webkit-scrollbar-track {
+  background: var(--dracula-current-line);
+  border-radius: 6px;
+}
+
+.swagger-ui ::-webkit-scrollbar-thumb {
+  background: var(--dracula-comment);
+  border-radius: 6px;
+}
+
+.swagger-ui ::-webkit-scrollbar-thumb:hover {
+  background: var(--dracula-purple);
+}
+
+/* Table styling */
+.swagger-ui table {
+  background-color: var(--dracula-current-line) !important;
+  border: 1px solid var(--dracula-comment) !important;
+}
+
+.swagger-ui table thead tr th {
+  background-color: var(--dracula-comment) !important;
+  color: var(--dracula-foreground) !important;
+  border-bottom: 1px solid var(--dracula-foreground) !important;
+}
+
+.swagger-ui table tbody tr td {
+  color: var(--dracula-foreground) !important;
+  border-bottom: 1px solid var(--dracula-comment) !important;
+}
+
+/* Error messages */
+.swagger-ui .errors-wrapper {
+  background-color: rgba(255, 85, 85, 0.1) !important;
+  border: 1px solid var(--dracula-red) !important;
+  border-radius: 4px !important;
+  color: var(--dracula-red) !important;
+}
+
+/* Loading spinner */
+.swagger-ui .loading-container {
+  background-color: var(--dracula-bg) !important;
+}
+
+.swagger-ui .loading-container .loading {
+  border-top-color: var(--dracula-purple) !important;
+}
+
+/* Custom branding */
+.swagger-ui .topbar {
+  background-color: var(--dracula-current-line) !important;
+  border-bottom: 2px solid var(--dracula-purple) !important;
+}
+
+.swagger-ui .topbar .download-url-wrapper .select-label {
+  color: var(--dracula-foreground) !important;
+}
+
+.swagger-ui .topbar .download-url-wrapper input[type="text"] {
+  background-color: var(--dracula-current-line) !important;
+  border: 1px solid var(--dracula-comment) !important;
+  color: var(--dracula-foreground) !important;
+}

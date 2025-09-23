@@ -1,0 +1,91 @@
+version: '3.8'
+
+services:
+  # Development service
+  citylist-dev:
+    build:
+      context: .
+      target: development
+    container_name: citylist-dev
+    ports:
+      - "3000:3000"
+    volumes:
+      # Mount source code for live reload
+      - .:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+    restart: unless-stopped
+    networks:
+      - citylist-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/v1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Production service
+  citylist-prod:
+    build:
+      context: .
+      target: production
+    container_name: citylist-prod
+    ports:
+      - "3001:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+    restart: unless-stopped
+    networks:
+      - citylist-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/v1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Testing service
+  citylist-test:
+    build:
+      context: .
+      target: development
+    container_name: citylist-test
+    ports:
+      - "3002:3000"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=test
+      - PORT=3000
+    command: npm test
+    networks:
+      - citylist-network
+    depends_on:
+      - citylist-dev
+
+  # Debugging service with inspect mode
+  citylist-debug:
+    build:
+      context: .
+      target: development
+    container_name: citylist-debug
+    ports:
+      - "3003:3000"
+      - "9229:9229"  # Node.js inspector port
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+    command: node --inspect=0.0.0.0:9229 app.js
+    networks:
+      - citylist-network
+
+networks:
+  citylist-network:
+    driver: bridge
