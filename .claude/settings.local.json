@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(make:*)",
+      "Bash(curl:*)",
+      "Bash(pkill:*)",
+      "Bash(tree:*)",
+      "Bash(go mod:*)",
+      "Bash(go build:*)",
+      "Bash(./binaries/citylist:*)",
+      "Bash(timeout:*)",
+      "Bash(cat:*)",
+      "Bash(CGO_ENABLED=0 go build:*)",
+      "Bash(./binaries/citylist-test:*)",
+      "Bash(docker build:*)",
+      "Bash(shuf:*)",
+      "Read(//root/Projects/github/apimgr/airports/**)",
+      "Read(//root/Projects/github/apimgr/**)",
+      "Read(///**)",
+      "Bash(go get:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

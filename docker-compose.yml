@@ -1,0 +1,45 @@
+# Production Docker Compose Configuration
+# Uses ./rootfs for persistent storage
+# External port: 172.17.0.1:64180:80 (Docker bridge network)
+
+services:
+  citylist:
+    image: ghcr.io/apimgr/citylist:latest
+    container_name: citylist
+    restart: unless-stopped
+
+    environment:
+      - CONFIG_DIR=/config
+      - DATA_DIR=/data
+      - LOGS_DIR=/logs
+      - PORT=80
+      - ADDRESS=::
+      - DB_PATH=/data/db/citylist.db
+      # Uncomment and set for first deployment
+      #- ADMIN_USER=administrator
+      #- ADMIN_PASSWORD=changeme
+      #- ADMIN_TOKEN=your-token-here
+
+    volumes:
+      - ./rootfs/config/citylist:/config
+      - ./rootfs/data/citylist:/data
+      - ./rootfs/logs/citylist:/logs
+
+    ports:
+      - "172.17.0.1:64180:80"
+
+    networks:
+      - citylist
+
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/citylist", "--status"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+networks:
+  citylist:
+    name: citylist
+    external: false
+    driver: bridge

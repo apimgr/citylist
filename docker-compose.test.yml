@@ -1,0 +1,44 @@
+# Development/Testing Docker Compose Configuration
+# Uses /tmp for ephemeral storage
+# External port: 64181:80 (random unused port in 64xxx range)
+
+services:
+  citylist:
+    image: citylist:dev
+    container_name: citylist-test
+    restart: "no"
+
+    environment:
+      - CONFIG_DIR=/config
+      - DATA_DIR=/data
+      - LOGS_DIR=/logs
+      - PORT=80
+      - ADDRESS=::
+      - DB_PATH=/data/db/citylist.db
+      - ADMIN_USER=administrator
+      - ADMIN_PASSWORD=testpass123
+      - DEV=true
+
+    volumes:
+      - /tmp/citylist/rootfs/config/citylist:/config
+      - /tmp/citylist/rootfs/data/citylist:/data
+      - /tmp/citylist/rootfs/logs/citylist:/logs
+
+    ports:
+      - "64181:80"
+
+    networks:
+      - citylist
+
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/citylist", "--status"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+networks:
+  citylist:
+    name: citylist
+    external: false
+    driver: bridge
