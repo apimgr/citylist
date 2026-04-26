@@ -1,0 +1,25 @@
+name: citylist
+
+services:
+  citylist:
+    image: ghcr.io/apimgr/citylist:latest
+    container_name: citylist
+    restart: unless-stopped
+    environment:
+      # Hardcoded with sane defaults - NO .env files
+      - MODE=production
+      - TZ=America/New_York
+      # ENABLE_TOR=true is default, no need to specify
+    ports:
+      # Production: bound to Docker bridge only
+      - "172.17.0.1:64580:80"
+    volumes:
+      - ./rootfs/config/citylist:/config
+      - ./rootfs/data/citylist:/data
+    networks:
+      - citylist
+
+networks:
+  citylist:
+    name: citylist
+    external: false
