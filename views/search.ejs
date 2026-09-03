@@ -1,0 +1,59 @@
+<div class="hero">
+    <h1>🔍 Search Cities</h1>
+    <p>Find cities worldwide by name, country, or coordinates</p>
+</div>
+
+<div class="search-container">
+    <div class="card">
+        <h2>City Search</h2>
+        <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+            <input 
+                type="text" 
+                id="city-search" 
+                class="search-input" 
+                placeholder="Enter city name (e.g., London, Tokyo, New York)"
+                style="flex: 1; min-width: 300px;"
+            >
+            <button onclick="searchCities(document.getElementById('city-search').value)" class="btn">
+                Search
+            </button>
+        </div>
+        
+        <div style="margin-top: 1rem; color: var(--dracula-comment);">
+            <small>💡 Start typing to see live results. Minimum 2 characters required.</small>
+        </div>
+    </div>
+</div>
+
+<div class="results-container">
+    <div id="search-results"></div>
+</div>
+
+<div class="card">
+    <h2>🎯 Search Tips</h2>
+    <ul style="list-style: none; padding-left: 0;">
+        <li style="margin-bottom: 0.5rem;">• Type at least 2 characters to start searching</li>
+        <li style="margin-bottom: 0.5rem;">• Search is case-insensitive</li>
+        <li style="margin-bottom: 0.5rem;">• Results show city name, country code, and coordinates</li>
+        <li style="margin-bottom: 0.5rem;">• City IDs are compatible with OpenWeatherMap API</li>
+        <li style="margin-bottom: 0.5rem;">• Use country codes (e.g., "US", "GB", "JP") to filter by country</li>
+    </ul>
+</div>
+
+<div class="card">
+    <h2>📡 API Usage</h2>
+    <p>You can also use our API directly:</p>
+    
+    <h3>Search by name:</h3>
+    <pre><code>GET /api/v1/cities/search?q=london&limit=10</code></pre>
+    
+    <h3>Search by country:</h3>
+    <pre><code>GET /api/v1/cities/country/US?limit=50</code></pre>
+    
+    <h3>Get specific city:</h3>
+    <pre><code>GET /api/v1/cities/2643743</code></pre>
+    
+    <p style="margin-top: 1rem;">
+        <a href="/docs" class="btn">📚 View Full Documentation</a>
+    </p>
+</div>

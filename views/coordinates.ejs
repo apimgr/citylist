@@ -1,0 +1,107 @@
+<div class="hero">
+    <h1>📍 Find Nearest City</h1>
+    <p>Discover the closest city to any coordinates worldwide</p>
+</div>
+
+<div class="card">
+    <h2>🌍 Your Location</h2>
+    <div style="margin-bottom: 1rem;">
+        <button id="get-location-btn" class="btn" onclick="getUserLocation()">
+            📍 Use My Current Location
+        </button>
+        <div id="location-status" style="margin-top: 1rem; display: none;"></div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>🎯 Enter Coordinates</h2>
+    <form id="coordinates-form" style="display: grid; gap: 1rem;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div>
+                <label for="longitude" style="display: block; margin-bottom: 0.5rem; color: var(--dracula-cyan);">
+                    <strong>Longitude</strong> (-180 to 180)
+                </label>
+                <input 
+                    type="number" 
+                    id="longitude" 
+                    name="longitude" 
+                    step="any" 
+                    min="-180" 
+                    max="180" 
+                    placeholder="e.g., -0.12574"
+                    required
+                >
+            </div>
+            <div>
+                <label for="latitude" style="display: block; margin-bottom: 0.5rem; color: var(--dracula-cyan);">
+                    <strong>Latitude</strong> (-90 to 90)
+                </label>
+                <input 
+                    type="number" 
+                    id="latitude" 
+                    name="latitude" 
+                    step="any" 
+                    min="-90" 
+                    max="90" 
+                    placeholder="e.g., 51.50853"
+                    required
+                >
+            </div>
+        </div>
+        
+        <button type="submit" class="btn">
+            🔍 Find Nearest City
+        </button>
+    </form>
+</div>
+
+<div id="coordinates-results" style="display: none;">
+    <div class="card">
+        <h2>📍 Nearest City Found</h2>
+        <div id="city-result"></div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>📍 Quick Examples</h2>
+    <div style="display: grid; gap: 0.5rem;">
+        <button class="btn" onclick="setCoordinates(-0.12574, 51.50853)" style="text-align: left;">
+            🇬🇧 London: -0.12574, 51.50853
+        </button>
+        <button class="btn" onclick="setCoordinates(-74.006, 40.7128)" style="text-align: left;">
+            🇺🇸 New York: -74.006, 40.7128
+        </button>
+        <button class="btn" onclick="setCoordinates(2.3522, 48.8566)" style="text-align: left;">
+            🇫🇷 Paris: 2.3522, 48.8566
+        </button>
+        <button class="btn" onclick="setCoordinates(139.6917, 35.6895)" style="text-align: left;">
+            🇯🇵 Tokyo: 139.6917, 35.6895
+        </button>
+        <button class="btn" onclick="setCoordinates(151.2093, -33.8688)" style="text-align: left;">
+            🇦🇺 Sydney: 151.2093, -33.8688
+        </button>
+    </div>
+</div>
+
+<div class="card">
+    <h2>🛠️ API Usage</h2>
+    <p>You can also use our API directly:</p>
+    
+    <h3>GET Request:</h3>
+    <pre><code>GET /api/v1/cities/coordinates?longitude=-0.12574&latitude=51.50853</code></pre>
+    
+    <h3>POST Request:</h3>
+    <pre><code>POST /api/v1/cities/coordinates
+Content-Type: application/json
+
+{
+  "longitude": -0.12574,
+  "latitude": 51.50853
+}</code></pre>
+    
+    <p style="margin-top: 1rem;">
+        <a href="/docs" class="btn">📚 View Full API Documentation</a>
+    </p>
+</div>
+
+<script src="/js/coordinates.js"></script>

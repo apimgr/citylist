@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Documentation - Citylist API</title>
+    <meta name="description" content="OpenAPI documentation for Citylist API - 209,579 cities from 248 countries">
+    <meta name="theme-color" content="#6366f1">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/main.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <nav class="nav">
+            <a href="/" class="nav-brand">
+                <div class="nav-brand-icon">🌍</div>
+                <span>Citylist</span>
+            </a>
+            <div class="nav-links">
+                <a href="/" class="nav-link">Home</a>
+                <a href="/search" class="nav-link">Search</a>
+                <a href="/coordinates" class="nav-link">Location</a>
+                <a href="/openapi" class="nav-link active">API Docs</a>
+            </div>
+        </nav>
+    </header>
+
+    <main>
+        <!-- API Overview Section -->
+        <section class="search-section">
+            <div class="container">
+                <div class="section-header">
+                    <h1 class="section-title">API Documentation</h1>
+                    <p class="section-description">Complete REST API reference for the Citylist API</p>
+                </div>
+
+                <div class="api-overview">
+                    <div class="api-overview-card">
+                        <div class="api-overview-icon">🌍</div>
+                        <div class="api-overview-content">
+                            <h3>209,579 Cities</h3>
+                            <p>Comprehensive city database</p>
+                        </div>
+                    </div>
+                    <div class="api-overview-card">
+                        <div class="api-overview-icon">🗺️</div>
+                        <div class="api-overview-content">
+                            <h3>248 Countries</h3>
+                            <p>Worldwide coverage</p>
+                        </div>
+                    </div>
+                    <div class="api-overview-card">
+                        <div class="api-overview-icon">📍</div>
+                        <div class="api-overview-content">
+                            <h3>Geolocation</h3>
+                            <p>Haversine distance calculations</p>
+                        </div>
+                    </div>
+                    <div class="api-overview-card">
+                        <div class="api-overview-icon">⚡</div>
+                        <div class="api-overview-content">
+                            <h3>Fast & Free</h3>
+                            <p>No authentication required</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="api-download">
+                    <a href="/api/openapi.json" class="btn btn-secondary">
+                        <span class="btn-icon">📄</span>
+                        Download OpenAPI Spec
+                    </a>
+                </div>
+            </div>
+        </section>
+
+        <!-- Endpoints Section -->
+        <section class="api-docs">
+            <div class="container">
+                <h2 class="api-section-title">API Endpoints</h2>
+
+                <!-- List All Cities -->
+                <div class="api-endpoint">
+                    <div class="api-endpoint-header">
+                        <span class="api-method api-method-get">GET</span>
+                        <code class="api-path">/api/v1/cities</code>
+                    </div>
+                    <div class="api-endpoint-body">
+                        <p class="api-endpoint-description">List all cities with pagination support.</p>
+                        <div class="api-params">
+                            <h4 class="api-params-title">Query Parameters</h4>
+                            <table class="api-params-table">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Type</th>
+                                        <th>Default</th>
+                                        <th>Description</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><code>page</code></td>
+                                        <td>integer</td>
+                                        <td>1</td>
+                                        <td>Page number</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>limit</code></td>
+                                        <td>integer</td>
+                                        <td>50</td>
+                                        <td>Results per page (max: 1000)</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Search Cities -->
+                <div class="api-endpoint">
+                    <div class="api-endpoint-header">
+                        <span class="api-method api-method-get">GET</span>
+                        <code class="api-path">/api/v1/cities/search</code>
+                    </div>
+                    <div class="api-endpoint-body">
+                        <p class="api-endpoint-description">Search cities by name with case-insensitive substring matching.</p>
+                        <div class="api-params">
+                            <h4 class="api-params-title">Query Parameters</h4>
+                            <table class="api-params-table">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Type</th>
+                                        <th>Default</th>
+                                        <th>Description</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><code>q</code> <span class="api-required">required</span></td>
+                                        <td>string</td>
+                                        <td>-</td>
+                                        <td>Search query (min 2 characters)</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>limit</code></td>
+                                        <td>integer</td>
+                                        <td>20</td>
+                                        <td>Max results (max: 100)</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Get City by ID -->
+                <div class="api-endpoint">
+                    <div class="api-endpoint-header">
+                        <span class="api-method api-method-get">GET</span>
+                        <code class="api-path">/api/v1/cities/{id}</code>
+                    </div>
+                    <div class="api-endpoint-body">
+                        <p class="api-endpoint-description">Get a specific city by its unique identifier.</p>
+                        <div class="api-params">
+                            <h4 class="api-params-title">Path Parameters</h4>
+                            <table class="api-params-table">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Type</th>
+                                        <th>Description</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><code>id</code> <span class="api-required">required</span></td>
+                                        <td>integer</td>
+                                        <td>City ID</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Cities by Country -->
+                <div class="api-endpoint">
+                    <div class="api-endpoint-header">
+                        <span class="api-method api-method-get">GET</span>
+                        <code class="api-path">/api/v1/cities/country/{code}</code>
+                    </div>
+                    <div class="api-endpoint-body">
+                        <p class="api-endpoint-description">Get all cities in a country by ISO 3166-1 alpha-2 code.</p>
+                        <div class="api-params">
+                            <h4 class="api-params-title">Path Parameters</h4>
+                            <table class="api-params-table">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Type</th>
+                                        <th>Description</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><code>code</code> <span class="api-required">required</span></td>
+                                        <td>string</td>
+                                        <td>Country code (e.g., US, GB, JP)</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            <h4 class="api-params-title">Query Parameters</h4>
+                            <table class="api-params-table">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Type</th>
+                                        <th>Default</th>
+                                        <th>Description</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><code>limit</code></td>
+                                        <td>integer</td>
+                                        <td>50</td>
+                                        <td>Max results (max: 1000)</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Nearest City -->
+                <div class="api-endpoint">
+                    <div class="api-endpoint-header">
+                        <span class="api-method api-method-get">GET</span>
+                        <code class="api-path">/api/v1/cities/coordinates</code>
+                    </div>
+                    <div class="api-endpoint-body">
+                        <p class="api-endpoint-description">Find the nearest city to given geographic coordinates.</p>
+                        <div class="api-params">
+                            <h4 class="api-params-title">Query Parameters</h4>
+                            <table class="api-params-table">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Type</th>
+                                        <th>Description</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><code>lat</code> <span class="api-required">required</span></td>
+                                        <td>number</td>
+                                        <td>Latitude (-90 to 90)</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>lon</code> <span class="api-required">required</span></td>
+                                        <td>number</td>
+                                        <td>Longitude (-180 to 180)</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Nearby Cities -->
+                <div class="api-endpoint">
+                    <div class="api-endpoint-header">
+                        <span class="api-method api-method-get">GET</span>
+                        <code class="api-path">/api/v1/cities/nearby</code>
+                    </div>
+                    <div class="api-endpoint-body">
+                        <p class="api-endpoint-description">Find cities within a radius of given coordinates using Haversine distance.</p>
+                        <div class="api-params">
+                            <h4 class="api-params-title">Query Parameters</h4>
+                            <table class="api-params-table">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Type</th>
+                                        <th>Default</th>
+                                        <th>Description</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><code>lat</code> <span class="api-required">required</span></td>
+                                        <td>number</td>
+                                        <td>-</td>
+                                        <td>Latitude (-90 to 90)</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>lon</code> <span class="api-required">required</span></td>
+                                        <td>number</td>
+                                        <td>-</td>
+                                        <td>Longitude (-180 to 180)</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>radius</code></td>
+                                        <td>number</td>
+                                        <td>50</td>
+                                        <td>Search radius in km</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>limit</code></td>
+                                        <td>integer</td>
+                                        <td>10</td>
+                                        <td>Max results (max: 100)</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stats -->
+                <div class="api-endpoint">
+                    <div class="api-endpoint-header">
+                        <span class="api-method api-method-get">GET</span>
+                        <code class="api-path">/api/v1/stats</code>
+                    </div>
+                    <div class="api-endpoint-body">
+                        <p class="api-endpoint-description">Get API statistics including city and country counts.</p>
+                        <p class="api-note">Also available as <code>/api/v1/stats.txt</code> for plain text format.</p>
+                    </div>
+                </div>
+
+                <!-- Raw Data -->
+                <div class="api-endpoint">
+                    <div class="api-endpoint-header">
+                        <span class="api-method api-method-get">GET</span>
+                        <code class="api-path">/api/data</code>
+                    </div>
+                    <div class="api-endpoint-body">
+                        <p class="api-endpoint-description">Get the raw city database as JSON (large file).</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Response Format Section -->
+        <section class="api-docs">
+            <div class="container">
+                <h2 class="api-section-title">Response Formats</h2>
+
+                <div class="api-response-examples">
+                    <div class="api-response-example">
+                        <h3 class="api-response-title">City Object</h3>
+                        <div class="code-block">
+                            <div class="code-header">
+                                <span class="code-lang">JSON</span>
+                                <button class="code-copy" onclick="copyCode(this)">Copy</button>
+                            </div>
+                            <div class="code-content">
+<pre>{
+  "id": 5128581,
+  "name": "New York City",
+  "country": "US",
+  "coord": {
+    "lon": -74.005966,
+    "lat": 40.714272
+  }
+}</pre>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="api-response-example">
+                        <h3 class="api-response-title">City with Distance</h3>
+                        <div class="code-block">
+                            <div class="code-header">
+                                <span class="code-lang">JSON</span>
+                                <button class="code-copy" onclick="copyCode(this)">Copy</button>
+                            </div>
+                            <div class="code-content">
+<pre>{
+  "id": 5128581,
+  "name": "New York City",
+  "country": "US",
+  "coord": {
+    "lon": -74.005966,
+    "lat": 40.714272
+  },
+  "distance": 12.34
+}</pre>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="api-response-example">
+                        <h3 class="api-response-title">Stats Response</h3>
+                        <div class="code-block">
+                            <div class="code-header">
+                                <span class="code-lang">JSON</span>
+                                <button class="code-copy" onclick="copyCode(this)">Copy</button>
+                            </div>
+                            <div class="code-content">
+<pre>{
+  "total_cities": 209579,
+  "total_countries": 248
+}</pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <div class="footer-brand">
+                <div class="footer-logo">🌍</div>
+                <span class="footer-text">Citylist API - Part of apimgr</span>
+            </div>
+            <div class="footer-links">
+                <a href="/openapi" class="footer-link">API Docs</a>
+                <a href="/healthz" class="footer-link">Status</a>
+                <a href="https://github.com/apimgr" class="footer-link">GitHub</a>
+            </div>
+        </div>
+    </footer>
+
+    <script src="/static/js/main.js"></script>
+    <script>
+        function copyCode(btn) {
+            const code = btn.closest('.code-block').querySelector('pre').textContent;
+            navigator.clipboard.writeText(code).then(() => {
+                btn.textContent = 'Copied!';
+                setTimeout(() => btn.textContent = 'Copy', 2000);
+            });
+        }
+    </script>
+</body>
+</html>
