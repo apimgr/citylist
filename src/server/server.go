@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/fs"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -123,8 +124,8 @@ func (s *Server) setupRoutes() {
 	// Middleware
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
-	r.Use(middleware.RealIP)
 	r.Use(middleware.Timeout(60 * time.Second))
+	r.Use(realIPMiddleware)
 	r.Use(s.corsMiddleware)
 	r.Use(s.securityHeadersMiddleware)
 
@@ -183,6 +184,50 @@ func (s *Server) setupRoutes() {
 }
 
 // Middleware
+
+// realIPMiddleware rewrites r.RemoteAddr with the client IP resolved from
+// X-Forwarded-For/X-Real-IP, but only when the immediate TCP peer is a
+// trusted (private/loopback) address. Unlike chi's deprecated
+// middleware.RealIP, forwarded headers from an untrusted peer are ignored,
+// preventing IP spoofing (AI.md PART 12 "Trusted Proxies").
+func realIPMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if isTrustedPeer(r.RemoteAddr) {
+			if ip := clientIPFromHeaders(r); ip != "" {
+				r.RemoteAddr = ip
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// clientIPFromHeaders extracts the client IP from trusted proxy headers.
+func clientIPFromHeaders(r *http.Request) string {
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+		parts := strings.Split(xff, ",")
+		if ip := strings.TrimSpace(parts[0]); ip != "" {
+			return ip
+		}
+	}
+	if xrip := r.Header.Get("X-Real-IP"); xrip != "" {
+		return strings.TrimSpace(xrip)
+	}
+	return ""
+}
+
+// isTrustedPeer reports whether addr (host:port or bare host) is a
+// loopback or private-range address.
+func isTrustedPeer(addr string) bool {
+	host := addr
+	if h, _, err := net.SplitHostPort(addr); err == nil {
+		host = h
+	}
+	ip := net.ParseIP(host)
+	if ip == nil {
+		return false
+	}
+	return ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsUnspecified()
+}
 
 func (s *Server) corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
