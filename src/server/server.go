@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/apimgr/citylist/src/admin"
 	"github.com/apimgr/citylist/src/cities"
 	"github.com/apimgr/citylist/src/config"
 	"github.com/go-chi/chi/v5"
@@ -33,15 +32,14 @@ var (
 
 // Server represents the HTTP server
 type Server struct {
-	router       *chi.Mux
-	citySvc      *cities.Service
-	cfg          *config.Config
-	address      string
-	port         string
-	version      string
-	buildDate    string
-	commit       string
-	adminHandler *admin.Handler
+	router    *chi.Mux
+	citySvc   *cities.Service
+	cfg       *config.Config
+	address   string
+	port      string
+	version   string
+	buildDate string
+	commit    string
 }
 
 // APIResponse is the standard JSON response format
@@ -76,28 +74,15 @@ type PaginationInfo struct {
 
 // New creates a new server instance
 func New(citySvc *cities.Service, cfg *config.Config, address, port, version, buildDate, commit string) *Server {
-	// Create admin handler
-	adminHandler := admin.NewHandler(
-		cfg.Server.Admin.Username,
-		cfg.Server.Admin.Password,
-		cfg.Server.Admin.APIToken,
-		cfg.Server.Session.Timeout,
-		false, // SSL enabled
-		version,
-		commit,
-		buildDate,
-	)
-
 	s := &Server{
-		router:       chi.NewRouter(),
-		citySvc:      citySvc,
-		cfg:          cfg,
-		address:      address,
-		port:         port,
-		version:      version,
-		buildDate:    buildDate,
-		commit:       commit,
-		adminHandler: adminHandler,
+		router:    chi.NewRouter(),
+		citySvc:   citySvc,
+		cfg:       cfg,
+		address:   address,
+		port:      port,
+		version:   version,
+		buildDate: buildDate,
+		commit:    commit,
 	}
 	s.setupRoutes()
 	return s
@@ -195,9 +180,6 @@ func (s *Server) setupRoutes() {
 	// Shorthand routes
 	r.Get("/random", s.handleRandomCity)
 	r.Get("/random.txt", s.handleRandomCityTxt)
-
-	// Admin routes (session auth for web, bearer token for API)
-	s.adminHandler.RegisterRoutes(r)
 }
 
 // Middleware
