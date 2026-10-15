@@ -1,110 +1,20 @@
 # TODO.AI.md — citylist
 
-Issues found while adding the missing CI/CD workflow set
-(`.github/workflows/{ci,docker,daily,release,beta}.yml`). Logged per the
-"no issue left only in conversation" rule — none of these were fixed as
-part of that task since they were outside its explicit scope (adding
-workflows, not fixing existing app/build files).
+Remaining work identified against `AI.md` and `IDEA.md`. The implemented city and geographic US ZIP APIs, GraphQL, initial CLI, public pages, PWA shell, rate limiting, docs, and GitHub Actions are present. These items remain open; they are not claims of completed compliance.
 
-## 1. Zero Go test coverage — blocks the new `ci.yml` coverage gate
+## Required implementation still open
 
-`ci.yml`'s `test` job enforces AI.md's mandatory 60% coverage threshold
-via `go test -cover -coverprofile=...` + `go tool cover -func`. This
-project currently has no `*_test.go` files, so the first CI run on this
-workflow will fail the coverage gate. Needs unit tests written for
-`src/` to close the gap.
+1. **Overlay network lifecycle (AI.md PART 31).** The Docker entrypoint still starts Tor outside the server process. Move Tor ownership into the server binary, generate the app-scoped torrc and isolated hidden-service backend, expose onion state through health/status, and stop Tor on shutdown. Implement optional I2P only when enabled in config. Do not claim overlay support until runtime behavior is covered.
+2. **Full companion client (AI.md PART 32).** `citylist-cli` supports core REST reads, but lacks the required persisted client configuration, setup wizard, complete CLI command coverage, interactive TUI, native GUI, shell completions, language parity, and verified SHA-256 self-update flow.
+3. **Internationalization and accessibility (AI.md PART 30).** The UI, server messages, docs, and CLI remain primarily English and do not yet use the required seven-language translation catalogs or parity checks. Add locale selection, translation coverage, and automated accessibility checks.
+4. **Base URL path support.** The server accepts `--baseurl` and routes prefixed requests, but page links and browser JavaScript still contain root-relative paths. Prefix-aware rendering and browser requests are needed before reverse-proxy subpath deployments are reliable.
+5. **Overlay, metrics, and operations surfaces.** Tor/I2P status, Prometheus metrics, structured access logging, persistent rate-limit state, and complete service lifecycle behavior are not implemented to the shared spec.
+6. **Dataset refresh process.** Embedded dataset snapshots have attribution and hashes in `DATA-SOURCES.md`, but no reproducible refresh/import workflow exists. Preserve the current snapshots and counts until a refresh process verifies compatible IDs, licensing, and data shape.
 
-## 2. LDFLAGS symbol names — AI.md/sibling-repo template vs. actual code
+## Verification still required
 
-AI.md's generic LDFLAGS template (also used verbatim in sibling repos
-like ipgaze) references `main.CommitID`, `main.BuildEpoch`, and
-`main.OfficialSite`. citylist's actual `src/main.go` declares only:
-
-```go
-var (
-    Version   = "dev"
-    Commit    = "unknown"
-    BuildDate = "unknown"
-)
-```
-
-There is no `CommitID`, `BuildEpoch`, or `OfficialSite` var — a build
-using the template names silently no-ops (Go's `-ldflags -X` doesn't
-error on an unknown symbol, it just skips it). All newly-written CI/CD
-files (`docker.yml`, `docker/Dockerfile.dev`, `daily.yml`, `release.yml`,
-`beta.yml`) were written using the ACTUAL var names
-(`main.Version`/`main.Commit`/`main.BuildDate`) instead of the template
-names, so they work correctly. Any future edits to these files (or new
-ones copied from sibling repos) must preserve this substitution, not
-revert to the template names.
-
-## 3. Missing multi-provider workflow set
-
-AI.md's CI/CD requirements (PART 27) call for provider-native workflows
-across GitHub/GitLab/Gitea/Forgejo/Jenkins. Only the GitHub Actions set
-was added this pass (this repo's remote is github.com/apimgr/citylist).
-No `.gitlab-ci.yml`, `.gitea/workflows/`, `.forgejo/workflows/`, or
-`Jenkinsfile` exist. Out of scope for the task that added the GitHub
-workflows; add if/when this project needs to support those providers.
-
-## 4. Pre-existing `docker/Dockerfile` compliance issues
-
-Discovered while reading the existing production Dockerfile to match its
-ARG-naming convention in the new `docker.yml`/`Dockerfile.dev`. Not
-fixed — the task was to add missing CI/CD workflows, not rewrite the
-existing production Dockerfile.
-
-- **Wrong builder base image**: `FROM golang:alpine AS builder` — AI.md/
-  docker-rules.md mandate `casjaysdev/go:latest` for the Go toolchain
-  build stage.
-- **Baked-in `LABEL` block**: the runtime stage has a full static+dynamic
-  `LABEL` block. AI.md forbids this — all OCI metadata must be CI-applied
-  only (via `--label`/`--annotation` build args or
-  `docker/metadata-action`), never baked into the Dockerfile. (The new
-  `docker.yml` added this session does apply labels/annotations
-  correctly at build time, but the Dockerfile's own baked-in `LABEL`
-  block is now redundant/conflicting and should be removed.)
-- **Broken/no-op ldflag**: `-X 'main.CommitID=${VCS_REF}'` references a
-  var that doesn't exist in `src/main.go` (see item 2 above) — should be
-  `-X 'main.Commit=${VCS_REF}'`.
-- **Directory creation in Dockerfile**: creates
-  `/config /data/db /data/logs /data/tor /data/geoip /data/backup`
-  directly in the Dockerfile. AI.md/docker-rules.md say directory
-  creation should be binary-managed at runtime, not baked into the
-  image.
-
-## 5. Makefile still references `golang:alpine`
-
-`Makefile` lines 29 and 89 use `golang:alpine` for Docker build
-containers instead of the mandated `casjaysdev/go:latest`. Confirmed via
-direct grep this session. Not fixed — out of scope for the CI/CD-only
-task; flagging for a future pass.
-
-## 6. Additional Makefile/CLI convention gaps (found by go-lint agent)
-
-Flagged by the `go-lint` agent while linting the CI/CD additions this
-session. All pre-existing, none fixed — out of scope for the CI/CD-only
-task.
-
-- `Makefile` lines 4-5: `PROJECTNAME`/`PROJECTORG` hardcoded instead of
-  inferred from `git remote get-url origin`.
-- `Makefile` line 13: `LDFLAGS` missing `-trimpath`.
-- `Makefile` line 29: `GO_DOCKER` missing `-e GOFLAGS=-buildvcs=false`
-  (Git 2.35.2+ rejects a mounted `.git` without it).
-- `Makefile` lines 32, 35, 38, 39, 42, 43, 50: `go build` calls missing
-  `-buildvcs=false`.
-- `Makefile` line 26: `GO_DOCKER` invoked without a preceding
-  `@mkdir -p` guard for `GO_CACHE`/`GO_BUILD`.
-- `Makefile` lines 41, 43: output binary names use `macos` — should be
-  `darwin` (the actual `GOOS` value).
-- `Makefile` lines 45, 48: output binary names use `bsd` — should be
-  `freebsd` (the actual `GOOS` value).
-- `Makefile`: missing a `dev` target (required set: build, release,
-  docker, test, dev, clean).
-- `src/main.go` lines 45-47: only supports `--version`/`--help` long
-  flags — missing `-v`/`-h` short forms.
-- `src/main.go`: missing `--debug` flag support.
-- `src/main.go`: missing `--color` flag support (`auto`/`yes`/`no`,
-  default `auto`).
-- `src/main.go`: no `NO_COLOR` environment variable check — output
-  should disable colors/emojis when it is set.
+- Build the server and CLI binaries for all required target platforms.
+- Build and run the production and development Docker images, including health checks and graceful shutdown.
+- Validate MkDocs/ReadTheDocs output and all cross-references.
+- Exercise the actual browser UI, PWA offline behavior, API content negotiation, rate limits, and prefixed routing.
+- Review the CI workflows and run the complete project gates after the remaining feature work is integrated.
