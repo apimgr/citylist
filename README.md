@@ -66,9 +66,13 @@ The base REST API is `/api/v1`. Useful routes include:
 
 - `GET /api/v1/cities/search?q=London`
 - `GET /api/v1/cities/2643743`
+- `GET /api/v1/cities/coordinates?latitude=51.5&longitude=-0.1`
+- `GET /api/v1/random`
 - `GET /api/v1/zipcodes/10001`
 - `GET /api/v1/zipcodes/search?q=New%20York&state=NY`
 - `GET /graphql`
+- `GET /server/docs/swagger` (API reference)
+- `GET /api/v1/server/swagger` (OpenAPI JSON)
 - `GET /api/v1/openapi.json`
 
 Request plain text with `Accept: text/plain` or use `.txt` on API routes. All data endpoints are public and read-only. See the [API reference](docs/api.md) for parameters, response formats, rate limits, and documentation routes.
