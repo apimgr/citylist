@@ -14,7 +14,9 @@ Citylist is a public, read-only reference API and server-rendered web applicatio
 - Look up cities by GeoNames ID, name, country, and coordinates.
 - Search US ZIP codes by postal code, city, state, and nearby coordinates.
 - Use REST, GraphQL, and OpenAPI interfaces.
+- Connect MCP clients to public read-only tools at `/api/v1/server/mcp`.
 - Browse the responsive web interface and installable PWA shell.
+- Read the server's about, help, contact, security, privacy, terms, and health pages.
 - Query the service with the companion `citylist-cli`.
 
 ## Production
@@ -58,7 +60,7 @@ Set `CITYLIST_SERVER` to choose the default server URL. See the [CLI reference](
 
 ## Configuration
 
-The first server start creates `server.yml` in the selected configuration directory. Common overrides are `--port`, `--address`, `--config`, `--data`, `--logs`, and `--baseurl`; `PORT`, `ADDRESS`, `CONFIG_DIR`, `DATA_DIR`, and `LOGS_DIR` provide environment overrides. See the [configuration reference](docs/configuration.md) for all settings and platform paths.
+The first server start creates `server.yml`, initializes `server.db` with an idempotent SQLite schema, and creates the operator secrets file. Common overrides are `--port`, `--address`, `--config`, `--data`, `--logs`, and `--baseurl`; `PORT`, `ADDRESS`, `CONFIG_DIR`, `DATA_DIR`, `DATABASE_DIR`, and `LOGS_DIR` provide environment overrides. See the [configuration reference](docs/configuration.md) for all settings and platform paths.
 
 ## API
 
@@ -74,6 +76,9 @@ The base REST API is `/api/v1`. Useful routes include:
 - `GET /server/docs/swagger` (API reference)
 - `GET /api/v1/server/swagger` (OpenAPI JSON)
 - `GET /api/v1/openapi.json`
+- `POST /api/v1/server/mcp` (aliases: `/api/mcp`, `/mcp`; instructions: `/server/help/mcp`)
+- `GET /api/v1/server/auth/check` (machine-only operator bearer-token validation)
+- `GET /server/about`, `/server/help`, `/server/contact`, `/server/security`, `/server/privacy`, `/server/terms`, and `/server/healthz`
 
 Request plain text with `Accept: text/plain` or use `.txt` on API routes. All data endpoints are public and read-only. See the [API reference](docs/api.md) for parameters, response formats, rate limits, and documentation routes.
 
@@ -91,6 +96,8 @@ make test
 ```
 
 Build produces server and CLI binaries for eight OS/architecture pairs. The test target runs the Go suite and requires at least 60% aggregate coverage. See the [development guide](docs/development.md) for the source layout and contribution notes.
+
+For container integration checks, run `tests/run_tests.sh integration` (Docker is preferred; Incus is the fallback). Run `tests/e2e.sh` separately for browser checks; it builds and starts an isolated test deployment.
 
 ## Disclaimer
 
