@@ -31,7 +31,7 @@ owner_token: citylist_owner_token_w9i3wlGo
 - Public pages: `/server/about`, `/server/help`, `/server/help/mcp`, `/server/contact`, `/server/security`, `/server/security/policy`, `/server/security/thanks`, `/server/security/report/{trackingID}`, `/server/healthz`, `/server/privacy`, `/server/dpo`, `/server/terms`, `/server/preferences`, `/server/preferences/tokens`, and `/server/preferences/sync`
 - Anonymous owner and linked API tokens, including browser-based token management
 - CLI client (`citylist-cli`) for queries from the terminal and graphical interface
-- OpenAPI/Swagger at `/api/{api_version}/server/swagger` and `/server/docs/swagger`; GraphQL at `/graphql` with a browser explorer at `/server/docs/graphql`; machine discovery at `/.well-known/security.txt`, `/.well-known/pgp-key.asc` (when a key exists and publication is enabled), and `/.well-known/llms.txt`
+- OpenAPI/Swagger at `/api/{api_version}/server/swagger` and `/server/docs/swagger`; GraphQL at `/api/graphql` and `/api/{api_version}/server/graphql` with a browser explorer at `/server/docs/graphql`; machine discovery at `/.well-known/security.txt`, `/.well-known/pgp-key.asc` (when a key exists and publication is enabled), and `/.well-known/llms.txt`
 - MCP lookup tools for clients using owner or operator bearer tokens
 - Cross-device export/import of theme, language, and supported guest preferences
 - Operator CLI for release checks, checksum-verified manual updates, and stable/beta/devel channel selection
@@ -137,7 +137,7 @@ The following routes are part of Citylist's user-facing product. `{api_version}`
 | POST | `/server/preferences/sync` | Public, CSRF-protected | Import preferences from a URL, query string, or short code and redirect safely. |
 | GET | `/server/preferences/sync/import` | Public | Import preferences from URL query parameters; redirects safely. |
 | GET | `/server/docs/swagger`, `/server/docs/graphql` | Public | OpenAPI/Swagger and GraphQL browser documentation. |
-| GET, POST | `/graphql`, `/api/graphql`, `/api/{api_version}/server/graphql` | Public | Read-only GraphQL query endpoint. |
+| POST | `/api/graphql`, `/api/{api_version}/server/graphql` | Public | Read-only GraphQL query endpoint. |
 | POST | `/api/{api_version}/server/mcp`, `/api/mcp`, `/mcp` | Bearer token required | MCP Streamable HTTP lookup tools; accepts owner or operator credentials. |
 | GET | `/locales/{lang}.json`, `/static/*` | Public | Embedded locale catalog and static web assets. |
 | GET | `/api/{api_version}/` | Public | API description and endpoint discovery. |
@@ -166,7 +166,7 @@ The following routes are part of Citylist's user-facing product. `{api_version}`
 | GET | `/api/{api_version}/server/auth/check` | Bearer token | Validate operator or owner credentials without returning the raw token. |
 | GET | `/api/{api_version}/server/healthz`, `/api/healthz` | Public | Machine-readable public health response. |
 | GET | `/api/{api_version}/server/security/policy`, `/api/{api_version}/server/security/thanks` | Public | JSON mirrors of the disclosure policy and researcher acknowledgments. |
-| GET | `/api/{api_version}/server/swagger`, `/api/{api_version}/openapi.json`, `/api/swagger` | Public | OpenAPI JSON document. |
+| GET | `/api/{api_version}/server/swagger`, `/api/swagger` | Public | OpenAPI JSON document. |
 | GET | `/manifest.json`, `/sw.js`, `/robots.txt` | Public | PWA manifest, service worker, and crawler policy. |
 | GET, HEAD | `/.well-known/security.txt`, `/.well-known/pgp-key.asc`, `/.well-known/llms.txt`, `/llms.txt` | Public | Security contact, optional published OpenPGP public key, and machine-readable service discovery. The PGP key route returns 404 unless publication is enabled and a public key exists. |
 | GET | `/healthz` | Public, optional | Root health alias when enabled by server configuration. |

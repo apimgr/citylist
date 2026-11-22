@@ -52,7 +52,7 @@ Windows users can download the matching `.exe` asset and add its directory to `P
 
 ## 🐳 Docker
 
-The production Compose file is [docker/docker-compose.yml](docker/docker-compose.yml). It publishes port `64580` on the host and persists configuration, data, and logs in named volumes.
+The production Compose file is [docker/docker-compose.yml](docker/docker-compose.yml). It publishes port `64580` on the Docker bridge gateway and persists configuration and data under `docker/volumes/`.
 
 ```sh
 docker compose -f docker/docker-compose.yml up -d
@@ -84,7 +84,7 @@ The web application provides city and ZIP search, coordinate lookup, and about, 
 
 ## API and data
 
-The REST API is rooted at `/api/v1`. It provides city and US ZIP lookups, search, nearest/nearby results, statistics, random city lookup, preference sync, and owner-token management. GraphQL is available at `/graphql`; OpenAPI is served at `/api/v1/server/swagger`; MCP Streamable HTTP is served at `/api/v1/server/mcp` and requires a Bearer token. Public data lookups are anonymous and read-only. Visitors can issue an anonymous owner token to manage their token set and authenticate MCP clients. See the [API reference](docs/api.md), [integrations guide](docs/integrations.md), and [security guide](docs/security.md).
+The REST API is rooted at `/api/v1`. It provides city and US ZIP lookups, search, nearest/nearby results, statistics, random city lookup, preference sync, and owner-token management. GraphQL is available at `/api/graphql` and `/api/v1/server/graphql`; OpenAPI is served at `/api/v1/server/swagger`; MCP Streamable HTTP is served at `/api/v1/server/mcp` and requires a Bearer token. Public data lookups are anonymous and read-only. Visitors can issue an anonymous owner token to manage their token set and authenticate MCP clients. See the [API reference](docs/api.md), [integrations guide](docs/integrations.md), and [security guide](docs/security.md).
 
 City records retain GeoNames identifiers. Dataset sources, import scope, snapshot hashes, and their CC BY 4.0 attribution are documented in [DATA-SOURCES.md](DATA-SOURCES.md).
 
