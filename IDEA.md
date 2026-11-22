@@ -14,6 +14,7 @@ license: MIT
 binary: citylist
 client_binary: citylist-cli
 api_version: v1
+owner_token: citylist_owner_token_w9i3wlGo
 
 ## Business logic
 
@@ -25,7 +26,8 @@ api_version: v1
 - Search/filter cities by name and country code
 - Lookup city by GeoNames ID; lookup US zipcode by postal code
 - Full web frontend (server-side Go templates, dark/light/auto theme, PWA, mobile-first)
-- Server pages: `/server/about`, `/server/help`, `/server/contact`, `/server/security`, `/server/healthz`, `/server/privacy`, `/server/terms`
+- Server pages: `/server/about`, `/server/help`, `/server/contact`, `/server/security`, `/server/healthz`, `/server/privacy`, `/server/terms`, `/server/preferences`
+- Anonymous owner and linked API tokens, including browser-based token management
 - CLI client (`citylist-cli`) for queries from the terminal
 - OpenAPI/Swagger docs at `/api/{api_version}/server/swagger`
 - GraphQL at `/graphql`
@@ -33,18 +35,19 @@ api_version: v1
 **Non-goals:**
 - No visitor accounts, registration, or login
 - No admin web panel (server configured via `server.yml` only)
-- No write/mutation API (data is read-only, embedded at build time)
+- No mutation API for the embedded city and ZIP datasets (they remain read-only)
 - No real-time population, weather, or timezone data beyond what is in the embedded dataset
-- No paid tiers, no visitor API keys, and no differentiated rate-limit tiers
+- No paid tiers or differentiated rate-limit tiers
 
 ### Roles & permissions
 
-There are no visitor accounts or user roles. Public lookup and informational endpoints require no authentication. Operator-only maintenance actions use the required operator-token or local-root authorization and are not exposed as a web administration interface.
+There are no visitor accounts, passwords, or login flow. Anonymous visitors may obtain an owner token to identify resources they create and use token-protected API capabilities such as MCP. Public lookup and informational endpoints remain available without a token. Operator-only maintenance actions use the required operator-token or local-root authorization and are not exposed as a web administration interface.
 
 | Actor | Access |
 |-------|--------|
 | **Anonymous visitor (browser)** | Read access to public pages and lookup features |
 | **Anonymous API client (curl/CLI)** | Read access to public data endpoints |
+| **Owner token holder** | Access to resources associated with that anonymous owner and owner-token management |
 | **Server operator** | Configures the server through `server.yml` and related configuration files; privileged maintenance uses the operator token or local root |
 
 ### Data model & sensitivity
