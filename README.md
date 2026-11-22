@@ -41,6 +41,13 @@ curl -LSsf "https://github.com/apimgr/citylist/releases/latest/download/citylist
 xattr -d com.apple.quarantine citylist 2>/dev/null || true
 ```
 
+On FreeBSD, download the matching architecture asset and make it executable:
+
+```sh
+curl -LSsf https://github.com/apimgr/citylist/releases/latest/download/citylist-freebsd-amd64 \
+  -o citylist && chmod +x citylist
+```
+
 Windows users can download the matching `.exe` asset and add its directory to `PATH`. See [Installation](docs/installation.md) for Docker and service setup.
 
 ## 🐳 Docker
@@ -55,7 +62,7 @@ The published image is `ghcr.io/apimgr/citylist:latest`. Its HTTP port is `80`; 
 
 ## 🖥️ Client CLI
 
-`citylist-cli` is the companion client. Download the matching `citylist-cli-<os>-<arch>` release asset. The client defaults to `http://127.0.0.1:8080`; set `CITYLIST_SERVER` or pass `--server URL` to use another server.
+`citylist-cli` is the companion client. Download the matching `citylist-cli-<os>-<arch>` release asset. Set `CITYLIST_SERVER_PRIMARY`, configure `server.primary` in its private `cli.yml`, or pass `--server URL` to choose a server. On an interactive first run without a configured server, the client prompts for one.
 
 ```sh
 citylist-cli --server http://127.0.0.1:8080 city 2643743
