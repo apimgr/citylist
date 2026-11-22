@@ -62,7 +62,7 @@ The published image is `ghcr.io/apimgr/citylist:latest`. Its HTTP port is `80`; 
 
 ## 🖥️ Client CLI
 
-`citylist-cli` is the companion client. Download the matching `citylist-cli-<os>-<arch>` release asset. Set `CITYLIST_SERVER_PRIMARY`, configure `server.primary` in its private `cli.yml`, or pass `--server URL` to choose a server. On an interactive first run without a configured server, the client prompts for one.
+`citylist-cli` is the companion client, with terminal and graphical interfaces. Download the matching `citylist-cli-<os>-<arch>` release asset. Set `CITYLIST_SERVER_PRIMARY`, configure `server.primary` in its private `cli.yml`, or pass `--server URL` to choose a server. On an interactive first run without a configured server, the client prompts for one.
 
 ```sh
 citylist-cli --server http://127.0.0.1:8080 city 2643743
@@ -76,13 +76,15 @@ Run `citylist-cli --help` for the available commands. See the [CLI reference](do
 
 ## 🤖 Citylist Server
 
-Run `citylist --help` for server options. The first start creates `server.yml` and a private `secrets.yml` containing the operator credential and encryption key. The server listens on port `8080` by default. The `--service` commands install and manage a system service on supported operating systems; see [Installation](docs/installation.md).
+Run `citylist --help` for server options. The first start creates `server.yml` and a private `secrets.yml` containing the operator credential and encryption key. A native install selects and saves an unused port in `64000–64999`; the container image listens on port `80` unless `PORT` overrides it. The `--service` commands install and manage a system service on supported operating systems; see [Installation](docs/installation.md).
 
-The web application provides city search and coordinate lookup, plus about, help, contact, security, privacy, terms, preferences, owner-token management, and health pages. It serves server-rendered HTML and works without JavaScript for its core forms. The `/server/preferences` page saves theme, language, consent, and privacy choices in browser cookies; a `?lang=CODE` link selects and persists a language. The server and client ship English, Spanish, French, German, Italian, and Arabic catalogs; see [Translating](docs/translating.md).
+Operators can check and install releases with `citylist --update check` and `citylist --update yes` (also available as `citylist --maintenance update`). Release channels are selected with `citylist --update branch {stable|beta|devel}`. The installer verifies the downloaded platform binary against the release SHA-256 manifest before replacing it.
+
+The web application provides city and ZIP search, coordinate lookup, and about, help, contact, security, privacy, DPO, terms, preferences, owner-token, and health pages. Configured scheduled announcements render as accessible site banners and can be dismissed without JavaScript. Security policy and acknowledgments are at `/server/security/policy` and `/server/security/thanks`; the report-status page is a GET-only link protected by a token usable once per day. It serves server-rendered HTML and works without JavaScript for its forms. A consent banner appears until a choice is saved; visitors can accept, decline, or save granular preference and analytics choices. Theme and language preference cookies are written only when preference-cookie consent is enabled. A valid `?lang=CODE` query selects the language immediately and persists the choice in the `lang` cookie when that consent is enabled. The server and client ship English, Spanish, French, German, Italian, and Arabic catalogs; see [Translating](docs/translating.md).
 
 ## API and data
 
-The REST API is rooted at `/api/v1`. It provides city and US ZIP lookups, search, nearest/nearby results, statistics, random city lookup, and browser-preference mirrors. GraphQL is available at `/graphql`; OpenAPI is served at `/api/v1/server/swagger`; MCP Streamable HTTP is served at `/api/v1/server/mcp` and requires a Bearer token. Public data lookups are anonymous and read-only. Visitors can issue an anonymous owner token to manage their token set and authenticate MCP clients. See the [API reference](docs/api.md), [integrations guide](docs/integrations.md), and [security guide](docs/security.md).
+The REST API is rooted at `/api/v1`. It provides city and US ZIP lookups, search, nearest/nearby results, statistics, random city lookup, preference sync, and owner-token management. GraphQL is available at `/graphql`; OpenAPI is served at `/api/v1/server/swagger`; MCP Streamable HTTP is served at `/api/v1/server/mcp` and requires a Bearer token. Public data lookups are anonymous and read-only. Visitors can issue an anonymous owner token to manage their token set and authenticate MCP clients. See the [API reference](docs/api.md), [integrations guide](docs/integrations.md), and [security guide](docs/security.md).
 
 City records retain GeoNames identifiers. Dataset sources, import scope, snapshot hashes, and their CC BY 4.0 attribution are documented in [DATA-SOURCES.md](DATA-SOURCES.md).
 
@@ -95,7 +97,7 @@ make build
 make test
 ```
 
-`make build` creates server and CLI binaries for the eight OS/architecture pairs listed above. `make test` runs the Go suite and enforces at least 60% aggregate statement coverage. See the [development guide](docs/development.md) for build prerequisites and integration checks.
+`make build` creates server and CLI binaries for the eight OS/architecture pairs listed above. `make test` runs `go vet`, `govulncheck`, and the Go test suite, and enforces at least 60% aggregate statement coverage. See the [development guide](docs/development.md) for build prerequisites and integration checks.
 
 The server and client embed catalogs for English, Spanish, French, Arabic, German, and Italian. The client localizes help, prompts, and messages; server UI localization is partial. See the [translation guide](docs/translating.md) for coverage and remaining gaps.
 
