@@ -78,7 +78,7 @@ No PII stored or served.
 | City and zipcode datasets (embedded at build) | Fully trusted | Static, compiled into binary |
 | Incoming HTTP requests | **Untrusted** | All query parameters validated |
 
-No external services called at runtime.
+City and ZIP lookup requests use only the embedded datasets and never call upstream data providers. Operator-enabled maintenance or notification integrations may contact their configured providers as required by AI.md; these services do not supply lookup results.
 
 ### Threat model & abuse cases
 

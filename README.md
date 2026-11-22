@@ -78,7 +78,7 @@ Run `citylist-cli --help` for the available commands. See the [CLI reference](do
 
 Run `citylist --help` for server options. The first start creates `server.yml` and a private `secrets.yml` containing the operator credential and encryption key. The server listens on port `8080` by default. The `--service` commands install and manage a system service on supported operating systems; see [Installation](docs/installation.md).
 
-The web application provides city search and coordinate lookup, plus about, help, contact, security, privacy, terms, and health pages. It serves server-rendered HTML and works without JavaScript for its core lookup forms.
+The web application provides city search and coordinate lookup, plus about, help, contact, security, privacy, terms, preferences, and health pages. It serves server-rendered HTML and works without JavaScript for its core lookup forms. The `/server/preferences` page saves theme and language choices in browser cookies; a `?lang=CODE` URL overrides language for that request only. The server's language behavior and current localization gaps are described in [Translating](docs/translating.md).
 
 ## API and data
 
@@ -97,7 +97,7 @@ make test
 
 `make build` creates server and CLI binaries for the eight OS/architecture pairs listed above. `make test` runs the Go suite and enforces at least 60% aggregate statement coverage. See the [development guide](docs/development.md) for build prerequisites and integration checks.
 
-The repository includes embedded translation catalogs for six languages. See the [translation guide](docs/translating.md) for their current coverage and contribution format.
+The server and client embed catalogs for English, Spanish, French, Arabic, German, and Italian. The client localizes help, prompts, and messages; server UI localization is partial. See the [translation guide](docs/translating.md) for coverage and remaining gaps.
 
 ## 📄 License
 
