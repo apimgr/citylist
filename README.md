@@ -78,11 +78,11 @@ Run `citylist-cli --help` for the available commands. See the [CLI reference](do
 
 Run `citylist --help` for server options. The first start creates `server.yml` and a private `secrets.yml` containing the operator credential and encryption key. The server listens on port `8080` by default. The `--service` commands install and manage a system service on supported operating systems; see [Installation](docs/installation.md).
 
-The web application provides city search and coordinate lookup, plus about, help, contact, security, privacy, terms, preferences, and health pages. It serves server-rendered HTML and works without JavaScript for its core lookup forms. The `/server/preferences` page saves theme and language choices in browser cookies; a `?lang=CODE` URL overrides language for that request only. The server's language behavior and current localization gaps are described in [Translating](docs/translating.md).
+The web application provides city search and coordinate lookup, plus about, help, contact, security, privacy, terms, preferences, owner-token management, and health pages. It serves server-rendered HTML and works without JavaScript for its core forms. The `/server/preferences` page saves theme, language, consent, and privacy choices in browser cookies; a `?lang=CODE` link selects and persists a language. The server and client ship English, Spanish, French, German, Italian, and Arabic catalogs; see [Translating](docs/translating.md).
 
 ## API and data
 
-The REST API is rooted at `/api/v1`. It provides city and US ZIP lookups, search, nearest/nearby results, statistics, and random city lookup. GraphQL is available at `/graphql`; OpenAPI is served at `/api/v1/server/swagger`; MCP Streamable HTTP is served at `/api/v1/server/mcp`. Public data lookups are anonymous and read-only. See the [API reference](docs/api.md), [integrations guide](docs/integrations.md), and [security guide](docs/security.md).
+The REST API is rooted at `/api/v1`. It provides city and US ZIP lookups, search, nearest/nearby results, statistics, random city lookup, and browser-preference mirrors. GraphQL is available at `/graphql`; OpenAPI is served at `/api/v1/server/swagger`; MCP Streamable HTTP is served at `/api/v1/server/mcp` and requires a Bearer token. Public data lookups are anonymous and read-only. Visitors can issue an anonymous owner token to manage their token set and authenticate MCP clients. See the [API reference](docs/api.md), [integrations guide](docs/integrations.md), and [security guide](docs/security.md).
 
 City records retain GeoNames identifiers. Dataset sources, import scope, snapshot hashes, and their CC BY 4.0 attribution are documented in [DATA-SOURCES.md](DATA-SOURCES.md).
 
