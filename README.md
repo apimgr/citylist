@@ -1,108 +1,149 @@
 # Citylist
 
-Citylist is a public, read-only reference API and server-rendered web application for GeoNames cities and United States ZIP codes. City and ZIP datasets are embedded in the server binary, so lookups do not call external data services at runtime.
-
 [![CI](https://github.com/apimgr/citylist/actions/workflows/ci.yml/badge.svg)](https://github.com/apimgr/citylist/actions/workflows/ci.yml)
-[![Documentation](https://readthedocs.org/projects/apimgr-citylist/badge/?version=latest)](https://apimgr-citylist.readthedocs.io/en/latest/)
 [![Release](https://img.shields.io/github/v/release/apimgr/citylist)](https://github.com/apimgr/citylist/releases)
 [![License](https://img.shields.io/github/license/apimgr/citylist)](LICENSE.md)
+[![Documentation](https://readthedocs.org/projects/apimgr-citylist/badge/?version=latest)](https://apimgr-citylist.readthedocs.io/en/latest/)
 
----
+## About
 
-## 📦 Install
+Citylist is a public, read-only reference API and server-rendered web application for GeoNames cities and United States ZIP codes. It embeds both datasets in the server binary and provides REST, GraphQL, MCP, and a companion command-line client.
 
-Download the server binary for your operating system from [GitHub Releases](https://github.com/apimgr/citylist/releases/latest). Unix binaries do not include a file extension; Windows binaries use `.exe`.
+## Features
 
-| Operating system | Architecture | Server asset | CLI asset |
-|---|---|---|---|
-| Linux | amd64 | `citylist-linux-amd64` | `citylist-cli-linux-amd64` |
-| Linux | arm64 | `citylist-linux-arm64` | `citylist-cli-linux-arm64` |
-| macOS | amd64 | `citylist-darwin-amd64` | `citylist-cli-darwin-amd64` |
-| macOS | arm64 | `citylist-darwin-arm64` | `citylist-cli-darwin-arm64` |
-| Windows | amd64 | `citylist-windows-amd64.exe` | `citylist-cli-windows-amd64.exe` |
-| Windows | arm64 | `citylist-windows-arm64.exe` | `citylist-cli-windows-arm64.exe` |
-| FreeBSD | amd64 | `citylist-freebsd-amd64` | `citylist-cli-freebsd-amd64` |
-| FreeBSD | arm64 | `citylist-freebsd-arm64` | `citylist-cli-freebsd-arm64` |
+- Global city lookup by GeoNames ID, name, country, and coordinates.
+- United States ZIP lookup by postal code, city, state, and nearby coordinates.
+- Read-only REST, GraphQL, OpenAPI, and MCP interfaces.
+- Server-rendered browser pages with guest preferences and no JavaScript requirement for forms.
+- `citylist-cli` command, terminal, and native graphical interfaces.
+- Anonymous owner tokens for token-gated integrations without visitor accounts.
+- English, Spanish, French, German, Italian, and Arabic catalogs; client localization is complete and server UI localization is still being completed.
 
-For Linux amd64:
+## Production
 
-```sh
-curl -LSsf https://github.com/apimgr/citylist/releases/latest/download/citylist-linux-amd64 \
-  -o citylist && chmod +x citylist
-./citylist --help
-```
+### Docker Compose
 
-On macOS, select the binary matching `uname -m` (`amd64` for Intel, `arm64` for Apple Silicon), make it executable, and remove quarantine if macOS blocks it:
-
-```sh
-ARCH=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
-curl -LSsf "https://github.com/apimgr/citylist/releases/latest/download/citylist-darwin-${ARCH}" \
-  -o citylist && chmod +x citylist
-xattr -d com.apple.quarantine citylist 2>/dev/null || true
-```
-
-On FreeBSD, download the matching architecture asset and make it executable:
-
-```sh
-curl -LSsf https://github.com/apimgr/citylist/releases/latest/download/citylist-freebsd-amd64 \
-  -o citylist && chmod +x citylist
-```
-
-Windows users can download the matching `.exe` asset and add its directory to `PATH`. See [Installation](docs/installation.md) for Docker and service setup.
-
-## 🐳 Docker
-
-The production Compose file is [docker/docker-compose.yml](docker/docker-compose.yml). It publishes port `64580` on the Docker bridge gateway and persists configuration and data under `docker/volumes/`.
+The production Compose file publishes port `64580` on the Docker bridge gateway and persists data under `docker/volumes/`.
 
 ```sh
 docker compose -f docker/docker-compose.yml up -d
+docker compose -f docker/docker-compose.yml logs -f citylist
 ```
 
-The published image is `ghcr.io/apimgr/citylist:latest`. Its HTTP port is `80`; see the Compose file for volume and port settings.
+The image is `ghcr.io/apimgr/citylist:latest` and listens on port `80` inside the container.
 
-## 🖥️ Client CLI
-
-`citylist-cli` is the companion client, with terminal and graphical interfaces. Download the matching `citylist-cli-<os>-<arch>` release asset. Set `CITYLIST_SERVER_PRIMARY`, configure `server.primary` in its private `cli.yml`, or pass `--server URL` to choose a server. On an interactive first run without a configured server, the client prompts for one.
+### Docker
 
 ```sh
-citylist-cli --server http://127.0.0.1:8080 city 2643743
+docker run -d \
+  --name citylist \
+  -p 172.17.0.1:64580:80 \
+  -v citylist-config:/config \
+  -v citylist-data:/data \
+  ghcr.io/apimgr/citylist:latest
+```
+
+### Binary
+
+Download the matching server asset from [GitHub Releases](https://github.com/apimgr/citylist/releases/latest). The release matrix includes Linux, macOS, Windows, and FreeBSD, each on amd64 and arm64.
+
+```sh
+curl -q -LSsf -o citylist https://github.com/apimgr/citylist/releases/latest/download/citylist-linux-amd64
+chmod +x citylist
+./citylist --help
+```
+
+On first native start, the server selects and saves an unused port in `64000–64999`. The container listens on port `80` unless `PORT` overrides it. First startup creates `server.yml`, `secrets.yml`, and the local database. The generated operator token is printed once to standard output; store it securely.
+
+### System service
+
+The service dispatcher supports the service manager available on Linux, macOS, Windows, and BSD. Run installation with the privileges required by the target operating system:
+
+```sh
+sudo ./citylist --service --install
+```
+
+See [Installation](docs/installation.md) for service actions and platform details.
+
+## Client
+
+`citylist-cli` is the companion client for public lookups and token-gated integrations. Download the matching `citylist-cli-<os>-<arch>` asset from [GitHub Releases](https://github.com/apimgr/citylist/releases/latest).
+
+```sh
+citylist-cli --server https://YOUR_SERVER city 2643743
 citylist-cli zipcode 10001
 citylist-cli search London GB
 citylist-cli zip-search York NY
 citylist-cli --json stats
 ```
 
-Run `citylist-cli --help` for the available commands. See the [CLI reference](docs/cli.md) for request limits and output behavior.
+Set `CITYLIST_SERVER_PRIMARY`, configure the server in the private CLI profile, or pass `--server URL`. On an interactive first run without a configured server, the client prompts for one. See the [CLI reference](docs/cli.md) for commands, output formats, flags, and runtime files.
 
-## 🤖 Citylist Server
+## Configuration
 
-Run `citylist --help` for server options. The first start creates `server.yml` and a private `secrets.yml` containing the operator credential and encryption key. A native install selects and saves an unused port in `64000–64999`; the container image listens on port `80` unless `PORT` overrides it. The `--service` commands install and manage a system service on supported operating systems; see [Installation](docs/installation.md).
+The server reads `server.yml`, ordered YAML files from `yaml.d/`, and sensitive values from `secrets.yml`. There is no web administration panel; edit configuration files directly. See the [configuration reference](docs/configuration.md) for settings, environment variables, paths, defaults, and reload behavior.
 
-The server's built-in task runner is available locally through `citylist scheduler list`, `show`, `run`, `enable`, `disable`, and `history`; see the [CLI reference](docs/cli.md#scheduler-commands).
+Common command-line overrides include `--port`, `--address`, `--config`, `--data`, `--cache`, `--log`, `--backup`, `--baseurl`, `--lang`, `--service`, `--maintenance`, and `--update`. Run `citylist --help` for the complete server command list.
 
-Operators can check and install server releases with `citylist --update check` and `citylist --update yes` (also available as `citylist --maintenance update`). `/api/autodiscover` publishes server details and the configured minimum CLI version, but no CLI binaries are currently published because the AI.md contract does not define their source; install CLI upgrades from the matching GitHub release asset. Release channels are selected with `citylist --update branch {stable|beta|devel}`. The installer verifies the downloaded platform binary against the release SHA-256 manifest before replacing it.
+## API
 
-The web application provides city and ZIP search, coordinate lookup, and about, help, contact, security, privacy, DPO, terms, preferences, owner-token, and health pages. Configured scheduled announcements render as accessible site banners and can be dismissed without JavaScript. Security policy and acknowledgments are at `/server/security/policy` and `/server/security/thanks`; the report-status page is a GET-only link protected by a token usable once per day. Discovery endpoints include `/robots.txt`, `/sitemap.xml`, an empty Atom feed at `/feed.xml`, and an empty RSS feed at `/rss.xml`. It serves server-rendered HTML and works without JavaScript for its forms. A consent banner appears until a choice is saved; visitors can accept, decline, or save granular preference and analytics choices. Theme and language preference cookies are written only when preference-cookie consent is enabled. A valid `?lang=CODE` query selects the language immediately and persists the choice in the `lang` cookie only when preference-cookie consent is enabled. Optional configured analytics runs only after analytics consent and is suppressed for GPC, CCPA opt-out, Tor, and I2P requests. About, privacy, and terms pages support sanitized operator content extensions. The server and client ship English, Spanish, French, German, Italian, and Arabic catalogs; see [Translating](docs/translating.md).
+Public geographic lookups do not require authentication and never mutate the embedded datasets. The default REST version prefix is `/api/v1`.
 
-## API and data
+| Endpoint | Description |
+|---|---|
+| `GET /api/v1/cities` | Paginated city records. |
+| `GET /api/v1/cities/search` | Search city names. |
+| `GET /api/v1/cities/{id}` | Look up a GeoNames city ID. |
+| `GET /api/v1/cities/coordinates` | Find the nearest city. |
+| `GET /api/v1/zipcodes/{zip}` | Look up a United States ZIP code. |
+| `GET /api/v1/zipcodes/search` | Search ZIP locations. |
+| `GET /api/v1/server/healthz` | Public machine-readable health response. |
+| `GET /api/v1/server/swagger` | OpenAPI JSON document. |
+| `POST /api/graphql` | Read-only GraphQL endpoint. |
+| `POST /api/v1/server/mcp` | MCP Streamable HTTP endpoint; Bearer token required. |
 
-The REST API is rooted at `/api/v1`. It provides city and US ZIP lookups, search, nearest/nearby results, statistics, random city lookup, preference sync, and owner-token management. GraphQL is available at `/api/graphql` and `/api/v1/server/graphql`; OpenAPI is served at `/api/v1/server/swagger`; MCP Streamable HTTP is served at `/api/v1/server/mcp` and requires a Bearer token. Public data lookups are anonymous and read-only. Visitors can issue an anonymous owner token to manage their token set and authenticate MCP clients. See the [API reference](docs/api.md), [integrations guide](docs/integrations.md), and [security guide](docs/security.md).
-
-City records retain GeoNames identifiers. Dataset sources, import scope, snapshot hashes, and their CC BY 4.0 attribution are documented in [DATA-SOURCES.md](DATA-SOURCES.md).
-
-## 🛠️ Development
-
-Go builds and tests run through the `casjaysdev/go:latest` Docker toolchain using Make:
+OpenAPI documentation is at `/server/docs/swagger`; the GraphQL explorer is at `/server/docs/graphql`. MCP also accepts `/api/mcp` and `/mcp`. To make a request, replace `YOUR_SERVER` with the server's origin:
 
 ```sh
+curl -q -LSsf 'http://YOUR_SERVER/api/v1/cities/search?q=London&country=GB'
+curl -q -LSsf 'http://YOUR_SERVER/api/v1/zipcodes/10001'
+curl -q -LSsf 'http://YOUR_SERVER/api/v1/server/healthz'
+```
+
+See the [API reference](docs/api.md), [integrations guide](docs/integrations.md), and [security guide](docs/security.md) for response formats, limits, discovery, and authentication details.
+
+## Other
+
+The web application includes about, help, contact, security, privacy, DPO, terms, preferences, owner-token, and health pages. Discovery includes `/robots.txt`, `/sitemap.xml`, Atom and RSS feeds, `/.well-known/security.txt`, `/.well-known/llms.txt`, and conditional OpenPGP public-key publication. Security policy and researcher acknowledgments are at `/server/security/policy` and `/server/security/thanks`.
+
+City records retain GeoNames identifiers. Dataset sources, import scope, snapshot hashes, licenses, and attribution are documented in [DATA-SOURCES.md](DATA-SOURCES.md).
+
+For common setup issues, check the service logs and request `/server/healthz`. The [documentation site](https://apimgr-citylist.readthedocs.io/en/latest/) includes installation, security, API, and integration guidance.
+
+## Development
+
+Go builds and tests run inside the `casjaysdev/go:latest` container through Make:
+
+```sh
+make dev
 make build
 make test
 ```
 
-`make build` creates server and CLI binaries for the eight OS/architecture pairs listed above. `make test` runs `go vet`, `govulncheck`, and the Go test suite, and enforces at least 60% aggregate statement coverage. See the [development guide](docs/development.md) for build prerequisites and integration checks.
+`make build` creates server and client binaries for all eight OS/architecture targets. `make test` runs `go vet`, `govulncheck`, and the Go test suite with the aggregate coverage gate. Browser and container integration checks are documented in the [development guide](docs/development.md).
 
-The server and client embed catalogs for English, Spanish, French, Arabic, German, and Italian. The client localizes help, prompts, and messages; server UI localization is partial. See the [translation guide](docs/translating.md) for coverage and remaining gaps.
+## Disclaimer
 
-## 📄 License
+This software is provided "as is" without warranty of any kind. Use at your own risk.
+
+- **No Warranty**: The authors are not responsible for any damages, data loss, or issues arising from use of this software
+- **Not Professional Advice**: This software does not constitute legal, financial, medical, or other professional advice
+- **Third-Party Services**: If this software connects to external APIs or services, their terms of service apply separately
+- **Security**: While we strive to follow security best practices, no software is guaranteed to be free of vulnerabilities
+- **Production Use**: Evaluate thoroughly before deploying in production environments
+
+By using this software, you acknowledge that you have read and understood this disclaimer.
+
+## License
 
 The Citylist application code is licensed under the [MIT License](LICENSE.md). The bundled datasets retain their own licenses and attribution requirements, described in [DATA-SOURCES.md](DATA-SOURCES.md).
