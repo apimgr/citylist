@@ -114,7 +114,7 @@ See the [API reference](docs/api.md), [integrations guide](docs/integrations.md)
 
 ## Other
 
-The web application includes about, help, contact, security, privacy, DPO, terms, preferences, owner-token, and health pages. Discovery includes `/robots.txt`, `/sitemap.xml`, Atom and RSS feeds, `/.well-known/security.txt`, `/.well-known/llms.txt`, and conditional OpenPGP public-key publication. Security policy and researcher acknowledgments are at `/server/security/policy` and `/server/security/thanks`.
+The web application includes about, help, MCP help, contact, security, disclosure policy, researcher acknowledgments, privacy, DPO, terms, preferences, owner-token management, preference sync, and health pages. Discovery includes `/robots.txt`, `/sitemap.xml`, Atom and RSS feeds, `/.well-known/security.txt`, `/.well-known/llms.txt`, and conditional OpenPGP public-key publication.
 
 City records retain GeoNames identifiers. Dataset sources, import scope, snapshot hashes, licenses, and attribution are documented in [DATA-SOURCES.md](DATA-SOURCES.md).
 
