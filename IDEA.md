@@ -38,7 +38,7 @@ owner_token: citylist_owner_token_w9i3wlGo
 
 **Non-goals:**
 - No visitor accounts, registration, or login
-- No admin web panel (server configured via `server.yml` only)
+- No admin web panel (operator settings use `server.yml`, `yaml.d/` area files, and `secrets.yml`)
 - No mutation API for the embedded city and ZIP datasets (they remain read-only)
 - No real-time population, weather, or timezone data beyond what is in the embedded dataset
 - No paid tiers or differentiated rate-limit tiers
@@ -52,7 +52,7 @@ There are no visitor accounts, passwords, or login flow. Anonymous visitors may 
 | **Anonymous visitor (browser)** | Read access to public pages and lookup features; guest preference controls; contact and security-report forms; may issue or restore an owner token |
 | **Anonymous API client (curl/CLI)** | Read access to public data endpoints and contact-form APIs; may update only its guest preference cookies |
 | **Owner token holder** | Manage the owner's primary and linked tokens and access token-gated integrations such as MCP |
-| **Server operator** | Configures the server through `server.yml` and related configuration files; privileged maintenance uses the operator token or local root |
+| **Server operator** | Configures the server through `server.yml`, `yaml.d/` area files, and `secrets.yml`; privileged maintenance uses the operator token or local root |
 
 ### Data model & sensitivity
 
