@@ -17,7 +17,7 @@ Citylist is a public, read-only reference API and server-rendered web applicatio
 - Server-rendered browser pages with guest preferences and no JavaScript requirement for forms.
 - `citylist-cli` command, terminal, and native graphical interfaces.
 - Anonymous owner tokens for token-gated integrations without visitor accounts.
-- English, Spanish, French, German, Italian, and Arabic catalogs; client localization is complete and server UI localization is still being completed.
+- English, Spanish, French, German, Italian, and Arabic catalogs shared by the server and client. Some generated API, protocol, and command output remains in English; see the [translation guide](docs/translating.md).
 
 ## Production
 
