@@ -14,7 +14,7 @@ license: MIT
 binary: citylist
 client_binary: citylist-cli
 api_version: v1
-owner_token: citylist_owner_token_w9i3wlGo
+owner_token: citylist_owner_token_lgqdhqtw
 
 ## Business logic
 
