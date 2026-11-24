@@ -1,7 +1,6 @@
 # TODO.AI
 
-Resolve these project implementation gaps after the coordinating session provides the decisions requested for the corresponding AI.md ambiguities.
+Project implementation gaps verified against AI.md and the current repository.
 
-- [ ] Implement the optional SQLite cache mode in PART 10 (AI.md lines 12071–12100), including local cache reads/writes, offline read-only behavior, bounded background sync, and the decided failure/reconciliation contract.
-- [ ] Align linked-token identifiers across SQLite, API responses, route parameters, tests, and documentation after the token ID conflict in AI.md lines 12288 and 12474/12483 is corrected.
-- [ ] Align browser primary-token creation, reveal, rotation, and linked-token delivery after the conflicting requirements in AI.md lines 12412 and 12543 are corrected.
+- [ ] Implement the opt-in SQLite cache mode in PART 10 (AI.md lines 12087–12123), including cache-first reads, remote-first writes, offline read-only behavior, background sync, max-age handling, and the specified cache invalidation/dirty-state behavior after cache-update failures.
+- [ ] Change `api_tokens.id` from the current integer key to the public UUID v7 text key required by AI.md PART 10 (line 12288), including a safe migration for existing databases and aligned route, test, and documentation behavior.
