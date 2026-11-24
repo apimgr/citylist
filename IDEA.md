@@ -130,7 +130,7 @@ The following routes are part of Citylist's user-facing product. `{api_version}`
 | GET, HEAD | `/server/preferences` | Public | Guest preferences form. |
 | POST | `/server/preferences` | Public, CSRF-protected | Save theme, language, consent, conditional CCPA opt-out, or reset; redirects to a safe local path. |
 | GET | `/server/preferences/tokens` | Public page; owner actions credential-gated | Issue/restore primary owner token and manage primary/linked tokens in the browser. |
-| POST | `/server/preferences/token/create`, `/server/preferences/token/restore`, `/server/preferences/token/forget`, `/server/preferences/token/reveal`, `/server/preferences/token/rotate` | CSRF-protected; primary owner token required for reveal/rotate | Browser primary-token create, restore, forget-this-browser, reveal, and rotate actions. |
+| POST | `/server/preferences/token/create`, `/server/preferences/token/restore`, `/server/preferences/token/forget`, `/server/preferences/token/reveal`, `/server/preferences/token/rotate`, `/server/preferences/token/revoke` | CSRF-protected; primary owner token required for reveal, rotate, and revoke | Browser primary-token create, restore, forget-this-browser, reveal, rotate, and confirmed revoke actions. |
 | POST | `/server/preferences/tokens` | CSRF-protected; owner token required | Create a linked token. |
 | POST | `/server/preferences/tokens/{id}/{action}` | CSRF-protected; owner token required | Reveal, rotate, update, or revoke a linked token. |
 | GET | `/server/preferences/sync` | Public | Export current guest preferences as a URL and short code; HTML, text, or JSON by negotiation. |
@@ -162,6 +162,7 @@ The following routes are part of Citylist's user-facing product. `{api_version}`
 | GET | `/api/{api_version}/server/preferences/tokens` | Primary owner Bearer token | List owner tokens. |
 | POST | `/api/{api_version}/server/preferences/tokens`, `/api/{api_version}/server/preferences/tokens/primary` | Primary owner Bearer token for linked-token creation; public for primary-token issuance | Create linked or primary owner tokens. |
 | POST | `/api/{api_version}/server/preferences/tokens/primary/{action}` | Primary owner Bearer token | Reveal or rotate the primary token. |
+| DELETE | `/api/{api_version}/server/preferences/tokens/primary` | Primary owner Bearer token and confirmation of the token's final four characters | Revoke the primary token and delete its owner and linked tokens. |
 | POST, PATCH, DELETE | `/api/{api_version}/server/preferences/tokens/{id}` or `/{id}/{action}` | Primary owner Bearer token | Manage linked tokens; actions include reveal, rotate, update, and revoke. |
 | GET | `/api/{api_version}/server/auth/check` | Bearer token | Validate operator or owner credentials without returning the raw token. |
 | GET | `/api/{api_version}/server/healthz`, `/api/healthz` | Public | Machine-readable public health response. |
