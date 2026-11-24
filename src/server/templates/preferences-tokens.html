@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="{{.Lang}}" dir="{{.Dir}}" class="theme-{{.Theme}}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="base-url" content="{{.BaseURL}}">
+  <title>{{t .Lang "preferences.tokens_title"}} - {{.BrandTitle}}</title>
+  <link rel="stylesheet" href="{{asset (printf "%s/static/css/main.css" .BaseURL)}}">
+  {{if .HasAccent}}<link rel="stylesheet" href="{{asset (printf "%s/static/css/accent.css" .BaseURL)}}">{{end}}
+</head>
+<body>
+  <a class="skip-link" href="#main-content">{{t .Lang "common.skip_main"}}</a>
+  <a class="skip-link" href="#navigation">{{t .Lang "common.skip_navigation"}}</a>
+  {{.SiteBanners}}
+  <input type="checkbox" id="nav-toggle" class="nav-checkbox" aria-label="{{t .Lang "nav.toggle"}}">
+  <header class="header">
+    <a href="{{.BaseURL}}/" class="nav-brand">{{.BrandTitle}}</a>
+    <nav id="navigation" class="nav-links" aria-label="{{t .Lang "nav.main"}}">
+      <a href="{{.BaseURL}}/" {{if eq .CurrentPath "/"}} class="nav-link active" aria-current="page"{{else}} class="nav-link"{{end}}>{{t .Lang "common.home"}}</a>
+      <a href="{{.BaseURL}}/search" {{if eq .CurrentPath "/search"}} class="nav-link active" aria-current="page"{{else}} class="nav-link"{{end}}>{{t .Lang "common.search"}}</a>
+      <a href="{{.BaseURL}}/coordinates" {{if eq .CurrentPath "/coordinates"}} class="nav-link active" aria-current="page"{{else}} class="nav-link"{{end}}>{{t .Lang "coordinates.title"}}</a>
+    </nav>
+    <label for="nav-toggle" class="nav-toggle" aria-hidden="true">☰</label>
+    <div class="header-actions">
+      <a class="nav-link" href="{{.BaseURL}}/server/preferences">{{t .Lang "common.preferences"}}</a>
+      <form class="theme-toggle-form" action="{{.BaseURL}}/server/preferences" method="post">
+        <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+        <input type="hidden" name="redirect" value="{{.ReturnTo}}">
+        <input type="hidden" name="theme" value="{{.NextTheme}}">
+        <button class="btn btn-ghost" type="submit" aria-label="{{t .Lang "common.theme_toggle"}}">{{t .Lang "common.theme_toggle"}}</button>
+      </form>
+    </div>
+  </header>
+<main id="main-content" class="container container-md page-shell">
+    <header class="page-header">
+      <nav class="breadcrumb" aria-label="{{t .Lang "common.breadcrumb"}}"><a href="{{.BaseURL}}/server/preferences">{{t .Lang "preferences.back"}}</a></nav>
+      <h1 class="page-title">{{t .Lang "preferences.tokens_title"}}</h1>
+    </header>
+    {{with .TokenPage}}
+    {{if not .HasOwner}}
+    <section class="section-card" aria-labelledby="create-primary-title">
+      <h2 id="create-primary-title">{{t $.Lang "tokens.new_primary"}}</h2>
+      <form method="post" action="{{$.BaseURL}}/server/preferences/token/create"><input type="hidden" name="csrf_token" value="{{.CSRFToken}}"><button class="btn btn-primary" type="submit">{{t $.Lang "tokens.create_token"}}</button></form>
+    </section>
+    <section class="section-card" aria-labelledby="restore-title">
+      <h2 id="restore-title">{{t $.Lang "tokens.restore_title"}}</h2>
+      <form method="post" action="{{$.BaseURL}}/server/preferences/token/restore">
+        <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+        <div class="form-group"><label for="owner-token">{{t $.Lang "tokens.primary_token"}}</label><input id="owner-token" name="owner_token" type="password" class="form-input" autocomplete="off" required><p class="form-hint">{{t $.Lang "tokens.paste_hint"}}</p></div>
+        <button class="btn btn-primary" type="submit">{{t $.Lang "tokens.restore_identity"}}</button>
+      </form>
+    </section>
+    {{else}}
+    <section id="primary" class="section-card" aria-labelledby="primary-token-title">
+      <h2 id="primary-token-title">{{t $.Lang "tokens.primary_token"}}</h2>
+      <p><span class="status-badge">{{.PrimaryStatus}}</span></p>
+      <div class="code-block"><pre class="copy-value">{{if .PrimaryRevealed}}{{.PrimaryRevealed}}{{else}}{{.PrimaryMasked}}{{end}}</pre>{{if .PrimaryRevealed}}<button class="code-copy" type="button" data-copy="true">{{t $.Lang "common.copy"}}</button>{{end}}</div>
+      <p class="form-hint">{{tf $.Lang "tokens.primary_help" (dict "resources" .ResourcesLabel)}}</p>
+      {{if .PrimaryRevealed}}<p class="form-hint">{{t $.Lang "tokens.shown_once"}}</p><p class="form-hint">{{t $.Lang "tokens.copy_notice"}}</p>{{end}}
+      <div class="btn-group">
+        <form method="post" action="{{$.BaseURL}}/server/preferences/token/reveal"><input type="hidden" name="csrf_token" value="{{.CSRFToken}}"><button class="btn btn-secondary" type="submit">{{t $.Lang "tokens.reveal"}}</button></form>
+        <button class="btn btn-secondary" type="button" popovertarget="rotate-primary">{{t $.Lang "tokens.rotate"}}</button>
+      </div>
+      <div id="rotate-primary" popover><p>{{t $.Lang "tokens.rotate_warning"}}</p><form method="post" action="{{$.BaseURL}}/server/preferences/token/rotate"><input type="hidden" name="csrf_token" value="{{.CSRFToken}}"><button class="btn btn-secondary" type="button" popovertarget="rotate-primary" popovertargetaction="hide">{{t $.Lang "common.cancel"}}</button><button class="btn btn-danger" type="submit">{{t $.Lang "tokens.rotate"}}</button></form></div>
+    </section>
+    <section class="section-card" aria-labelledby="linked-tokens-title">
+      <h2 id="linked-tokens-title">{{tf $.Lang "tokens.linked_title" (dict "count" (len .LinkedTokens))}}</h2>
+      {{if .LinkedTokens}}<div class="token-list">{{range .LinkedTokens}}
+      <article id="token-{{.ID}}" class="token-card" aria-labelledby="token-{{.ID}}-name">
+        <h3 id="token-{{.ID}}-name">{{.Name}}</h3><p><span class="status-badge">{{.Status}}</span></p>
+        <div class="code-block"><pre class="copy-value">{{if .Revealed}}{{.Revealed}}{{else}}{{.Masked}}{{end}}</pre>{{if .Revealed}}<button class="code-copy" type="button" data-copy="true">{{t $.Lang "common.copy"}}</button>{{end}}</div>
+        {{if .Revealed}}<p class="form-hint">{{t $.Lang "tokens.shown_once"}}</p>{{end}}
+        <dl><dt>{{t $.Lang "tokens.created"}}</dt><dd>{{.CreatedAt}}</dd><dt>{{t $.Lang "tokens.last_used"}}</dt><dd>{{.LastUsedAt}}</dd><dt>{{t $.Lang "tokens.expires"}}</dt><dd>{{.ExpiresAt}}</dd></dl>
+        <div class="btn-group">
+          <form method="post" action="{{$.BaseURL}}/server/preferences/tokens/{{.ID}}/reveal"><input type="hidden" name="csrf_token" value="{{$.TokenPage.CSRFToken}}"><button class="btn btn-secondary" type="submit">{{t $.Lang "tokens.reveal"}}</button></form>
+          <form method="post" action="{{$.BaseURL}}/server/preferences/tokens/{{.ID}}/rotate"><input type="hidden" name="csrf_token" value="{{$.TokenPage.CSRFToken}}"><button class="btn btn-secondary" type="submit">{{t $.Lang "tokens.rotate"}}</button></form>
+          <details><summary class="btn btn-secondary">{{t $.Lang "tokens.edit"}}</summary><form method="post" action="{{$.BaseURL}}/server/preferences/tokens/{{.ID}}/update"><input type="hidden" name="csrf_token" value="{{$.TokenPage.CSRFToken}}"><div class="form-group"><label for="token-{{.ID}}-edit-name">{{t $.Lang "tokens.name"}}</label><input id="token-{{.ID}}-edit-name" name="name" class="form-input" value="{{.Name}}" maxlength="64" required></div><div class="form-group"><label for="token-{{.ID}}-expiry">{{t $.Lang "tokens.expires"}}</label><select id="token-{{.ID}}-expiry" name="expiry" class="form-input"><option value="never">{{t $.Lang "common.never"}}</option><option value="7d">{{t $.Lang "tokens.7_days"}}</option><option value="30d">{{t $.Lang "tokens.30_days"}}</option><option value="90d">{{t $.Lang "tokens.90_days"}}</option><option value="1y">{{t $.Lang "tokens.1_year"}}</option></select></div><button class="btn btn-primary" type="submit">{{t $.Lang "common.save"}}</button></form></details>
+          <button class="btn btn-danger" type="button" popovertarget="revoke-{{.ID}}">{{t $.Lang "tokens.revoke"}}</button>
+        </div>
+        <div id="revoke-{{.ID}}" popover><p>{{t $.Lang "tokens.revoke_warning"}}</p><form method="post" action="{{$.BaseURL}}/server/preferences/tokens/{{.ID}}/revoke"><input type="hidden" name="csrf_token" value="{{$.TokenPage.CSRFToken}}"><button class="btn btn-secondary" type="button" popovertarget="revoke-{{.ID}}" popovertargetaction="hide">{{t $.Lang "common.cancel"}}</button><button class="btn btn-danger" type="submit">{{t $.Lang "tokens.revoke"}}</button></form></div>
+      </article>{{end}}</div>{{else}}<p>{{t $.Lang "tokens.empty"}}</p><p class="form-hint">{{t $.Lang "tokens.empty_hint"}}</p>{{end}}
+    </section>
+    <section class="section-card" aria-labelledby="create-linked-title">
+      <h2 id="create-linked-title">{{t $.Lang "tokens.create_linked"}}</h2>
+      <form method="post" action="{{$.BaseURL}}/server/preferences/tokens">
+        <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+        <div class="form-group"><label for="linked-name">{{t $.Lang "tokens.name"}}</label><input id="linked-name" name="name" class="form-input" maxlength="64" required><p class="form-hint">{{t $.Lang "tokens.name_hint"}}</p></div>
+        <div class="form-group"><label for="linked-expiry">{{t $.Lang "tokens.expires"}}</label><select id="linked-expiry" name="expiry" class="form-input"><option value="never">{{t $.Lang "common.never"}}</option><option value="7d">{{t $.Lang "tokens.7_days"}}</option><option value="30d">{{t $.Lang "tokens.30_days"}}</option><option value="90d">{{t $.Lang "tokens.90_days"}}</option><option value="1y">{{t $.Lang "tokens.1_year"}}</option><option value="custom">{{t $.Lang "tokens.custom_date"}}</option></select></div>
+        <details><summary>{{t $.Lang "tokens.custom_date"}}</summary><div class="form-group"><label for="linked-expires-at">{{t $.Lang "tokens.expires_on"}}</label><input id="linked-expires-at" type="date" name="expires_at" class="form-input"></div></details>
+        <button class="btn btn-primary" type="submit">{{t $.Lang "tokens.create_token"}}</button>
+      </form>
+    </section>
+    <section class="section-card" aria-labelledby="this-browser-title">
+      <h2 id="this-browser-title">{{t $.Lang "tokens.this_browser"}}</h2><p>{{t $.Lang "tokens.saved_here"}}</p>
+      <button class="btn btn-danger-ghost" type="button" popovertarget="forget-token">{{t $.Lang "tokens.forget"}}</button>
+      <div id="forget-token" popover><p>{{tf $.Lang "tokens.forget_warning" (dict "resources" .ResourcesLabel)}}</p><form method="post" action="{{$.BaseURL}}/server/preferences/token/forget"><input type="hidden" name="csrf_token" value="{{.CSRFToken}}"><button class="btn btn-secondary" type="button" popovertarget="forget-token" popovertargetaction="hide">{{t $.Lang "common.cancel"}}</button><button class="btn btn-danger" type="submit">{{t $.Lang "tokens.forget"}}</button></form></div>
+    </section>
+    <section class="section-card" aria-labelledby="revoke-primary-title">
+      <h2 id="revoke-primary-title">{{t $.Lang "tokens.revoke_primary_title"}}</h2>
+      <p>{{tf $.Lang "tokens.revoke_primary_warning" (dict "linked" .LinkedCount "resources" .ResourceCount)}}</p>
+      <button class="btn btn-danger" type="button" popovertarget="revoke-primary">{{t $.Lang "tokens.revoke_primary_button"}}</button>
+      <div id="revoke-primary" popover>
+        <form method="post" action="{{$.BaseURL}}/server/preferences/token/revoke">
+          <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+          <div class="form-group"><label for="revoke-primary-confirm">{{tf $.Lang "tokens.revoke_primary_confirm" (dict "last4" .PrimaryLast4)}}</label><input id="revoke-primary-confirm" name="confirm" class="form-input" minlength="4" maxlength="4" autocomplete="off" required></div>
+          <button class="btn btn-secondary" type="button" popovertarget="revoke-primary" popovertargetaction="hide">{{t $.Lang "common.cancel"}}</button>
+          <button class="btn btn-danger" type="submit">{{t $.Lang "tokens.revoke_primary_button"}}</button>
+        </form>
+      </div>
+    </section>
+    {{end}}
+    {{end}}
+  </main>
+  <nav class="nav-panel" id="nav-panel" aria-label="{{t .Lang "nav.main"}}">
+    <label for="nav-toggle" class="nav-close" role="button" tabindex="0" aria-label="{{t .Lang "nav.close"}}">✕</label>
+      <a href="{{.BaseURL}}/" {{if eq .CurrentPath "/"}} class="nav-link active" aria-current="page"{{else}} class="nav-link"{{end}}>{{t .Lang "common.home"}}</a>
+      <a href="{{.BaseURL}}/search" {{if eq .CurrentPath "/search"}} class="nav-link active" aria-current="page"{{else}} class="nav-link"{{end}}>{{t .Lang "common.search"}}</a>
+      <a href="{{.BaseURL}}/coordinates" {{if eq .CurrentPath "/coordinates"}} class="nav-link active" aria-current="page"{{else}} class="nav-link"{{end}}>{{t .Lang "coordinates.title"}}</a>
+  </nav>
+  <label for="nav-toggle" class="nav-overlay" aria-hidden="true"></label>
+  <footer class="footer">
+    <nav class="footer-links" aria-label="{{t .Lang "nav.footer"}}">
+      <a href="{{.BaseURL}}/server/about">{{t .Lang "nav.about"}}</a>
+      <a href="{{.BaseURL}}/server/help">{{t .Lang "nav.help"}}</a>
+      <a href="{{.BaseURL}}/server/docs/swagger">{{t .Lang "common.api_docs"}}</a>
+      <a href="{{.BaseURL}}/server/docs/graphql">GraphQL</a>
+      <a href="{{.BaseURL}}/server/privacy">{{t .Lang "nav.privacy"}}</a>
+      <a href="{{.BaseURL}}/server/terms">{{t .Lang "nav.terms"}}</a>
+      <a href="{{.BaseURL}}/server/preferences#language" lang="{{.Lang}}">{{.LanguageName}}</a>
+    </nav>
+    <small>{{.BrandTitle}}</small>
+  </footer>
+    <script src="{{asset (printf "%s/static/js/app.js" .BaseURL)}}" defer></script>
+    {{.ConsentBanner}}
+</body>
+</html>

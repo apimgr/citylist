@@ -3,7 +3,6 @@ package mode
 import (
 	"errors"
 	"net/http/httptest"
-	"os"
 	"testing"
 )
 
@@ -141,8 +140,7 @@ func TestInitialize(t *testing.T) {
 	resetMode(t)
 
 	t.Run("cli flag takes priority", func(t *testing.T) {
-		os.Setenv("MODE", "production")
-		defer os.Unsetenv("MODE")
+		t.Setenv("MODE", "production")
 
 		Initialize("development")
 		if Get() != Development {
@@ -151,8 +149,7 @@ func TestInitialize(t *testing.T) {
 	})
 
 	t.Run("env var used when no cli flag", func(t *testing.T) {
-		os.Setenv("MODE", "development")
-		defer os.Unsetenv("MODE")
+		t.Setenv("MODE", "development")
 
 		Initialize("")
 		if Get() != Development {
@@ -161,7 +158,7 @@ func TestInitialize(t *testing.T) {
 	})
 
 	t.Run("defaults to production", func(t *testing.T) {
-		os.Unsetenv("MODE")
+		t.Setenv("MODE", "")
 
 		Initialize("")
 		if Get() != Production {

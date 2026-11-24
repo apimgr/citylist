@@ -1,0 +1,57 @@
+//go:build !windows
+
+package updater
+
+import (
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"syscall"
+)
+
+func replaceBinary(currentPath, stagedPath string) error {
+	info, err := os.Stat(currentPath)
+	if err != nil {
+		return err
+	}
+	staged, err := os.Open(stagedPath)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = staged.Close() }()
+	local, err := os.CreateTemp(filepath.Dir(currentPath), ".citylist-update-*")
+	if err != nil {
+		return fmt.Errorf("stage update beside executable: %w", err)
+	}
+	localPath := local.Name()
+	defer func() { _ = os.Remove(localPath) }()
+	if _, err := io.Copy(local, staged); err != nil {
+		_ = local.Close()
+		return fmt.Errorf("copy staged update: %w", err)
+	}
+	if err := local.Chmod(info.Mode().Perm()); err != nil {
+		_ = local.Close()
+		return err
+	}
+	if err := local.Sync(); err != nil {
+		_ = local.Close()
+		return err
+	}
+	if err := local.Close(); err != nil {
+		return err
+	}
+	if err := os.Rename(localPath, currentPath); err != nil {
+		return fmt.Errorf("replace running executable: %w", err)
+	}
+	return nil
+}
+
+func restartSelf() error {
+	executable, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	args := append([]string{executable}, restartArgs(os.Args[1:])...)
+	return syscall.Exec(executable, args, os.Environ())
+}

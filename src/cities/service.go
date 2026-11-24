@@ -10,10 +10,10 @@ import (
 
 // City represents a city record
 type City struct {
-	ID      int     `json:"id"`
-	Name    string  `json:"name"`
-	Country string  `json:"country"`
-	Coord   Coord   `json:"coord"`
+	ID      int    `json:"id"`
+	Name    string `json:"name"`
+	Country string `json:"country"`
+	Coord   Coord  `json:"coord"`
 }
 
 // Coord represents geographic coordinates
@@ -124,6 +124,11 @@ func (s *Service) GetByCountry(countryCode string, limit int) []City {
 
 // Search searches cities by name (case-insensitive substring match)
 func (s *Service) Search(query string, limit int) []City {
+	return s.SearchByCountry(query, "", limit)
+}
+
+// SearchByCountry searches city names and optionally restricts results to a country.
+func (s *Service) SearchByCountry(query, countryCode string, limit int) []City {
 	if limit < 1 {
 		limit = 20
 	}
@@ -137,6 +142,17 @@ func (s *Service) Search(query string, limit int) []City {
 
 	queryLower := strings.ToLower(query)
 	result := make([]City, 0, limit)
+	if countryCode != "" {
+		for _, city := range s.byCountry[strings.ToUpper(countryCode)] {
+			if strings.Contains(strings.ToLower(city.Name), queryLower) {
+				result = append(result, *city)
+				if len(result) >= limit {
+					break
+				}
+			}
+		}
+		return result
+	}
 
 	for i := range s.cities {
 		if strings.Contains(strings.ToLower(s.cities[i].Name), queryLower) {

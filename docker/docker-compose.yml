@@ -1,21 +1,57 @@
+# nginx proxy address - http://172.17.0.1:64580
+# citylist - public city and ZIP code reference API
+
 name: citylist
+
+x-logging: &default-logging
+  options:
+    max-size: "5m"
+    max-file: "1"
+  driver: json-file
 
 services:
   citylist:
     image: ghcr.io/apimgr/citylist:latest
-    container_name: citylist
-    restart: unless-stopped
+    container_name: citylist-app
+    hostname: citylist
+    restart: always
+    pull_policy: always
+    logging: *default-logging
     environment:
-      # Hardcoded with sane defaults - NO .env files
-      - MODE=production
-      - TZ=America/New_York
-      # ENABLE_TOR=true is default, no need to specify
-    ports:
-      # Production: bound to Docker bridge only
-      - "172.17.0.1:64580:80"
+      PORT: 80
+      TZ: ${TZ:-America/New_York}
+      CACHE_URL: valkey://citylist-cache:6379
     volumes:
-      - ./rootfs/config/citylist:/config
-      - ./rootfs/data/citylist:/data
+      - ./volumes/config:/config:z
+      - ./volumes/data:/data:z
+    ports:
+      - "172.17.0.1:64580:80"
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/citylist", "--status"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 90s
+    depends_on:
+      citylist-cache:
+        condition: service_healthy
+    networks:
+      - citylist
+
+  citylist-cache:
+    image: valkey/valkey:alpine
+    pull_policy: always
+    container_name: citylist-cache
+    restart: always
+    logging: *default-logging
+    volumes:
+      - ./volumes/data/db/valkey:/data:z
+    healthcheck:
+      test: ["CMD-SHELL", "valkey-cli ping || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
     networks:
       - citylist
 

@@ -1,0 +1,9 @@
+# Repository ownership
+* @apimgr
+
+# Security-sensitive implementation and policy
+/AI.md @apimgr
+/.github/ @apimgr
+/src/config/ @apimgr
+/src/server/ @apimgr
+/docker/ @apimgr

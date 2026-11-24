@@ -55,7 +55,7 @@ func TestClientIPFromHeaders(t *testing.T) {
 
 func TestRealIPMiddleware(t *testing.T) {
 	handler := realIPMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(r.RemoteAddr))
+		_, _ = w.Write([]byte(r.RemoteAddr))
 	}))
 
 	t.Run("trusted peer honors forwarded header", func(t *testing.T) {
@@ -75,8 +75,8 @@ func TestRealIPMiddleware(t *testing.T) {
 		req.Header.Set("X-Forwarded-For", "198.51.100.1")
 		rec := httptest.NewRecorder()
 		handler.ServeHTTP(rec, req)
-		if got := rec.Body.String(); got != "203.0.113.100:1234" {
-			t.Errorf("RemoteAddr = %q, want unchanged 203.0.113.100:1234", got)
+		if got := rec.Body.String(); got != "203.0.113.100" {
+			t.Errorf("RemoteAddr = %q, want normalized 203.0.113.100", got)
 		}
 	})
 }

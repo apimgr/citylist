@@ -1,12 +1,14 @@
 # =============================================================================
 # Build Stage - Compile Go binary
 # =============================================================================
-FROM golang:alpine AS builder
+FROM casjaysdev/go:latest AS builder
 
 ARG TARGETARCH
 ARG VERSION=dev
 ARG BUILD_DATE
-ARG VCS_REF
+ARG COMMIT_ID
+ARG BUILD_EPOCH
+ARG OFFICIAL_SITE
 
 WORKDIR /build
 
@@ -16,9 +18,10 @@ RUN go mod download
 
 # Copy source and build
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build \
-    -ldflags "-s -w -X 'main.Version=${VERSION}' -X 'main.CommitID=${VCS_REF}' -X 'main.BuildDate=${BUILD_DATE}'" \
-    -o /app ./src
+RUN mkdir -p /app/binary
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build -buildvcs=false -trimpath \
+    -ldflags "-s -w -X 'main.Version=${VERSION}' -X 'main.CommitID=${COMMIT_ID}' -X 'main.BuildEpoch=${BUILD_EPOCH}' -X 'main.OfficialSite=${OFFICIAL_SITE}'" \
+    -o /app/binary/citylist ./src
 
 # =============================================================================
 # Runtime Stage - Minimal Alpine image
@@ -28,41 +31,23 @@ FROM alpine:latest
 # ARGs for build-time values (set by docker build --build-arg)
 ARG VERSION=dev
 ARG BUILD_DATE
-ARG VCS_REF
-ARG LICENSE=MIT
-
-# Static Labels
-LABEL maintainer="apimgr <apimgr@casjay.pro>" \
-      org.opencontainers.image.vendor="apimgr" \
-      org.opencontainers.image.authors="apimgr" \
-      org.opencontainers.image.title="citylist" \
-      org.opencontainers.image.base.name="citylist" \
-      org.opencontainers.image.description="Containerized version of citylist" \
-      org.opencontainers.image.url="https://github.com/apimgr/citylist" \
-      org.opencontainers.image.source="https://github.com/apimgr/citylist" \
-      org.opencontainers.image.documentation="https://github.com/apimgr/citylist" \
-      org.opencontainers.image.vcs-type="Git" \
-      com.github.containers.toolbox="false"
-
-# Dynamic Labels (from ARGs)
-LABEL org.opencontainers.image.licenses="${LICENSE}" \
-      org.opencontainers.image.created="${BUILD_DATE}" \
-      org.opencontainers.image.version="${VERSION}" \
-      org.opencontainers.image.schema-version="${VERSION}" \
-      org.opencontainers.image.revision="${VCS_REF}"
+ARG COMMIT_ID
+ARG BUILD_EPOCH
+ARG OFFICIAL_SITE
 
 # Install required packages including Tor
 RUN apk add --no-cache \
+    git \
     curl \
     bash \
     tini \
-    tor
-
-# Create directories with proper structure
-RUN mkdir -p /config /data/db /data/logs /data/tor /data/geoip /data/backup
+    tor \
+    i2pd \
+    tzdata \
+    ca-certificates
 
 # Copy binary from builder stage (multi-stage build)
-COPY --from=builder /app /usr/local/bin/citylist
+COPY --from=builder /app/binary/citylist /usr/local/bin/citylist
 
 # Copy entrypoint script from ./docker/rootfs/
 COPY docker/rootfs/ /
@@ -74,10 +59,8 @@ COPY docker/Dockerfile /root/Dockerfile
 RUN chmod 755 /usr/local/bin/*
 
 # Set environment
-ENV MODE=development \
-    TZ=America/New_York \
-    ENABLE_TOR=true
-
+ENV TZ=America/New_York \
+    DATABASE_DIR=/data/db/sqlite
 # Expose internal port (always 80)
 EXPOSE 80
 

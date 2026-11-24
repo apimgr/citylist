@@ -1,6 +1,7 @@
 package paths
 
 import (
+	"fmt"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -146,9 +147,79 @@ func GetLogsDir(appName string) string {
 	}
 }
 
+// GetCacheDir returns the OS-specific cache directory, honoring CACHE_DIR.
+func GetCacheDir(appName string) string {
+	if dir := os.Getenv("CACHE_DIR"); dir != "" {
+		return dir
+	}
+	if isDocker() {
+		return filepath.Join("/data", appName, "cache")
+	}
+	current, err := user.Current()
+	if err != nil {
+		return filepath.Join(".", "cache")
+	}
+	if current.Uid == "0" {
+		switch runtime.GOOS {
+		case "darwin":
+			return filepath.Join("/Library/Caches/apimgr", appName)
+		case "windows":
+			programData := os.Getenv("ProgramData")
+			if programData == "" {
+				programData = `C:\\ProgramData`
+			}
+			return filepath.Join(programData, "apimgr", appName, "cache")
+		default:
+			return filepath.Join("/var/cache/apimgr", appName)
+		}
+	}
+	switch runtime.GOOS {
+	case "darwin":
+		return filepath.Join(current.HomeDir, "Library/Caches/apimgr", appName)
+	case "windows":
+		base := os.Getenv("LOCALAPPDATA")
+		if base == "" {
+			base = filepath.Join(current.HomeDir, "AppData/Local")
+		}
+		return filepath.Join(base, "apimgr", appName, "cache")
+	default:
+		return filepath.Join(current.HomeDir, ".cache/apimgr", appName)
+	}
+}
+
+// GetDatabaseDir returns the SQLite directory from the environment or platform defaults.
+func GetDatabaseDir(dataDir string) string {
+	if dir := os.Getenv("DATABASE_DIR"); dir != "" {
+		return dir
+	}
+	if isDocker() {
+		return "/data/db/sqlite"
+	}
+	return filepath.Join(dataDir, "db")
+}
+
 // EnsureDir creates a directory if it doesn't exist
 func EnsureDir(path string) error {
 	return os.MkdirAll(path, 0755)
+}
+
+// EnsurePrivateDir creates or secures a directory that contains credentials.
+func EnsurePrivateDir(path string) error {
+	directoryMode := os.FileMode(0700)
+	if current, err := user.Current(); err == nil && current.Uid == "0" {
+		directoryMode = 0755
+	}
+	if err := os.MkdirAll(path, directoryMode); err != nil {
+		return err
+	}
+	info, err := os.Lstat(path)
+	if err != nil {
+		return err
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("private path %s is not a directory", path)
+	}
+	return os.Chmod(path, 0700)
 }
 
 // EnsureDirs creates multiple directories
@@ -168,7 +239,14 @@ func GetDefaultDirs(appName string) (configDir, dataDir, logsDir string) {
 
 // GetBackupDir returns the backup directory for the app
 func GetBackupDir(appName string) string {
-	// Check environment variable first
+	return GetBackupDirFor(appName, GetDataDir(appName), "")
+}
+
+// GetBackupDirFor resolves an explicit, environment, system, or user backup path.
+func GetBackupDirFor(appName, dataDir, flagValue string) string {
+	if flagValue != "" {
+		return flagValue
+	}
 	if dir := os.Getenv("BACKUP_DIR"); dir != "" {
 		return dir
 	}
@@ -179,20 +257,29 @@ func GetBackupDir(appName string) string {
 	}
 
 	isRoot := current.Uid == "0"
+	if isDocker() {
+		return filepath.Join("/data", "backups", appName)
+	}
+	systemDir := systemBackupDir(appName)
+	if isWritable(systemDir) {
+		return systemDir
+	}
+	if isRoot && runtime.GOOS != "windows" {
+		return filepath.Join(dataDir, "backup")
+	}
+	return userBackupDir(appName, current.HomeDir)
+}
 
+func systemBackupDir(appName string) string {
 	switch runtime.GOOS {
 	case "linux", "freebsd", "openbsd", "netbsd":
-		if isRoot {
-			return filepath.Join("/var/backups/apimgr", appName)
+		if runtime.GOOS == "linux" {
+			return filepath.Join("/mnt/Backups", "apimgr", appName)
 		}
-		return filepath.Join(current.HomeDir, ".local/state/apimgr", appName, "backups")
+		return filepath.Join("/var/backups", "apimgr", appName)
 
 	case "darwin":
-		appNamePascal := toPascalCase(appName)
-		if isRoot {
-			return filepath.Join("/Library/Application Support/apimgr", appNamePascal, "backups")
-		}
-		return filepath.Join(current.HomeDir, "Library/Application Support/apimgr", appNamePascal, "backups")
+		return filepath.Join("/Library/Backups", "apimgr", appName)
 
 	case "windows":
 		appNamePascal := toPascalCase(appName)
@@ -200,11 +287,43 @@ func GetBackupDir(appName string) string {
 		if programData == "" {
 			programData = "C:\\ProgramData"
 		}
-		return filepath.Join(programData, "apimgr", appNamePascal, "backups")
+		return filepath.Join(programData, "Backups", "apimgr", appNamePascal)
 
 	default:
 		return filepath.Join(".", "backups")
 	}
+}
+
+func userBackupDir(appName, home string) string {
+	switch runtime.GOOS {
+	case "darwin":
+		return filepath.Join(home, "Library/Backups", "apimgr", appName)
+	case "windows":
+		base := os.Getenv("LOCALAPPDATA")
+		if base == "" {
+			base = filepath.Join(home, "AppData/Local")
+		}
+		return filepath.Join(base, "Backups", "apimgr", appName)
+	default:
+		return filepath.Join(home, ".local/share/Backups", "apimgr", appName)
+	}
+}
+
+func isWritable(path string) bool {
+	info, err := os.Stat(path)
+	if err == nil && info.IsDir() {
+		probe, err := os.CreateTemp(path, ".write-test-*")
+		if err != nil {
+			return false
+		}
+		name := probe.Name()
+		_ = probe.Close()
+		_ = os.Remove(name)
+		return true
+	}
+	parent := filepath.Dir(path)
+	info, err = os.Stat(parent)
+	return err == nil && info.IsDir() && info.Mode().Perm()&0200 != 0
 }
 
 // isDocker checks if running inside a Docker container

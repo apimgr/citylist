@@ -27,6 +27,30 @@ func TestGetLogsDirEnvOverride(t *testing.T) {
 	}
 }
 
+func TestGetCacheDirEnvOverride(t *testing.T) {
+	t.Setenv("CACHE_DIR", "/custom/cache")
+	if got := GetCacheDir("citylist"); got != "/custom/cache" {
+		t.Fatalf("GetCacheDir() = %q, want /custom/cache", got)
+	}
+}
+
+func TestGetBackupDirForOverrides(t *testing.T) {
+	t.Setenv("BACKUP_DIR", "/environment/backups")
+	if got := GetBackupDirFor("citylist", "/data/citylist", "/flag/backups"); got != "/flag/backups" {
+		t.Fatalf("flag override = %q, want /flag/backups", got)
+	}
+	if got := GetBackupDirFor("citylist", "/data/citylist", ""); got != "/environment/backups" {
+		t.Fatalf("environment override = %q, want /environment/backups", got)
+	}
+}
+
+func TestGetDatabaseDirEnvOverride(t *testing.T) {
+	t.Setenv("DATABASE_DIR", "/custom/db")
+	if got := GetDatabaseDir("/data/citylist"); got != "/custom/db" {
+		t.Errorf("GetDatabaseDir() = %q, want /custom/db", got)
+	}
+}
+
 func TestGetBackupDirEnvOverride(t *testing.T) {
 	t.Setenv("BACKUP_DIR", "/custom/backups")
 	if got := GetBackupDir("citylist"); got != "/custom/backups" {
@@ -36,7 +60,6 @@ func TestGetBackupDirEnvOverride(t *testing.T) {
 
 func TestGetConfigDirNonDocker(t *testing.T) {
 	t.Setenv("CONFIG_DIR", "")
-	os.Unsetenv("CONFIG_DIR")
 	got := GetConfigDir("citylist")
 	if got == "" {
 		t.Error("GetConfigDir() returned empty string")
@@ -44,7 +67,7 @@ func TestGetConfigDirNonDocker(t *testing.T) {
 }
 
 func TestGetDataDirNoEnv(t *testing.T) {
-	os.Unsetenv("DATA_DIR")
+	t.Setenv("DATA_DIR", "")
 	got := GetDataDir("citylist")
 	if got == "" {
 		t.Error("GetDataDir() returned empty string")
@@ -52,7 +75,7 @@ func TestGetDataDirNoEnv(t *testing.T) {
 }
 
 func TestGetLogsDirNoEnv(t *testing.T) {
-	os.Unsetenv("LOGS_DIR")
+	t.Setenv("LOGS_DIR", "")
 	got := GetLogsDir("citylist")
 	if got == "" {
 		t.Error("GetLogsDir() returned empty string")
@@ -60,7 +83,7 @@ func TestGetLogsDirNoEnv(t *testing.T) {
 }
 
 func TestGetBackupDirNoEnv(t *testing.T) {
-	os.Unsetenv("BACKUP_DIR")
+	t.Setenv("BACKUP_DIR", "")
 	got := GetBackupDir("citylist")
 	if got == "" {
 		t.Error("GetBackupDir() returned empty string")
@@ -98,6 +121,24 @@ func TestEnsureDir(t *testing.T) {
 	}
 	if !info.IsDir() {
 		t.Error("expected target to be a directory")
+	}
+}
+
+func TestEnsurePrivateDirSetsMode(t *testing.T) {
+	tmpDir := t.TempDir()
+	target := filepath.Join(tmpDir, "private", "config")
+	if err := os.MkdirAll(target, 0755); err != nil {
+		t.Fatalf("creating test directory: %v", err)
+	}
+	if err := EnsurePrivateDir(target); err != nil {
+		t.Fatalf("EnsurePrivateDir() error: %v", err)
+	}
+	info, err := os.Stat(target)
+	if err != nil {
+		t.Fatalf("stat private directory: %v", err)
+	}
+	if info.Mode().Perm() != 0700 {
+		t.Fatalf("private directory mode = %04o, want 0700", info.Mode().Perm())
 	}
 }
 

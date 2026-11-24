@@ -1,6 +1,7 @@
 package ssl
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -45,10 +46,14 @@ func TestGetTLSConfigNoCertsNoLetsEncrypt(t *testing.T) {
 
 func TestGetTLSConfigManualCerts(t *testing.T) {
 	tmpDir := t.TempDir()
-	domain := "example.com"
+	domain := "localhost"
 
-	certPath := filepath.Join(tmpDir, domain+".crt")
-	keyPath := filepath.Join(tmpDir, domain+".key")
+	domainDir := filepath.Join(tmpDir, "ssl", "local", domain)
+	if err := os.MkdirAll(domainDir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	certPath := filepath.Join(domainDir, "cert.pem")
+	keyPath := filepath.Join(domainDir, "key.pem")
 	writeSelfSignedCert(t, certPath, keyPath)
 
 	m := NewManager(Config{Enabled: true, CertPath: tmpDir})
@@ -64,22 +69,121 @@ func TestGetTLSConfigManualCerts(t *testing.T) {
 	}
 }
 
-func TestFindManualCertsFullchainFormat(t *testing.T) {
+func TestFindManualCertsLocalCertificateFormat(t *testing.T) {
 	tmpDir := t.TempDir()
 	domain := "example.com"
 
-	domainDir := filepath.Join(tmpDir, domain)
+	domainDir := filepath.Join(tmpDir, "ssl", "local", domain)
 	if err := os.MkdirAll(domainDir, 0755); err != nil {
 		t.Fatalf("failed to create domain dir: %v", err)
 	}
-	certPath := filepath.Join(domainDir, "fullchain.pem")
-	keyPath := filepath.Join(domainDir, "privkey.pem")
+	certPath := filepath.Join(domainDir, "cert.pem")
+	keyPath := filepath.Join(domainDir, "key.pem")
 	writeSelfSignedCert(t, certPath, keyPath)
 
 	m := NewManager(Config{Enabled: true, CertPath: tmpDir})
 	cert, key := m.findManualCerts([]string{domain})
 	if cert != certPath || key != keyPath {
 		t.Errorf("findManualCerts() = (%q, %q), want (%q, %q)", cert, key, certPath, keyPath)
+	}
+}
+
+func TestFindConfiguredCertsUsesSpecifiedLookupOrder(t *testing.T) {
+	tmpDir := t.TempDir()
+	domain := "example.test"
+	appPath := filepath.Join(tmpDir, "ssl", "letsencrypt", domain)
+	if err := os.MkdirAll(appPath, 0700); err != nil {
+		t.Fatal(err)
+	}
+	cert := filepath.Join(appPath, "fullchain.pem")
+	key := filepath.Join(appPath, "privkey.pem")
+	writeSelfSignedCert(t, cert, key)
+
+	m := NewManager(Config{Enabled: true, CertPath: tmpDir})
+	gotCert, gotKey := m.findConfiguredCerts([]string{domain})
+	if gotCert != cert || gotKey != key {
+		t.Fatalf("findConfiguredCerts() = (%q, %q), want (%q, %q)", gotCert, gotKey, cert, key)
+	}
+}
+
+func TestTLSConfigRejectsWrongHostname(t *testing.T) {
+	tmpDir := t.TempDir()
+	certPath := filepath.Join(tmpDir, "cert.pem")
+	keyPath := filepath.Join(tmpDir, "key.pem")
+	writeSelfSignedCert(t, certPath, keyPath)
+	m := NewManager(Config{Enabled: true, Cert: certPath, Key: keyPath})
+	if _, err := m.GetTLSConfig([]string{"example.test"}); err == nil {
+		t.Fatal("GetTLSConfig() succeeded with a certificate for the wrong hostname")
+	}
+}
+
+func TestDNSProviderCredentialsAreRestoredAfterConstruction(t *testing.T) {
+	t.Setenv("CF_DNS_API_TOKEN", "existing-environment-value")
+	provider, err := newDNSProvider("cloudflare", map[string]string{"CF_DNS_API_TOKEN": "temporary-provider-value"})
+	if err != nil {
+		t.Fatalf("newDNSProvider() error: %v", err)
+	}
+	if provider == nil {
+		t.Fatal("newDNSProvider() returned nil provider")
+	}
+	if got := os.Getenv("CF_DNS_API_TOKEN"); got != "existing-environment-value" {
+		t.Fatalf("provider credential environment value = %q, want restored value", got)
+	}
+}
+
+func TestHostMatchesConfiguredWildcard(t *testing.T) {
+	if !hostMatchesDomains("api.example.test", []string{"example.test", "*.example.test"}) {
+		t.Fatal("wildcard domain did not match a subdomain")
+	}
+	if hostMatchesDomains("example.test", []string{"*.example.test"}) {
+		t.Fatal("wildcard domain matched its apex")
+	}
+}
+
+func TestHTTP01ChallengeHandlerServesOnlyActiveToken(t *testing.T) {
+	manager := NewManager(Config{LetsEncrypt: LetsEncryptConfig{Challenge: "http-01"}})
+	if err := manager.Present(context.Background(), "example.test", "challenge-token", "challenge-token.thumbprint"); err != nil {
+		t.Fatal(err)
+	}
+	handler := manager.GetHTTPHandler(http.NotFoundHandler())
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/.well-known/acme-challenge/challenge-token", nil)
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK || recorder.Body.String() != "challenge-token.thumbprint" || recorder.Header().Get("Cache-Control") != "no-store" {
+		t.Fatalf("HTTP-01 response = (%d, %q, %q)", recorder.Code, recorder.Body.String(), recorder.Header().Get("Cache-Control"))
+	}
+	if err := manager.CleanUp(context.Background(), "example.test", "challenge-token", "challenge-token.thumbprint"); err != nil {
+		t.Fatal(err)
+	}
+	recorder = httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusNotFound {
+		t.Fatalf("cleaned HTTP-01 token status = %d, want 404", recorder.Code)
+	}
+}
+
+func TestLegoAccountKeyHasPrivatePermissionsAndCanBeLoaded(t *testing.T) {
+	manager := NewManager(Config{CertPath: t.TempDir(), LetsEncrypt: LetsEncryptConfig{Email: "admin@example.test"}})
+	account, path, err := manager.loadOrCreateLegoAccount()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if account.key == nil {
+		t.Fatal("generated account has no private key")
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode().Perm() != 0600 {
+		t.Fatalf("ACME account file mode = %04o, want 0600", info.Mode().Perm())
+	}
+	loaded, loadedPath, err := manager.loadOrCreateLegoAccount()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loadedPath != path || loaded.key == nil || loaded.email != "admin@example.test" {
+		t.Fatalf("reloaded account = %+v, path %q", loaded, loadedPath)
 	}
 }
 
@@ -234,7 +338,7 @@ func writeSelfSignedCert(t *testing.T, certPath, keyPath string) {
 	if err != nil {
 		t.Fatalf("failed to open cert file: %v", err)
 	}
-	defer certOut.Close()
+	defer func() { _ = certOut.Close() }()
 	if err := pem.Encode(certOut, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes}); err != nil {
 		t.Fatalf("failed to write cert pem: %v", err)
 	}
@@ -248,7 +352,7 @@ func writeSelfSignedCert(t *testing.T, certPath, keyPath string) {
 	if err != nil {
 		t.Fatalf("failed to open key file: %v", err)
 	}
-	defer keyOut.Close()
+	defer func() { _ = keyOut.Close() }()
 	if err := pem.Encode(keyOut, &pem.Block{Type: "EC PRIVATE KEY", Bytes: keyBytes}); err != nil {
 		t.Fatalf("failed to write key pem: %v", err)
 	}

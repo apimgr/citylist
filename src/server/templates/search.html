@@ -1,78 +1,111 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="{{.Lang}}" dir="{{.Dir}}" class="theme-{{.Theme}}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Search Cities - Citylist API</title>
-    <meta name="description" content="Search world cities by name from our database of 200,000+ locations">
+    <meta name="base-url" content="{{.BaseURL}}">
+    <meta name="api-base" content="{{.APIBase}}">
+    <title>{{t .Lang "search.title"}} - Citylist API</title>
+    <meta name="description" content="{{t .Lang "search.description"}}">
     <meta name="theme-color" content="#6366f1">
-    <link rel="manifest" href="/manifest.json">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/main.css">
+    <link rel="manifest" href="{{.BaseURL}}/manifest.json">
+    <link rel="stylesheet" href="{{asset (printf "%s/static/css/main.css" .BaseURL)}}">
+  {{if .HasAccent}}<link rel="stylesheet" href="{{asset (printf "%s/static/css/accent.css" .BaseURL)}}">{{end}}
 </head>
 <body>
-    <!-- Header -->
-    <header class="header">
-        <nav class="nav">
-            <a href="/" class="nav-brand">
-                <div class="nav-brand-icon">🌍</div>
-                <span>Citylist</span>
-            </a>
-            <div class="nav-links">
-                <a href="/" class="nav-link">Home</a>
-                <a href="/search" class="nav-link active">Search</a>
-                <a href="/coordinates" class="nav-link">Location</a>
-                <a href="/openapi" class="nav-link">API Docs</a>
-            </div>
-        </nav>
-    </header>
-
-    <main>
+  <a class="skip-link" href="#main-content">{{t .Lang "common.skip_main"}}</a>
+  <a class="skip-link" href="#navigation">{{t .Lang "common.skip_navigation"}}</a>
+  {{.SiteBanners}}
+  <input type="checkbox" id="nav-toggle" class="nav-checkbox" aria-label="{{t .Lang "nav.toggle"}}">
+  <header class="header">
+    <a href="{{.BaseURL}}/" class="nav-brand">{{.BrandTitle}}</a>
+    <nav id="navigation" class="nav-links" aria-label="{{t .Lang "nav.main"}}">
+      <a href="{{.BaseURL}}/" class="nav-link">{{t .Lang "common.home"}}</a>
+      <a href="{{.BaseURL}}/search" class="nav-link active" aria-current="page">{{t .Lang "common.search"}}</a>
+      <a href="{{.BaseURL}}/coordinates" class="nav-link">{{t .Lang "coordinates.title"}}</a>
+    </nav>
+    <label for="nav-toggle" class="nav-toggle" aria-hidden="true">☰</label>
+    <div class="header-actions">
+      <a class="nav-link" href="{{.BaseURL}}/server/preferences">{{t .Lang "common.preferences"}}</a>
+      <form class="theme-toggle-form" action="{{.BaseURL}}/server/preferences" method="post">
+        <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+        <input type="hidden" name="redirect" value="{{.ReturnTo}}">
+        <input type="hidden" name="theme" value="{{.NextTheme}}">
+        <button class="btn btn-ghost" type="submit" aria-label="{{t .Lang "common.theme_toggle"}}">{{t .Lang "common.theme_toggle"}}</button>
+      </form>
+    </div>
+  </header>
+<main id="main-content">
         <!-- Search Section -->
         <section class="search-section">
             <div class="container container-sm">
                 <div class="section-header">
-                    <h1 class="section-title">Search Cities</h1>
-                    <p class="section-description">Find any city from our database of over 200,000 locations worldwide</p>
+                    <h1 class="section-title">{{t .Lang "search.title"}}</h1>
+                    <p class="section-description">{{t .Lang "search.description"}}</p>
                 </div>
 
-                <form id="searchForm" class="search-form">
+                <form id="searchForm" class="search-form" action="{{.BaseURL}}/search" method="get"
+                      data-city-label="{{t .Lang "search.city_name"}}"
+                      data-zip-label="{{t .Lang "search.zip_code"}}"
+                      data-city-placeholder="{{t .Lang "search.city_placeholder"}}"
+                      data-zip-placeholder="{{t .Lang "search.zip_placeholder"}}"
+                      data-city-hint="{{t .Lang "search.minimum_length"}}"
+                      data-zip-hint="{{t .Lang "search.zip_hint"}}"
+                      data-city-submit="{{t .Lang "search.submit"}}"
+                      data-zip-submit="{{t .Lang "search.submit_zip"}}"
+                      data-city-loading="{{t .Lang "search.loading"}}"
+                      data-zip-loading="{{t .Lang "search.loading_zip"}}"
+                      data-city-empty="{{t .Lang "search.no_results"}}"
+                      data-zip-empty="{{t .Lang "search.no_zip_found"}}"
+                      data-city-error="{{t .Lang "search.error"}}"
+                      data-city-error-detail="{{t .Lang "search.error_detail"}}"
+                      data-zip-error="{{t .Lang "search.zip_invalid"}}"
+                      data-zip-error-detail="{{t .Lang "search.zip_error_detail"}}"
+                      data-latitude-label="{{t .Lang "results.latitude"}}"
+                      data-longitude-label="{{t .Lang "results.longitude"}}">
                     <div class="form-group">
-                        <label for="query" class="form-label">City Name</label>
+                        <label for="searchType" class="form-label">{{t .Lang "search.type_label"}}</label>
+                        <select id="searchType" name="type" class="form-input">
+                            <option value="city"{{if eq .SearchType "city"}} selected{{end}}>{{t .Lang "search.city_option"}}</option>
+                            <option value="zip"{{if eq .SearchType "zip"}} selected{{end}}>{{t .Lang "search.zip_option"}}</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label id="queryLabel" for="query" class="form-label">{{if eq .SearchType "zip"}}{{t .Lang "search.zip_code"}}{{else}}{{t .Lang "search.city_name"}}{{end}}</label>
                         <input
                             type="text"
                             id="query"
                             name="q"
                             class="form-input form-input-lg"
-                            placeholder="Enter city name (e.g., London, Tokyo, Paris)"
+                            placeholder="{{if eq .SearchType "zip"}}{{t .Lang "search.zip_placeholder"}}{{else}}{{t .Lang "search.city_placeholder"}}{{end}}"
                             required
-                            minlength="2"
-                            autocomplete="off"
+                            {{if eq .SearchType "zip"}}inputmode="numeric" pattern="[0-9]{5}" maxlength="5"{{else}}minlength="2" maxlength="100"{{end}}
+                            value="{{.Query}}"
                         >
-                        <p class="form-hint">Minimum 2 characters required</p>
+                        <p id="queryHint" class="form-hint">{{if eq .SearchType "zip"}}{{t .Lang "search.zip_hint"}}{{else}}{{t .Lang "search.minimum_length"}}{{end}}</p>
                     </div>
-                    <div class="form-row">
+                    <div id="cityFilters" class="form-row"{{if eq .SearchType "zip"}} hidden{{end}}>
                         <div class="form-group">
-                            <label for="country" class="form-label">Country Code (optional)</label>
+                            <label for="country" class="form-label">{{t .Lang "search.country_code"}}</label>
                             <input
                                 type="text"
                                 id="country"
                                 name="country"
                                 class="form-input"
-                                placeholder="e.g., US, GB, JP"
+                                placeholder="{{t .Lang "search.country_placeholder"}}"
                                 maxlength="2"
+                                pattern="[A-Za-z]{2}"
+                                value="{{.Country}}"
                             >
                         </div>
                         <div class="form-group">
-                            <label for="limit" class="form-label">Results Limit</label>
+                            <label for="limit" class="form-label">{{t .Lang "search.results_limit"}}</label>
                             <input
                                 type="number"
                                 id="limit"
                                 name="limit"
                                 class="form-input"
-                                value="20"
+                                value="{{.Limit}}"
                                 min="1"
                                 max="100"
                             >
@@ -80,129 +113,90 @@
                     </div>
                     <button type="submit" class="btn btn-primary btn-lg btn-block">
                         <span class="btn-icon">🔍</span>
-                        Search Cities
+                        <span id="searchSubmitLabel">{{if eq .SearchType "zip"}}{{t .Lang "search.submit_zip"}}{{else}}{{t .Lang "search.submit"}}{{end}}</span>
                     </button>
                 </form>
 
-                <!-- Loading State -->
-                <div id="loading" class="loading-state" style="display: none;">
+                {{if .SearchError}}<p class="form-error" role="alert">{{.SearchError}}</p>{{end}}
+
+                <!-- The server renders query results; JavaScript only enhances subsequent searches. -->
+                <div id="loading" class="loading-state is-hidden" role="status" aria-live="polite">
                     <div class="loading-spinner"></div>
-                    <p>Searching cities...</p>
+                    <p id="loadingLabel">{{if eq .SearchType "zip"}}{{t .Lang "search.loading_zip"}}{{else}}{{t .Lang "search.loading"}}{{end}}</p>
                 </div>
 
-                <!-- Results Section -->
-                <section id="results" class="results-section" style="display: none;">
+                <section id="results" class="results-section{{if not .HasSearch}} is-hidden{{end}}" aria-live="polite">
                     <div class="results-header">
-                        <h2 class="results-title">Search Results</h2>
-                        <span id="resultCount" class="results-count"></span>
+                        <h2 class="results-title">{{t .Lang "search.results"}}</h2>
+                        <span id="resultCount" class="results-count">{{if and .HasSearch (eq .SearchType "city")}}{{tp .Lang "plurals.cities_found" (len .Cities)}}{{end}}{{if .ZIPRecord}}{{t .Lang "search.zip_found"}}{{end}}</span>
                     </div>
-                    <div id="resultsList" class="results-grid"></div>
+                    <div id="resultsList" class="results-grid">
+                        {{range .Cities}}
+                        <article class="result-card">
+                            <div class="result-card-header">
+                                <h3 class="result-card-title">{{.Name}}</h3>
+                                <span class="result-card-badge">{{.Country}}</span>
+                            </div>
+                            <div class="result-card-body">
+                                <div class="result-card-stat"><span class="result-card-stat-label">{{t $.Lang "results.city_id"}}</span><span class="result-card-stat-value">{{.ID}}</span></div>
+                                <div class="result-card-stat"><span class="result-card-stat-label">{{t $.Lang "results.latitude"}}</span><span class="result-card-stat-value">{{printf "%.4f" .Coord.Lat}}</span></div>
+                                <div class="result-card-stat"><span class="result-card-stat-label">{{t $.Lang "results.longitude"}}</span><span class="result-card-stat-value">{{printf "%.4f" .Coord.Lon}}</span></div>
+                            </div>
+                        </article>
+                        {{end}}
+                        {{with .ZIPRecord}}
+                        <article class="result-card">
+                            <div class="result-card-header">
+                                <h3 class="result-card-title">{{.City}}</h3>
+                                <span class="result-card-badge">{{.State}}</span>
+                            </div>
+                            <div class="result-card-body">
+                                <div class="result-card-stat"><span class="result-card-stat-label">{{t $.Lang "search.zip_code"}}</span><span class="result-card-stat-value">{{.ZIP}}</span></div>
+                                <div class="result-card-stat"><span class="result-card-stat-label">{{t $.Lang "results.latitude"}}</span><span class="result-card-stat-value">{{printf "%.4f" .Lat}}</span></div>
+                                <div class="result-card-stat"><span class="result-card-stat-label">{{t $.Lang "results.longitude"}}</span><span class="result-card-stat-value">{{printf "%.4f" .Lon}}</span></div>
+                            </div>
+                        </article>
+                        {{end}}
+                    </div>
                 </section>
 
-                <!-- Empty State -->
-                <div id="emptyState" class="empty-state" style="display: none;">
+                <div id="emptyState" class="empty-state{{if or (not .HasSearch) .Cities .ZIPRecord .SearchError}} is-hidden{{end}}">
                     <div class="empty-state-icon">🔍</div>
-                    <h3 class="empty-state-title">No cities found</h3>
-                    <p class="empty-state-description">Try a different search term or check the spelling</p>
+                    <h3 id="emptyStateTitle" class="empty-state-title">{{if eq .SearchType "zip"}}{{t .Lang "search.no_zip_found"}}{{else}}{{t .Lang "search.no_results"}}{{end}}</h3>
+                    <p class="empty-state-description">{{t .Lang "search.try_again"}}</p>
                 </div>
             </div>
         </section>
     </main>
+  <nav class="nav-panel" id="nav-panel" aria-label="{{t .Lang "nav.main"}}">
+    <label for="nav-toggle" class="nav-close" role="button" tabindex="0" aria-label="{{t .Lang "nav.close"}}">✕</label>
+      <a href="{{.BaseURL}}/" class="nav-link">{{t .Lang "common.home"}}</a>
+      <a href="{{.BaseURL}}/search" class="nav-link active" aria-current="page">{{t .Lang "common.search"}}</a>
+      <a href="{{.BaseURL}}/coordinates" class="nav-link">{{t .Lang "coordinates.title"}}</a>
+  </nav>
+  <label for="nav-toggle" class="nav-overlay" aria-hidden="true"></label>
 
     <!-- Footer -->
     <footer class="footer">
         <div class="footer-content">
             <div class="footer-brand">
                 <div class="footer-logo">🌍</div>
-                <span class="footer-text">Citylist API - Part of apimgr</span>
+                <span class="footer-text">{{t .Lang "footer.brand"}}</span>
             </div>
             <div class="footer-links">
-                <a href="/openapi" class="footer-link">API Docs</a>
-                <a href="/healthz" class="footer-link">Status</a>
-                <a href="https://github.com/apimgr" class="footer-link">GitHub</a>
+                <a href="{{.BaseURL}}/server/about" class="footer-link">{{t .Lang "nav.about"}}</a>
+                <a href="{{.BaseURL}}/server/help" class="footer-link">{{t .Lang "nav.help"}}</a>
+                <a href="{{.BaseURL}}/server/docs/swagger" class="footer-link">{{t .Lang "common.api_docs"}}</a>
+                <a href="{{.BaseURL}}/server/privacy" class="footer-link">{{t .Lang "nav.privacy"}}</a>
+                <a href="{{.BaseURL}}/server/terms" class="footer-link">{{t .Lang "nav.terms"}}</a>
+                <a href="{{.BaseURL}}/server/preferences" class="footer-link">{{t .Lang "common.preferences"}}</a>
+                <a href="{{.BaseURL}}/server/preferences#language" class="footer-link" lang="{{.Lang}}">{{.LanguageName}}</a>
+                <a href="https://github.com/apimgr/citylist" class="footer-link">{{t .Lang "footer.github"}}</a>
             </div>
         </div>
     </footer>
-
-    <script src="/static/js/main.js"></script>
-    <script>
-        const searchForm = document.getElementById('searchForm');
-        const loading = document.getElementById('loading');
-        const results = document.getElementById('results');
-        const resultsList = document.getElementById('resultsList');
-        const resultCount = document.getElementById('resultCount');
-        const emptyState = document.getElementById('emptyState');
-
-        searchForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-
-            const query = document.getElementById('query').value.trim();
-            const country = document.getElementById('country').value.trim().toUpperCase();
-            const limit = document.getElementById('limit').value;
-
-            // Show loading state
-            loading.style.display = 'flex';
-            results.style.display = 'none';
-            emptyState.style.display = 'none';
-
-            try {
-                let url = `/api/v1/cities/search?q=${encodeURIComponent(query)}&limit=${limit}`;
-                if (country) {
-                    url += `&country=${encodeURIComponent(country)}`;
-                }
-
-                const response = await fetch(url);
-                const data = await response.json();
-
-                loading.style.display = 'none';
-
-                if (data.length === 0) {
-                    emptyState.style.display = 'flex';
-                    return;
-                }
-
-                results.style.display = 'block';
-                resultCount.textContent = `${data.length} ${data.length === 1 ? 'city' : 'cities'} found`;
-
-                resultsList.innerHTML = data.map(city => `
-                    <div class="result-card">
-                        <div class="result-card-header">
-                            <h3 class="result-card-title">${escapeHtml(city.name)}</h3>
-                            <span class="result-card-badge">${escapeHtml(city.country)}</span>
-                        </div>
-                        <div class="result-card-body">
-                            <div class="result-card-stat">
-                                <span class="result-card-stat-label">City ID</span>
-                                <span class="result-card-stat-value">${city.id}</span>
-                            </div>
-                            <div class="result-card-stat">
-                                <span class="result-card-stat-label">Latitude</span>
-                                <span class="result-card-stat-value">${city.coord.lat.toFixed(4)}</span>
-                            </div>
-                            <div class="result-card-stat">
-                                <span class="result-card-stat-label">Longitude</span>
-                                <span class="result-card-stat-value">${city.coord.lon.toFixed(4)}</span>
-                            </div>
-                        </div>
-                    </div>
-                `).join('');
-            } catch (error) {
-                loading.style.display = 'none';
-                console.error('Search error:', error);
-                emptyState.querySelector('.empty-state-title').textContent = 'Search Error';
-                emptyState.querySelector('.empty-state-description').textContent = 'Unable to search cities. Please try again.';
-                emptyState.style.display = 'flex';
-            }
-        });
-
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
-
-        // Focus input on page load
-        document.getElementById('query').focus();
-    </script>
+    <script src="{{asset (printf "%s/static/js/app.js" .BaseURL)}}" defer></script>
+    {{.ConsentBanner}}
 </body>
 </html>
+{{define "theme-form"}}<form class="theme-toggle-form" action="{{.BaseURL}}/server/preferences" method="post"><input type="hidden" name="csrf_token" value="{{.CSRFToken}}"><input type="hidden" name="redirect" value="{{.ReturnTo}}"><input type="hidden" name="theme" value="{{.NextTheme}}"><button class="btn btn-ghost" type="submit" aria-label="{{t .Lang "common.theme"}}">{{t .Lang "common.theme_toggle"}}</button></form>{{end}}

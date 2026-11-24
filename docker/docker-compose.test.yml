@@ -1,0 +1,59 @@
+name: citylist
+
+x-logging: &default-logging
+  options:
+    max-size: "5m"
+    max-file: "1"
+  driver: json-file
+
+services:
+  citylist:
+    image: ${CITYLIST_TEST_IMAGE:-ghcr.io/apimgr/citylist:devel}
+    container_name: citylist-app
+    hostname: citylist
+    restart: "no"
+    logging: *default-logging
+    environment:
+      PORT: 80
+      DEBUG: true
+      MODE: development
+      TZ: ${TZ:-America/New_York}
+      CACHE_URL: valkey://citylist-cache:6379
+    volumes:
+      - ${CITYLIST_TEST_VOLUME_DIR:-./volumes}/config:/config:z
+      - ${CITYLIST_TEST_VOLUME_DIR:-./volumes}/data:/data:z
+    ports:
+      - "172.17.0.1:${CITYLIST_TEST_PORT:-64581}:80"
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/citylist", "--status"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 90s
+    depends_on:
+      citylist-cache:
+        condition: service_healthy
+    networks:
+      - citylist
+
+  citylist-cache:
+    image: valkey/valkey:alpine
+    pull_policy: always
+    container_name: citylist-cache
+    restart: "no"
+    logging: *default-logging
+    tmpfs:
+      - /data
+    healthcheck:
+      test: ["CMD-SHELL", "valkey-cli ping || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      - citylist
+
+networks:
+  citylist:
+    name: ${CITYLIST_TEST_NETWORK:-citylist}
+    external: false

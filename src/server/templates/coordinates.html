@@ -1,93 +1,104 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="{{.Lang}}" dir="{{.Dir}}" class="theme-{{.Theme}}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Find by Location - Citylist API</title>
-    <meta name="description" content="Find cities by geographic coordinates or use your current location">
+    <meta name="base-url" content="{{.BaseURL}}">
+    <title>{{t .Lang "coordinates.title"}} - {{t .Lang "footer.brand"}}</title>
+    <meta name="description" content="{{t .Lang "coordinates.description"}}">
     <meta name="theme-color" content="#6366f1">
-    <link rel="manifest" href="/manifest.json">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/main.css">
+    <link rel="manifest" href="{{.BaseURL}}/manifest.json">
+    <link rel="stylesheet" href="{{asset (printf "%s/static/css/main.css" .BaseURL)}}">
+  {{if .HasAccent}}<link rel="stylesheet" href="{{asset (printf "%s/static/css/accent.css" .BaseURL)}}">{{end}}
 </head>
 <body>
-    <!-- Header -->
-    <header class="header">
-        <nav class="nav">
-            <a href="/" class="nav-brand">
-                <div class="nav-brand-icon">🌍</div>
-                <span>Citylist</span>
-            </a>
-            <div class="nav-links">
-                <a href="/" class="nav-link">Home</a>
-                <a href="/search" class="nav-link">Search</a>
-                <a href="/coordinates" class="nav-link active">Location</a>
-                <a href="/openapi" class="nav-link">API Docs</a>
-            </div>
-        </nav>
-    </header>
-
-    <main>
+  <a class="skip-link" href="#main-content">{{t .Lang "common.skip_main"}}</a>
+  <a class="skip-link" href="#navigation">{{t .Lang "common.skip_navigation"}}</a>
+  {{.SiteBanners}}
+  <input type="checkbox" id="nav-toggle" class="nav-checkbox" aria-label="{{t .Lang "nav.toggle"}}">
+  <header class="header">
+    <a href="{{.BaseURL}}/" class="nav-brand">{{.BrandTitle}}</a>
+    <nav id="navigation" class="nav-links" aria-label="{{t .Lang "nav.main"}}">
+      <a href="{{.BaseURL}}/" class="nav-link">{{t .Lang "common.home"}}</a>
+      <a href="{{.BaseURL}}/search" class="nav-link">{{t .Lang "common.search"}}</a>
+      <a href="{{.BaseURL}}/coordinates" class="nav-link active" aria-current="page">{{t .Lang "coordinates.title"}}</a>
+    </nav>
+    <label for="nav-toggle" class="nav-toggle" aria-hidden="true">☰</label>
+    <div class="header-actions">
+      <a class="nav-link" href="{{.BaseURL}}/server/preferences">{{t .Lang "common.preferences"}}</a>
+      <form class="theme-toggle-form" action="{{.BaseURL}}/server/preferences" method="post">
+        <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+        <input type="hidden" name="redirect" value="{{.ReturnTo}}">
+        <input type="hidden" name="theme" value="{{.NextTheme}}">
+        <button class="btn btn-ghost" type="submit" aria-label="{{t .Lang "common.theme_toggle"}}">{{t .Lang "common.theme_toggle"}}</button>
+      </form>
+    </div>
+  </header>
+<main id="main-content">
         <!-- Location Section -->
         <section class="search-section">
             <div class="container container-sm">
                 <div class="section-header">
-                    <h1 class="section-title">Find by Location</h1>
-                    <p class="section-description">Discover cities near any geographic coordinates using our geolocation search</p>
+                    <h1 class="section-title">{{t .Lang "coordinates.title"}}</h1>
+                    <p class="section-description">{{t .Lang "coordinates.description"}}</p>
                 </div>
 
-                <form id="coordForm" class="search-form">
+                <form id="coordForm" class="search-form" action="{{.BaseURL}}/coordinates" method="get">
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="lat" class="form-label">Latitude</label>
+                            <label for="lat" class="form-label">{{t .Lang "coordinates.latitude"}}</label>
                             <input
                                 type="number"
                                 id="lat"
                                 name="lat"
                                 class="form-input"
                                 step="any"
-                                placeholder="e.g., 40.7128"
+                                placeholder="40.7128"
                                 required
+                                min="-90"
+                                max="90"
+                                value="{{.Latitude}}"
                             >
-                            <p class="form-hint">Range: -90 to 90</p>
+                            <p class="form-hint">{{t .Lang "coordinates.latitude_range"}}</p>
                         </div>
                         <div class="form-group">
-                            <label for="lon" class="form-label">Longitude</label>
+                            <label for="lon" class="form-label">{{t .Lang "coordinates.longitude"}}</label>
                             <input
                                 type="number"
                                 id="lon"
                                 name="lon"
                                 class="form-input"
                                 step="any"
-                                placeholder="e.g., -74.0060"
+                                placeholder="-74.0060"
                                 required
+                                min="-180"
+                                max="180"
+                                value="{{.Longitude}}"
                             >
-                            <p class="form-hint">Range: -180 to 180</p>
+                            <p class="form-hint">{{t .Lang "coordinates.longitude_range"}}</p>
                         </div>
                     </div>
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="radius" class="form-label">Search Radius (km)</label>
+                            <label for="radius" class="form-label">{{t .Lang "coordinates.radius"}}</label>
                             <input
                                 type="number"
                                 id="radius"
                                 name="radius"
                                 class="form-input"
-                                value="50"
                                 min="1"
-                                max="500"
+                                max="20000"
+                                value="{{.Radius}}"
                             >
                         </div>
                         <div class="form-group">
-                            <label for="limit" class="form-label">Max Results</label>
+                            <label for="limit" class="form-label">{{t .Lang "coordinates.max_results"}}</label>
                             <input
                                 type="number"
                                 id="limit"
                                 name="limit"
                                 class="form-input"
-                                value="10"
+                                value="{{.Limit}}"
                                 min="1"
                                 max="100"
                             >
@@ -96,41 +107,53 @@
                     <div class="btn-group">
                         <button type="submit" class="btn btn-primary btn-lg">
                             <span class="btn-icon">📍</span>
-                            Find Nearby Cities
+                            {{t .Lang "coordinates.find_nearby"}}
                         </button>
                         <button type="button" class="btn btn-secondary btn-lg" id="useLocation">
                             <span class="btn-icon">🎯</span>
-                            Use My Location
+                            {{t .Lang "coordinates.use_location"}}
                         </button>
                     </div>
                 </form>
 
-                <!-- Location Status -->
-                <div id="locationStatus" class="location-status" style="display: none;">
+                {{if .SearchError}}<p class="form-error" role="alert">{{.SearchError}}</p>{{end}}
+
+                <div id="locationStatus" class="location-status is-hidden" role="status" aria-live="polite">
                     <div class="location-status-icon">📍</div>
-                    <span class="location-status-text">Getting your location...</span>
+                    <span class="location-status-text">{{t .Lang "coordinates.getting_location"}}</span>
                 </div>
 
-                <!-- Loading State -->
-                <div id="loading" class="loading-state" style="display: none;">
+                <div id="loading" class="loading-state is-hidden" role="status" aria-live="polite">
                     <div class="loading-spinner"></div>
-                    <p>Finding nearby cities...</p>
+                    <p>{{t .Lang "coordinates.finding_cities"}}</p>
                 </div>
 
-                <!-- Results Section -->
-                <section id="results" class="results-section" style="display: none;">
+                <section id="results" class="results-section{{if not .HasCoordinates}} is-hidden{{end}}" aria-live="polite">
                     <div class="results-header">
-                        <h2 class="results-title">Nearby Cities</h2>
-                        <span id="resultCount" class="results-count"></span>
+                        <h2 class="results-title">{{t .Lang "coordinates.nearby_cities"}}</h2>
+                        <span id="resultCount" class="results-count">{{if .HasCoordinates}}{{tp .Lang "plurals.cities_found" (len .Nearby)}}{{end}}</span>
                     </div>
-                    <div id="resultsList" class="results-grid"></div>
+                    <div id="resultsList" class="results-grid">
+                        {{range .Nearby}}
+                        <article class="result-card">
+                            <div class="result-card-header">
+                                <h3 class="result-card-title">{{.City.Name}}</h3>
+                                <span class="result-card-badge">{{.City.Country}}</span>
+                            </div>
+                            <div class="result-card-body">
+                                <div class="result-card-stat result-card-stat-highlight"><span class="result-card-stat-label">{{t $.Lang "results.distance"}}</span><span class="result-card-stat-value">{{printf "%.2f" .Distance}} km</span></div>
+                                <div class="result-card-stat"><span class="result-card-stat-label">{{t $.Lang "results.latitude"}}</span><span class="result-card-stat-value">{{printf "%.4f" .City.Coord.Lat}}</span></div>
+                                <div class="result-card-stat"><span class="result-card-stat-label">{{t $.Lang "results.longitude"}}</span><span class="result-card-stat-value">{{printf "%.4f" .City.Coord.Lon}}</span></div>
+                            </div>
+                        </article>
+                        {{end}}
+                    </div>
                 </section>
 
-                <!-- Empty State -->
-                <div id="emptyState" class="empty-state" style="display: none;">
+                <div id="emptyState" class="empty-state{{if or (not .HasCoordinates) .Nearby}} is-hidden{{end}}">
                     <div class="empty-state-icon">📍</div>
-                    <h3 class="empty-state-title">No cities found</h3>
-                    <p class="empty-state-description">Try increasing the search radius or check your coordinates</p>
+                    <h3 class="empty-state-title">{{t .Lang "coordinates.no_results"}}</h3>
+                    <p class="empty-state-description">{{t .Lang "coordinates.no_results_hint"}}</p>
                 </div>
             </div>
         </section>
@@ -139,169 +162,58 @@
         <section class="features">
             <div class="container">
                 <div class="section-header">
-                    <h2 class="section-title">Quick Tips</h2>
-                    <p class="section-description">How to use the location finder</p>
+                        <h2 class="section-title">{{t .Lang "coordinates.quick_tips"}}</h2>
+                        <p class="section-description">{{t .Lang "coordinates.tips_description"}}</p>
                 </div>
                 <div class="features-grid">
                     <div class="feature-card">
                         <div class="feature-icon">🎯</div>
-                        <h3 class="feature-title">Use Your Location</h3>
-                        <p class="feature-description">Click "Use My Location" to automatically fill in your current coordinates using GPS.</p>
+                        <h3 class="feature-title">{{t .Lang "coordinates.use_location_title"}}</h3>
+                        <p class="feature-description">{{t .Lang "coordinates.use_location_description"}}</p>
                     </div>
                     <div class="feature-card">
                         <div class="feature-icon">📐</div>
-                        <h3 class="feature-title">Adjust Radius</h3>
-                        <p class="feature-description">Increase or decrease the search radius to find more or fewer cities around your point.</p>
+                        <h3 class="feature-title">{{t .Lang "coordinates.adjust_radius"}}</h3>
+                        <p class="feature-description">{{t .Lang "coordinates.adjust_radius_description"}}</p>
                     </div>
                     <div class="feature-card">
                         <div class="feature-icon">🗺️</div>
-                        <h3 class="feature-title">World Coverage</h3>
-                        <p class="feature-description">Our database covers 209,579 cities across 248 countries worldwide.</p>
+                        <h3 class="feature-title">{{t .Lang "coordinates.world_coverage"}}</h3>
+                        <p class="feature-description">{{t .Lang "coordinates.world_coverage_description"}}</p>
                     </div>
                 </div>
             </div>
         </section>
     </main>
+  <nav class="nav-panel" id="nav-panel" aria-label="{{t .Lang "nav.main"}}">
+    <label for="nav-toggle" class="nav-close" role="button" tabindex="0" aria-label="{{t .Lang "nav.close"}}">✕</label>
+      <a href="{{.BaseURL}}/" class="nav-link">{{t .Lang "common.home"}}</a>
+      <a href="{{.BaseURL}}/search" class="nav-link">{{t .Lang "common.search"}}</a>
+      <a href="{{.BaseURL}}/coordinates" class="nav-link active" aria-current="page">{{t .Lang "coordinates.title"}}</a>
+  </nav>
+  <label for="nav-toggle" class="nav-overlay" aria-hidden="true"></label>
 
     <!-- Footer -->
     <footer class="footer">
         <div class="footer-content">
             <div class="footer-brand">
                 <div class="footer-logo">🌍</div>
-                <span class="footer-text">Citylist API - Part of apimgr</span>
+                <span class="footer-text">{{t .Lang "footer.brand"}}</span>
             </div>
             <div class="footer-links">
-                <a href="/openapi" class="footer-link">API Docs</a>
-                <a href="/healthz" class="footer-link">Status</a>
-                <a href="https://github.com/apimgr" class="footer-link">GitHub</a>
+                <a href="{{.BaseURL}}/server/about" class="footer-link">{{t .Lang "nav.about"}}</a>
+                <a href="{{.BaseURL}}/server/help" class="footer-link">{{t .Lang "nav.help"}}</a>
+                <a href="{{.BaseURL}}/server/docs/swagger" class="footer-link">{{t .Lang "common.api_docs"}}</a>
+                <a href="{{.BaseURL}}/server/privacy" class="footer-link">{{t .Lang "nav.privacy"}}</a>
+                <a href="{{.BaseURL}}/server/terms" class="footer-link">{{t .Lang "nav.terms"}}</a>
+                <a href="{{.BaseURL}}/server/preferences" class="footer-link">{{t .Lang "common.preferences"}}</a>
+                <a href="{{.BaseURL}}/server/preferences#language" class="footer-link" lang="{{.Lang}}">{{.LanguageName}}</a>
+                <a href="https://github.com/apimgr/citylist" class="footer-link">{{t .Lang "footer.github"}}</a>
             </div>
         </div>
     </footer>
-
-    <script src="/static/js/main.js"></script>
-    <script>
-        const coordForm = document.getElementById('coordForm');
-        const useLocationBtn = document.getElementById('useLocation');
-        const locationStatus = document.getElementById('locationStatus');
-        const loading = document.getElementById('loading');
-        const results = document.getElementById('results');
-        const resultsList = document.getElementById('resultsList');
-        const resultCount = document.getElementById('resultCount');
-        const emptyState = document.getElementById('emptyState');
-
-        // Use My Location button
-        useLocationBtn.addEventListener('click', () => {
-            if (!navigator.geolocation) {
-                alert('Geolocation is not supported by your browser.');
-                return;
-            }
-
-            locationStatus.style.display = 'flex';
-            locationStatus.querySelector('.location-status-text').textContent = 'Getting your location...';
-
-            navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    document.getElementById('lat').value = position.coords.latitude.toFixed(6);
-                    document.getElementById('lon').value = position.coords.longitude.toFixed(6);
-                    locationStatus.querySelector('.location-status-text').textContent = 'Location found!';
-                    setTimeout(() => {
-                        locationStatus.style.display = 'none';
-                    }, 2000);
-                },
-                (error) => {
-                    locationStatus.style.display = 'none';
-                    let message = 'Unable to get your location';
-                    switch (error.code) {
-                        case error.PERMISSION_DENIED:
-                            message = 'Location permission denied';
-                            break;
-                        case error.POSITION_UNAVAILABLE:
-                            message = 'Location information unavailable';
-                            break;
-                        case error.TIMEOUT:
-                            message = 'Location request timed out';
-                            break;
-                    }
-                    alert(message);
-                },
-                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-            );
-        });
-
-        // Form submission
-        coordForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-
-            const lat = parseFloat(document.getElementById('lat').value);
-            const lon = parseFloat(document.getElementById('lon').value);
-            const radius = document.getElementById('radius').value;
-            const limit = document.getElementById('limit').value;
-
-            // Validate coordinates
-            if (lat < -90 || lat > 90) {
-                alert('Latitude must be between -90 and 90');
-                return;
-            }
-            if (lon < -180 || lon > 180) {
-                alert('Longitude must be between -180 and 180');
-                return;
-            }
-
-            // Show loading state
-            loading.style.display = 'flex';
-            results.style.display = 'none';
-            emptyState.style.display = 'none';
-
-            try {
-                const response = await fetch(`/api/v1/cities/nearby?lat=${lat}&lon=${lon}&radius=${radius}&limit=${limit}`);
-                const data = await response.json();
-
-                loading.style.display = 'none';
-
-                if (data.length === 0) {
-                    emptyState.style.display = 'flex';
-                    return;
-                }
-
-                results.style.display = 'block';
-                resultCount.textContent = `${data.length} ${data.length === 1 ? 'city' : 'cities'} within ${radius}km`;
-
-                resultsList.innerHTML = data.map((city, index) => `
-                    <div class="result-card ${index === 0 ? 'result-card-featured' : ''}">
-                        <div class="result-card-header">
-                            <h3 class="result-card-title">${escapeHtml(city.name)}</h3>
-                            <span class="result-card-badge">${escapeHtml(city.country)}</span>
-                        </div>
-                        <div class="result-card-body">
-                            <div class="result-card-stat result-card-stat-highlight">
-                                <span class="result-card-stat-label">Distance</span>
-                                <span class="result-card-stat-value">${city.distance.toFixed(2)} km</span>
-                            </div>
-                            <div class="result-card-stat">
-                                <span class="result-card-stat-label">Latitude</span>
-                                <span class="result-card-stat-value">${city.coord.lat.toFixed(4)}</span>
-                            </div>
-                            <div class="result-card-stat">
-                                <span class="result-card-stat-label">Longitude</span>
-                                <span class="result-card-stat-value">${city.coord.lon.toFixed(4)}</span>
-                            </div>
-                        </div>
-                    </div>
-                `).join('');
-            } catch (error) {
-                loading.style.display = 'none';
-                console.error('Search error:', error);
-                emptyState.querySelector('.empty-state-title').textContent = 'Search Error';
-                emptyState.querySelector('.empty-state-description').textContent = 'Unable to find nearby cities. Please try again.';
-                emptyState.style.display = 'flex';
-            }
-        });
-
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
-    </script>
+    <script src="{{asset (printf "%s/static/js/app.js" .BaseURL)}}" defer></script>
+    {{.ConsentBanner}}
 </body>
 </html>
+{{define "theme-form"}}<form class="theme-toggle-form" action="{{.BaseURL}}/server/preferences" method="post"><input type="hidden" name="csrf_token" value="{{.CSRFToken}}"><input type="hidden" name="redirect" value="{{.ReturnTo}}"><input type="hidden" name="theme" value="{{.NextTheme}}"><button class="btn btn-ghost" type="submit" aria-label="{{t .Lang "common.theme"}}">{{t .Lang "common.theme_toggle"}}</button></form>{{end}}

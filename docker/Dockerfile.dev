@@ -8,9 +8,11 @@ RUN apk add --no-cache git bash
 RUN go install github.com/go-delve/delve/cmd/dlv@latest
 
 ARG TARGETARCH
-ARG VERSION=dev
+ARG VERSION=devel
 ARG BUILD_DATE
-ARG VCS_REF
+ARG COMMIT_ID
+ARG BUILD_EPOCH
+ARG OFFICIAL_SITE
 
 WORKDIR /app
 
@@ -20,8 +22,9 @@ RUN go mod download
 
 # Copy source and build without stripping debug symbols
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build -buildvcs=false \
-    -ldflags "-X 'main.Version=${VERSION}' -X 'main.Commit=${VCS_REF}' -X 'main.BuildDate=${BUILD_DATE}'" \
+RUN mkdir -p /app/binary
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build -buildvcs=false -trimpath \
+    -ldflags "-X 'main.Version=${VERSION}' -X 'main.CommitID=${COMMIT_ID}' -X 'main.BuildEpoch=${BUILD_EPOCH}' -X 'main.OfficialSite=${OFFICIAL_SITE}'" \
     -o /app/binary/citylist ./src
 
 # =============================================================================
@@ -30,10 +33,11 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build -buildvcs=false \
 FROM alpine:latest
 
 # ARGs for build-time values (set by docker build --build-arg)
-ARG VERSION=dev
+ARG VERSION=devel
 ARG BUILD_DATE
-ARG VCS_REF
-ARG LICENSE=MIT
+ARG COMMIT_ID
+ARG BUILD_EPOCH
+ARG OFFICIAL_SITE
 
 # No LABEL blocks — all image metadata is applied as OCI annotations at build time,
 # per AI.md PART 26 and docker-rules.md.
@@ -48,7 +52,10 @@ RUN apk add --no-cache \
     curl \
     bash \
     tini \
-    tor
+    tor \
+    i2pd \
+    tzdata \
+    ca-certificates
 
 # Copy binary from builder stage
 COPY --from=builder /app/binary/citylist /usr/local/bin/citylist
@@ -74,9 +81,8 @@ RUN chmod 755 /usr/local/bin/*
 # trivy:ignore:AVD-DS-0002
 
 # Development environment variables — debug symbols retained
-# MODE is never baked into the image — binary defaults to production; compose sets MODE explicitly
 ENV TZ=America/New_York \
-    ENABLE_TOR=true
+    MODE=development
 
 # Expose internal port (always 80)
 EXPOSE 80

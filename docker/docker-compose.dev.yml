@@ -1,0 +1,42 @@
+# nginx proxy address - http://127.0.0.1:64580
+# citylist - development
+
+name: citylist
+
+x-logging: &default-logging
+  options:
+    max-size: "5m"
+    max-file: "1"
+  driver: json-file
+
+services:
+  citylist:
+    image: ghcr.io/apimgr/citylist:devel
+    container_name: citylist-app
+    hostname: citylist
+    restart: always
+    pull_policy: always
+    logging: *default-logging
+    environment:
+      PORT: 80
+      DEBUG: true
+      MODE: development
+      TZ: ${TZ:-America/New_York}
+    volumes:
+      - ./volumes/config:/config
+      - ./volumes/data:/data
+    ports:
+      - "64580:80"
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/citylist", "--status"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 90s
+    networks:
+      - citylist
+
+networks:
+  citylist:
+    name: citylist
+    external: false

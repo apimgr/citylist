@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="{{.Lang}}" dir="{{.Dir}}" class="theme-{{.Theme}}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="base-url" content="{{.BaseURL}}">
+  <title>{{t .Lang "pages.dpo.title"}} - Citylist</title>
+  <link rel="stylesheet" href="{{asset (printf "%s/static/css/main.css" .BaseURL)}}">
+  {{if .HasAccent}}<link rel="stylesheet" href="{{asset (printf "%s/static/css/accent.css" .BaseURL)}}">{{end}}
+</head>
+<body>
+  <a class="skip-link" href="#main-content">{{t .Lang "common.skip_main"}}</a>
+  <a class="skip-link" href="#navigation">{{t .Lang "common.skip_navigation"}}</a>
+  {{.SiteBanners}}
+  <input type="checkbox" id="nav-toggle" class="nav-checkbox" aria-label="{{t .Lang "nav.toggle"}}">
+  <header class="header">
+    <a href="{{.BaseURL}}/" class="nav-brand">{{.BrandTitle}}</a>
+    <nav id="navigation" class="nav-links" aria-label="{{t .Lang "nav.main"}}">
+      <a href="{{.BaseURL}}/" {{if eq .CurrentPath "/"}} class="nav-link active" aria-current="page"{{else}} class="nav-link"{{end}}>{{t .Lang "common.home"}}</a>
+      <a href="{{.BaseURL}}/search" {{if eq .CurrentPath "/search"}} class="nav-link active" aria-current="page"{{else}} class="nav-link"{{end}}>{{t .Lang "common.search"}}</a>
+      <a href="{{.BaseURL}}/coordinates" {{if eq .CurrentPath "/coordinates"}} class="nav-link active" aria-current="page"{{else}} class="nav-link"{{end}}>{{t .Lang "coordinates.title"}}</a>
+    </nav>
+    <label for="nav-toggle" class="nav-toggle" aria-hidden="true">☰</label>
+    <div class="header-actions">
+      <a class="nav-link" href="{{.BaseURL}}/server/preferences">{{t .Lang "common.preferences"}}</a>
+      <form class="theme-toggle-form" action="{{.BaseURL}}/server/preferences" method="post">
+        <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+        <input type="hidden" name="redirect" value="{{.ReturnTo}}">
+        <input type="hidden" name="theme" value="{{.NextTheme}}">
+        <button class="btn btn-ghost" type="submit" aria-label="{{t .Lang "common.theme_toggle"}}">{{t .Lang "common.theme_toggle"}}</button>
+      </form>
+    </div>
+  </header>
+<main id="main-content" class="container container-sm page-shell">
+    <header class="page-header"><h1 class="page-title">{{t .Lang "pages.dpo.title"}}</h1><p class="page-lead">{{t .Lang "pages.dpo.lead"}}</p></header>
+    <section class="section-card" aria-labelledby="dpo-contact"><h2 id="dpo-contact">{{t .Lang "pages.dpo.contact_title"}}</h2>
+      {{if .DPO.Name}}<p>{{.DPO.Name}}</p>{{end}}
+      {{if .DPO.Email}}<p><a href="mailto:{{.DPO.Email}}">{{.DPO.Email}}</a></p>{{else}}<p><a href="{{.BaseURL}}/server/security">{{t .Lang "pages.dpo.security_fallback"}}</a></p>{{end}}
+      <p><a href="{{.DPO.PrivacyURL}}">{{t .Lang "pages.dpo.privacy_link"}}</a></p>
+    </section>
+  </main>
+  <nav class="nav-panel" id="nav-panel" aria-label="{{t .Lang "nav.main"}}">
+    <label for="nav-toggle" class="nav-close" role="button" tabindex="0" aria-label="{{t .Lang "nav.close"}}">✕</label>
+      <a href="{{.BaseURL}}/" {{if eq .CurrentPath "/"}} class="nav-link active" aria-current="page"{{else}} class="nav-link"{{end}}>{{t .Lang "common.home"}}</a>
+      <a href="{{.BaseURL}}/search" {{if eq .CurrentPath "/search"}} class="nav-link active" aria-current="page"{{else}} class="nav-link"{{end}}>{{t .Lang "common.search"}}</a>
+      <a href="{{.BaseURL}}/coordinates" {{if eq .CurrentPath "/coordinates"}} class="nav-link active" aria-current="page"{{else}} class="nav-link"{{end}}>{{t .Lang "coordinates.title"}}</a>
+  </nav>
+  <label for="nav-toggle" class="nav-overlay" aria-hidden="true"></label>
+  <footer class="footer">
+    <nav class="footer-links" aria-label="{{t .Lang "nav.footer"}}">
+      <a href="{{.BaseURL}}/server/about">{{t .Lang "nav.about"}}</a>
+      <a href="{{.BaseURL}}/server/help">{{t .Lang "nav.help"}}</a>
+      <a href="{{.BaseURL}}/server/docs/swagger">{{t .Lang "common.api_docs"}}</a>
+      <a href="{{.BaseURL}}/server/docs/graphql">GraphQL</a>
+      <a href="{{.BaseURL}}/server/privacy">{{t .Lang "nav.privacy"}}</a>
+      <a href="{{.BaseURL}}/server/terms">{{t .Lang "nav.terms"}}</a>
+      <a href="{{.BaseURL}}/server/preferences#language" lang="{{.Lang}}">{{.LanguageName}}</a>
+    </nav>
+    <small>{{.BrandTitle}}</small>
+  </footer>
+    <script src="{{asset (printf "%s/static/js/app.js" .BaseURL)}}" defer></script>
+    {{.ConsentBanner}}
+</body>
+</html>
