@@ -53,7 +53,7 @@ The public server-rendered pages include `/server/about`, `/server/help`, `/serv
 |---|---|
 | OpenAPI JSON | `/api/v1/server/swagger`, `/api/swagger` |
 | Swagger documentation page | `/server/docs/swagger` |
-| GraphQL | `POST /api/graphql`, `/api/v1/server/graphql` |
+| GraphQL | `GET` or `POST /api/graphql`, `/api/v1/server/graphql` |
 | GraphQL query explorer | `/server/docs/graphql` |
 | MCP Streamable HTTP | `POST /api/v1/server/mcp`, with `/api/mcp` and `/mcp` aliases |
 | Locale catalog JSON | `/locales/{en,es,fr,de,it,ar}.json` |
@@ -62,7 +62,7 @@ The public server-rendered pages include `/server/about`, `/server/help`, `/serv
 | Project OpenPGP key | `/.well-known/pgp-key.asc` (only when a key exists and publication is enabled) |
 | Browser manifest and service worker | `/manifest.json`, `/sw.js` |
 
-GraphQL accepts JSON request bodies and form-encoded `query` submissions from the no-JavaScript explorer; request bodies are capped at 1 MiB. The schema contains read-only lookup fields. MCP uses Streamable HTTP revision `2026-07-28`, requires `Authorization: Bearer <token>` on every request, and ignores cookies. Issue an owner token using `POST /api/v1/server/preferences/tokens/primary`, then create a linked token for each MCP client on `/server/preferences/tokens`. Connection instructions are at `/server/help/mcp`.
+GraphQL accepts POST JSON request bodies and form-encoded `query` submissions. GET accepts `query`, optional JSON-encoded `variables`, and optional `operationName`; it only executes the read-only query schema. A GET without `query` returns a short usage message. Request bodies and GET parameter values are capped at 1 MiB. The server-rendered explorer links directly to the GET endpoint for no-JavaScript clients. MCP uses Streamable HTTP revision `2026-07-28`, requires `Authorization: Bearer <token>` on every request, and ignores cookies. Issue an owner token using `POST /api/v1/server/preferences/tokens/primary`, then create a linked token for each MCP client on `/server/preferences/tokens`. Connection instructions are at `/server/help/mcp`.
 
 ### Server APIs
 
@@ -84,7 +84,7 @@ The following server routes are JSON APIs under the default `/api/v1` prefix. Th
 | `GET /api/v1/server/auth/check` | Bearer token | Validate an operator or owner token without returning its value. |
 | `GET /api/v1/server/swagger`, `/api/swagger` | Public | OpenAPI JSON. |
 | `GET /api/v1/server/healthz`, `/api/healthz` | Public | Machine-readable health response. |
-| `POST /api/v1/server/graphql`, `/api/graphql` | Public | Read-only GraphQL queries. |
+| `GET`, `POST /api/v1/server/graphql`, `/api/graphql` | Public | Read-only GraphQL queries; GET uses `query`, optional `variables`, and `operationName` parameters. |
 | `POST /api/v1/server/mcp`, `/api/mcp`, `/mcp` | Owner or operator Bearer token | MCP Streamable HTTP lookup tools. |
 
 The unversioned `/api/autodiscover` endpoint returns server details, the configured minimum CLI version, and the published CLI version/checksum map. No public API mirrors the emailed report-status page. Owner-token routes ignore cookies and require explicit Bearer authentication, except public primary-token issuance.

@@ -27,11 +27,13 @@ owner_token: citylist_owner_token_lgqdhqtw
 - Lookup city by GeoNames ID; lookup US zipcode by postal code
 - Browser application for city search, coordinate search, and ZIP lookups, with guest theme, language, consent, and conditional CCPA preferences
 - Scheduled site-wide announcements rendered as accessible server-side banners, with optional visitor dismissal
+- Operator-configured logo, favicon, and social-card images from HTTPS URLs, bounded data URIs, or private local assets, with safe fetching, cached scaled variants, and embedded fallbacks
 - Six-language interface catalogs shared by the server and companion client
 - Public pages: `/server/about`, `/server/help`, `/server/help/mcp`, `/server/contact`, `/server/security`, `/server/security/policy`, `/server/security/thanks`, `/server/security/report/{trackingID}`, `/server/healthz`, `/server/privacy`, `/server/dpo`, `/server/terms`, `/server/preferences`, `/server/preferences/tokens`, and `/server/preferences/sync`
 - Anonymous owner and linked API tokens, including browser-based token management
+- Operator-configured email and webhook notifications for administrative events, security reports, abuse reports, DMCA reports, and privacy requests
 - CLI client (`citylist-cli`) for queries from the terminal and graphical interface
-- OpenAPI/Swagger at `/api/{api_version}/server/swagger` and `/server/docs/swagger`; GraphQL at `/api/graphql` and `/api/{api_version}/server/graphql` with a browser explorer at `/server/docs/graphql`; machine discovery at `/.well-known/security.txt`, `/.well-known/pgp-key.asc` (when a key exists and publication is enabled), and `/.well-known/llms.txt`
+- OpenAPI/Swagger at `/api/{api_version}/server/swagger` and `/server/docs/swagger`; read-only GraphQL queries over GET and POST at `/api/graphql` and `/api/{api_version}/server/graphql`, with a browser explorer and no-JavaScript endpoint link at `/server/docs/graphql`; machine discovery at `/.well-known/security.txt`, `/.well-known/pgp-key.asc` (when a key exists and publication is enabled), and `/.well-known/llms.txt`
 - MCP lookup tools for clients using owner or operator bearer tokens
 - Cross-device export/import of theme, language, and supported guest preferences
 - Operator CLI for release checks, checksum-verified manual updates, and stable/beta/devel channel selection
@@ -85,9 +87,9 @@ City and ZIP lookup records contain no PII. Contact submissions may contain name
 | City and zipcode datasets (embedded at build) | Fully trusted | Static, compiled into binary |
 | Incoming HTTP requests | **Untrusted** | All query parameters validated |
 | Contact and security-report submitters | **Untrusted** | Submitted fields and attachments are bounded and validated before delivery or storage |
-| Configured SMTP relay and CAPTCHA provider | External | SMTP delivers contact/report notices; reCAPTCHA or hCaptcha is contacted only when that provider is configured |
+| Configured SMTP relay, notification webhooks, and CAPTCHA provider | External | SMTP delivers contact/report notices and operator events. Operator-configured webhooks receive role-specific notification summaries; security-report bodies and submitter contact details are not sent to webhooks. reCAPTCHA or hCaptcha is contacted only when that provider is configured |
 
-City and ZIP lookup requests use only the embedded datasets and never call upstream data providers. Contact and report handling may send submitted data through the configured SMTP relay; CAPTCHA verification contacts the selected external provider only when configured. These services do not supply lookup results.
+City and ZIP lookup requests use only the embedded datasets and never call upstream data providers. Contact and report handling may send submitted data through the configured SMTP relay; operator-configured webhooks receive notification summaries without report bodies or submitter contact details. CAPTCHA verification contacts the selected external provider only when configured. These services do not supply lookup results.
 
 ### Threat model & abuse cases
 
@@ -104,6 +106,7 @@ City and ZIP lookup requests use only the embedded datasets and never call upstr
 - Request size limits on all inputs
 - Contact-specific anti-abuse checks, CAPTCHA validation, CSRF protection, and bounded uploads
 - Hashed and encrypted token storage, encrypted security reports, and token checks for report-status access
+- Security-report contents and submitter contact details are excluded from webhook notifications; complete encrypted reports are delivered only through configured email recipients
 - Anonymous access removes visitor account enumeration and credential-stuffing surfaces; privileged operator actions remain protected by the server operator token
 
 ### Security decisions & exceptions
@@ -137,7 +140,7 @@ The following routes are part of Citylist's user-facing product. `{api_version}`
 | POST | `/server/preferences/sync` | Public, CSRF-protected | Import preferences from a URL, query string, or short code and redirect safely. |
 | GET | `/server/preferences/sync/import` | Public | Import preferences from URL query parameters; redirects safely. |
 | GET | `/server/docs/swagger`, `/server/docs/graphql` | Public | OpenAPI/Swagger and GraphQL browser documentation. |
-| POST | `/api/graphql`, `/api/{api_version}/server/graphql` | Public | Read-only GraphQL query endpoint. |
+| GET, POST | `/api/graphql`, `/api/{api_version}/server/graphql` | Public | Read-only GraphQL query endpoint; GET accepts `query`, optional JSON `variables`, and `operationName`. |
 | POST | `/api/{api_version}/server/mcp`, `/api/mcp`, `/mcp` | Bearer token required | MCP Streamable HTTP lookup tools; accepts owner or operator credentials. |
 | GET | `/locales/{lang}.json`, `/static/*` | Public | Embedded locale catalog and static web assets. |
 | GET | `/api/{api_version}/` | Public | API description and endpoint discovery. |

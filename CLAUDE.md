@@ -33,7 +33,7 @@ Purpose:
 ## NEVER Do
 
 - Modify `AI.md`; it is read-only and authoritative.
-- Add user accounts, login, write APIs, paid tiers, or runtime external API calls; see `IDEA.md`.
+- Add user accounts, login, write APIs, or paid tiers. City and ZIP lookups use embedded data; use external services only when configured and required by `IDEA.md` and `AI.md` (for example SMTP, notification webhooks, and CAPTCHA).
 - Build Go binaries or run tests directly on the host; use Docker/Incus per AI.md PART 28.
 - Use CGO, external schedulers, or client-side-only rendering.
 - Put Dockerfiles or Compose files in the repository root.

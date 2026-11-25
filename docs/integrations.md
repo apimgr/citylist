@@ -5,11 +5,13 @@ Citylist offers public read-only interfaces for browser applications, scripts, a
 ## HTTP APIs
 
 - REST: `/api/v1/`
-- GraphQL: `POST /api/graphql` or `/api/v1/server/graphql`
+- GraphQL: `GET` or `POST /api/graphql` or `/api/v1/server/graphql`
 - OpenAPI JSON: `/api/v1/server/swagger` or `/api/swagger`
 - Swagger documentation page: `/server/docs/swagger`
 - GraphQL query explorer: `/server/docs/graphql`
 - Locale catalogs: `/locales/en.json`, `/locales/es.json`, `/locales/fr.json`, `/locales/de.json`, `/locales/it.json`, and `/locales/ar.json`
+
+GraphQL GET requests use `query` and may include JSON-encoded `variables` and `operationName`. GET executes read-only queries only; a request without `query` returns a usage message. The GraphQL explorer includes a direct endpoint link for clients without JavaScript.
 
 Public API responses are CORS-enabled according to `server.cors.allowed_origins`, `server.cors.allow_credentials`, and `server.cors.max_age`. Defaults permit any origin for this public dataset API; wildcard origins are not returned with credential permission. JSON is the default representation; clients can request plain text with `Accept: text/plain` or use supported `.txt` routes. API details and limits are in the [API reference](api.md).
 
@@ -33,9 +35,17 @@ The web application server-renders its pages and consolidates browser behavior i
 - `/feed.xml` (Atom 1.0) and `/rss.xml` (RSS 2.0) are always available. Citylist has no public per-item pages with creation timestamps, so both feeds currently contain no entries.
 - `/server/security/policy` serves the default or configured disclosure policy; `/server/security/thanks` lists opted-in researcher credits.
 
-The sitemap and feeds use absolute URLs resolved for each request. They support `GET` and `HEAD`, set `ETag` and `Last-Modified`, and honor conditional requests. The feeds are not advertised by page links. HTML pages include route-aware robots directives, canonical URLs, OpenGraph and Twitter metadata, JSON-LD, and validated configured verification tags. `server.seo.noindex` also adds the `X-Robots-Tag` response header. `/favicon.ico` serves the embedded SVG icon; `web.ui.accent` generates a theme-aware `/static/css/accent.css` when configured. Remote and local image customization through `server.branding.favicon`, `logo`, and `server.seo.og_image` is not implemented yet.
+The sitemap and feeds use absolute URLs resolved for each request. They support `GET` and `HEAD`, set `ETag` and `Last-Modified`, and honor conditional requests. The feeds are not advertised by page links. HTML pages include route-aware robots directives, canonical URLs, OpenGraph and Twitter metadata, JSON-LD, and validated configured verification tags. `server.seo.noindex` also adds the `X-Robots-Tag` response header. `/favicon.ico` serves the configured favicon or embedded SVG fallback; `web.ui.accent` generates a theme-aware `/static/css/accent.css` when configured. The branding logo and social card image are served from same-origin routes so clearnet image hosts are not embedded into onion pages.
 
-Unknown paths beneath `/.well-known/` return `404`; there is no arbitrary file serving. OpenPGP publication is conditional as described above, and operators can manage the key with `citylist --maintenance pgp` (see [Security](security.md)). OAuth/OIDC, federation, WebFinger, and app association files are not currently enabled. Email delivery covers contact/security-report messages and configured operator events; contact webhooks are limited to contact/security-report notifications and are not a general-purpose integration API.
+Branding images accept an HTTPS URL, a supported `data:` URI, or a file name from the private `{config_dir}/assets/` directory. Local image files are limited to 2 MiB; data URIs are limited to 256 KiB. Remote HTTPS images are fetched with a 10 MiB cap, a 30-second timeout, redirect validation, and private-network/localhost rejection; only image formats are accepted, and the in-memory remote cache revalidates after 24 hours. Failed or invalid values use the embedded SVG fallback. Raster logos, favicons, and social images receive the configured display-size variants; SVG is served only through `<img>`.
+
+Unknown paths beneath `/.well-known/` return `404`; there is no arbitrary file serving. OpenPGP publication is conditional as described above, and operators can manage the key with `citylist --maintenance pgp` (see [Security](security.md)). OAuth/OIDC, federation, WebFinger, and app association files are not currently enabled.
+
+## Notifications and webhooks
+
+The operator can configure email and webhook recipients under `server.contact.admin`, `security`, `abuse`, and `general`. Webhook transports include Telegram, Discord, Slack, Mattermost, Pushover, Gotify, and generic HTTPS JSON. Role-specific destinations follow the fallback order in [Configuration](configuration.md). Each webhook is signed with its generated per-transport secret and receives an idempotency ID and delivery timestamp. Failed deliveries retry after 1 minute, 5 minutes, 15 minutes, 1 hour, 6 hours, and 24 hours before being dropped.
+
+Webhooks carry notification summaries only. They never receive security-report bodies or submitter contact details; the complete encrypted security report is delivered by email. Contact notifications are spam-filtered before dispatch. Webhooks are operator-configured destinations, not caller-selectable URLs or a general-purpose callback API. For onion-origin contact requests, clearnet webhooks are not called.
 
 ## Data provenance
 

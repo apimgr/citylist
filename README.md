@@ -99,7 +99,7 @@ Public geographic lookups do not require authentication and never mutate the emb
 | `GET /api/v1/zipcodes/search` | Search ZIP locations. |
 | `GET /api/v1/server/healthz` | Public machine-readable health response. |
 | `GET /api/v1/server/swagger` | OpenAPI JSON document. |
-| `POST /api/graphql` | Read-only GraphQL endpoint. |
+| `GET`, `POST /api/graphql` | Read-only GraphQL endpoint. GET accepts `query`, optional JSON `variables`, and `operationName`. |
 | `POST /api/v1/server/mcp` | MCP Streamable HTTP endpoint; Bearer token required. |
 
 OpenAPI documentation is at `/server/docs/swagger`; the GraphQL explorer is at `/server/docs/graphql`. MCP also accepts `/api/mcp` and `/mcp`. To make a request, replace `YOUR_SERVER` with the server's origin:
