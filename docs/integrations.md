@@ -45,7 +45,7 @@ Unknown paths beneath `/.well-known/` return `404`; there is no arbitrary file s
 
 The operator can configure email and webhook recipients under `server.contact.admin`, `security`, `abuse`, and `general`. Webhook transports include Telegram, Discord, Slack, Mattermost, Pushover, Gotify, and generic HTTPS JSON. Role-specific destinations follow the fallback order in [Configuration](configuration.md). Each webhook is signed with its generated per-transport secret and receives an idempotency ID and delivery timestamp. Failed deliveries retry after 1 minute, 5 minutes, 15 minutes, 1 hour, 6 hours, and 24 hours before being dropped.
 
-Webhooks carry notification summaries only. They never receive security-report bodies or submitter contact details; the complete encrypted security report is delivered by email. Contact notifications are spam-filtered before dispatch. Webhooks are operator-configured destinations, not caller-selectable URLs or a general-purpose callback API. For onion-origin contact requests, clearnet webhooks are not called.
+Webhooks carry notification summaries only. They never receive security-report bodies or submitter contact details; the complete encrypted security report is stored for operator retrieval and may also be delivered by email. Contact notifications are spam-filtered before dispatch. Webhooks are operator-configured destinations, not caller-selectable URLs or a general-purpose callback API. For requests addressed to the configured onion host, clearnet webhooks are not called. A security report is still stored, and the response says that webhook delivery was unavailable over Tor.
 
 ## Data provenance
 
