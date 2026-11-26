@@ -49,7 +49,7 @@ When the client is started without a command, display detection selects the nati
 
 Use `--output json`, `--output table`, or `--output plain` to select a format. The default is table output. `--json` is a shortcut for `--output json`. Plain output requests `text/plain` from the server where supported. Table output formats record arrays and individual records as columns.
 
-The client embeds six language catalogs: English (`en`), Spanish (`es`), French (`fr`), Arabic (`ar`), German (`de`), and Italian (`it`). Its help, prompts, messages, errors, GUI, TUI, and shell completion labels use these catalogs. `--lang CODE` selects both the client output language and the `Accept-Language` sent with requests. Language precedence is `--lang`, profile `lang`, `LC_ALL`, `LANG`, then English. Unsupported values fall back to English. See [Translating](translating.md) for contributor guidance and remaining untranslated strings.
+The client embeds six language catalogs: English (`en`), Spanish (`es`), French (`fr`), Arabic (`ar`), German (`de`), and Italian (`it`). Its help, prompts, messages, errors, GUI, TUI, and shell completion labels use these catalogs. `--lang CODE` selects both the client output language and the `Accept-Language` sent with requests. Language precedence is `--lang`, profile `lang`, `LC_ALL`, `LANG`, then English. Unsupported values fall back to English. See [Translating](translating.md) for the catalog format, glossary, and contribution guidance.
 
 ## Flags
 
