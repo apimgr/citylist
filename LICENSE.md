@@ -27,6 +27,10 @@ SOFTWARE.
 
 This software includes the following dependencies shipped by the server or CLI. Each attribution links to its upstream license text. The package list is generated from `go-licenses csv ./src/...`; reviewed overrides are documented in `.github/license-overrides.txt`.
 
+### Embedded GeoNames datasets
+
+Citylist includes global city records and United States postal-code records from GeoNames. GeoNames data is available under the Creative Commons Attribution 4.0 International License (CC BY 4.0). Attribution: GeoNames, [geonames.org](https://www.geonames.org/). The records are embedded and indexed for read-only lookups; United States postal records without a two-letter state code, including military routing entries, are excluded. Source details and snapshot checksums are in [DATA-SOURCES.md](DATA-SOURCES.md). See the [GeoNames data export](https://www.geonames.org/export/) and [CC BY 4.0 legal code](https://creativecommons.org/licenses/by/4.0/legalcode).
+
 | Library | Version | License | Copyright / terms |
 |---------|---------|---------|-------------------|
 | [charm.land/bubbles/v2](https://github.com/charmbracelet/bubbles/blob/v2.2.2/LICENSE) | v2.2.2 | MIT | See linked license |

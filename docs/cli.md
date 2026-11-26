@@ -122,14 +122,14 @@ The `citylist` server binary exposes the persistent background scheduler for loc
 
 | Command | Effect |
 |---|---|
-| `citylist scheduler list` | List registered tasks, enabled state, schedule, and last/next run times. |
-| `citylist scheduler show ID` | Show a task's state, run counts, and last error. |
-| `citylist scheduler run ID` | Run an enabled task immediately and wait for completion. |
-| `citylist scheduler enable ID` | Enable a registered task and persist the change. |
-| `citylist scheduler disable ID` | Disable a registered task and persist the change. |
-| `citylist scheduler history ID` | Show the task's recent execution history. |
+| `citylist --maintenance scheduler list` | List registered tasks, enabled state, schedule, and last/next run times. |
+| `citylist --maintenance scheduler show ID` | Show a task's state, run counts, and last error. |
+| `citylist --maintenance scheduler run ID` | Run an enabled task immediately and wait for completion. |
+| `citylist --maintenance scheduler enable ID` | Enable a registered task and persist the change. |
+| `citylist --maintenance scheduler disable ID` | Disable a registered task and persist the change. |
+| `citylist --maintenance scheduler history ID` | Show the task's recent execution history. |
 
-Task IDs are listed by `scheduler list`. Tasks that depend on an inactive optional service are not registered. Scheduler output is written to the invoking terminal; normal scheduled execution writes to the configured logs.
+Task IDs are listed by `citylist --maintenance scheduler list`. Tasks that depend on an inactive optional service are not registered. Scheduler output is written to the invoking terminal; normal scheduled execution writes to the configured logs.
 
 ## Updates
 

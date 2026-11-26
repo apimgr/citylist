@@ -319,7 +319,7 @@ The SQLite database defaults to `{data_dir}/db/server.db` natively and `/data/db
 | `DATA_DIR` | Writable application data directory. Dataset snapshots themselves are embedded in the binary. |
 | `DATABASE_DIR` | SQLite database directory. Defaults to `DATA_DIR/db` natively and `/data/db/sqlite` in Docker. |
 | `BACKUP_DIR` | Backup directory used by the maintenance backup command. |
-| `LOGS_DIR` | Application log directory. |
+| `LOG_DIR` | Application log directory. |
 | `PORT` | Listen-port override, below `--port` and above `server.port`. |
 | `LISTEN` | Bind-address override, below `--address` and above `server.address`. |
 | `CITYLIST_SERVER_PRIMARY` | Default server URL for `citylist-cli`; a `--server` flag takes precedence. |
@@ -337,4 +337,4 @@ The server creates its schema idempotently at startup. SQLite uses separate read
 
 ## Command-line overrides
 
-The server accepts `--port`, `--address`, `--config`, `--data`, `--cache`, `--log`, `--backup`, `--pid`, `--baseurl`, `--shell`, `--lang`, `--service`, `--maintenance`, and `--update`. `server.baseurl` sets the default URL prefix in the merged configuration; `--baseurl /prefix` takes precedence and mounts the HTTP application under that path. A base URL change is applied by the config watcher. `--mode production|development|debug` updates the saved mode. Run `citylist --help` for the complete server command list.
+The server accepts `--port`, `--address`, `--config`, `--data`, `--cache`, `--log`, `--backup`, `--pid`, `--baseurl`, `--shell`, `--lang`, `--service`, `--maintenance`, and `--update`. `server.baseurl` sets the default URL prefix in the merged configuration; `--baseurl /prefix` takes precedence and mounts the HTTP application under that path. A base URL change is applied by the config watcher. `--mode production|development|debug` selects the mode for the current run and overrides `MODE` and `server.mode`. Run `citylist --help` for the complete server command list.
