@@ -32,7 +32,7 @@ owner_token: citylist_owner_token_lgqdhqtw
 - Public pages: `/server/about`, `/server/help`, `/server/help/mcp`, `/server/contact`, `/server/security`, `/server/security/policy`, `/server/security/thanks`, `/server/security/report/{trackingID}`, `/server/healthz`, `/server/privacy`, `/server/dpo`, `/server/terms`, `/server/preferences`, `/server/preferences/tokens`, and `/server/preferences/sync`
 - Anonymous owner and linked API tokens, including browser-based token management
 - Operator-configured email and webhook notifications for administrative events, security reports, abuse reports, DMCA reports, and privacy requests
-- CLI client (`citylist-cli`) for queries from the terminal and graphical interface
+- CLI client (`citylist-cli`) for terminal queries, with a separate optional native GUI artifact for Linux, macOS, and Windows
 - OpenAPI/Swagger at `/api/{api_version}/server/swagger` and `/server/docs/swagger`; read-only GraphQL queries over GET and POST at `/api/graphql` and `/api/{api_version}/server/graphql`, with a browser explorer and no-JavaScript endpoint link at `/server/docs/graphql`; machine discovery at `/.well-known/security.txt`, `/.well-known/pgp-key.asc` (when a key exists and publication is enabled), and `/.well-known/llms.txt`
 - MCP lookup tools for clients using owner or operator bearer tokens
 - Cross-device export/import of theme, language, and supported guest preferences

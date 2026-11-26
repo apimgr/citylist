@@ -90,7 +90,9 @@ citylist-cli --shell init fish
 
 ## Configuration and runtime files
 
-The default profile is `cli.yml` under `${XDG_CONFIG_HOME:-~/.config}/apimgr/citylist` on Unix-like systems or `%APPDATA%\apimgr\citylist` on Windows. It stores the primary server URL, optional token, output format, and language preference. Unix config directories are mode `0700`; the profile is mode `0600`.
+The default profile is `cli.yml` under `${XDG_CONFIG_HOME:-~/.config}/apimgr/citylist` on Unix-like systems or `%APPDATA%\apimgr\citylist` on Windows. It stores the server URL and request settings, optional token, output and language preferences, theme, display mode, terminal UI settings, logging, cache, and update preferences. Unix config directories are mode `0700`; the profile is mode `0600`.
+
+`display.mode` accepts `auto`, `tui`, or `gui` and defaults to `auto`. The default static artifact can use command or terminal mode only: with `auto`, it chooses the TUI in an interactive terminal; explicitly selecting `gui` returns `gui_unavailable`. The separate GUI artifact can open its native interface on a local display; remote sessions use the TUI. With `TERM=dumb`, interactive display modes are disabled; provide a command for non-interactive use. `theme.mode` accepts `auto`, `dark`, or `light`.
 
 The client creates private data, cache, and log directories in the invoking user's XDG locations or `%LOCALAPPDATA%`. These paths and the supported environment variables are documented in [Configuration](configuration.md).
 
