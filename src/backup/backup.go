@@ -170,7 +170,11 @@ func create(ctx context.Context, options Options, outputPath, backupType, basePa
 	if err != nil {
 		return manifest, fmt.Errorf("create backup workspace: %w", err)
 	}
-	defer os.RemoveAll(workingDir)
+	defer func() {
+		if cleanupErr := os.RemoveAll(workingDir); cleanupErr != nil {
+			err = errors.Join(err, fmt.Errorf("remove backup workspace: %w", cleanupErr))
+		}
+	}()
 	if err := os.Chmod(workingDir, 0700); err != nil {
 		return manifest, err
 	}
@@ -482,7 +486,7 @@ func collectSources(ctx context.Context, options Options, databasePath string) (
 	return result, nil
 }
 
-func addFile(path, target, name, sourcePath string, result *[]sourceFile) error {
+func addFile(path, target, name, sourcePath string, result *[]sourceFile) (retErr error) {
 	if target != "config" && target != "database" && target != "data" && target != "tls" {
 		return fmt.Errorf("invalid backup target %q", target)
 	}
@@ -504,7 +508,7 @@ func addFile(path, target, name, sourcePath string, result *[]sourceFile) error 
 	if err != nil {
 		return err
 	}
-	defer input.Close()
+	defer func() { retErr = errors.Join(retErr, input.Close()) }()
 	info, err := input.Stat()
 	if err != nil {
 		return err
@@ -522,7 +526,7 @@ func addFile(path, target, name, sourcePath string, result *[]sourceFile) error 
 	return nil
 }
 
-func writeChecksumPart(output io.Writer, file ManifestFile, path string) error {
+func writeChecksumPart(output io.Writer, file ManifestFile, path string) (retErr error) {
 	if _, err := fmt.Fprintf(output, "%s\x00%s\x00%s\x00%d\x00%s\x00", file.Target, file.Path, file.SourcePath, file.Size, file.SHA256); err != nil {
 		return err
 	}
@@ -530,7 +534,7 @@ func writeChecksumPart(output io.Writer, file ManifestFile, path string) error {
 	if err != nil {
 		return err
 	}
-	defer input.Close()
+	defer func() { retErr = errors.Join(retErr, input.Close()) }()
 	_, err = io.Copy(output, input)
 	return err
 }
@@ -564,12 +568,12 @@ func makeArchive(sources []sourceFile, manifest Manifest) ([]byte, error) {
 	return buffer.Bytes(), nil
 }
 
-func addTarFile(writer *tar.Writer, name, path string, size int64, mode int64) error {
+func addTarFile(writer *tar.Writer, name, path string, size int64, mode int64) (retErr error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func() { retErr = errors.Join(retErr, file.Close()) }()
 	if err := writer.WriteHeader(&tar.Header{Name: name, Mode: mode, Size: size, Typeflag: tar.TypeReg, ModTime: time.Now().UTC()}); err != nil {
 		return err
 	}
@@ -626,14 +630,18 @@ func decrypt(ciphertext []byte, password string) ([]byte, error) {
 	return plain, nil
 }
 
-func writeAtomic(path string, content []byte, mode os.FileMode) error {
+func writeAtomic(path string, content []byte, mode os.FileMode) (retErr error) {
 	directory := filepath.Dir(path)
 	file, err := os.CreateTemp(directory, ".citylist-backup-*")
 	if err != nil {
 		return err
 	}
 	temporary := file.Name()
-	defer os.Remove(temporary)
+	defer func() {
+		if cleanupErr := os.Remove(temporary); cleanupErr != nil && !errors.Is(cleanupErr, os.ErrNotExist) {
+			retErr = errors.Join(retErr, fmt.Errorf("remove temporary backup file: %w", cleanupErr))
+		}
+	}()
 	if err := file.Chmod(mode); err != nil {
 		_ = file.Close()
 		return err

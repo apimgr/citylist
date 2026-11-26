@@ -248,8 +248,16 @@ func TestBoundedBufferAndPublicHelpers(t *testing.T) {
 		t.Fatalf("HTTP client without SOCKS dialer = %+v", client)
 	}
 	left, right := net.Pipe()
-	defer left.Close()
-	defer right.Close()
+	defer func() {
+		if err := left.Close(); err != nil {
+			t.Errorf("close left pipe: %v", err)
+		}
+	}()
+	defer func() {
+		if err := right.Close(); err != nil {
+			t.Errorf("close right pipe: %v", err)
+		}
+	}()
 	if id, ok := CircuitID(left); ok || id != "" {
 		t.Fatalf("CircuitID(non-PROXY connection) = %q, %t", id, ok)
 	}

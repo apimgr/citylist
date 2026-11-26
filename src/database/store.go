@@ -257,12 +257,12 @@ func (s *Store) HasColumn(ctx context.Context, table, column string) (bool, erro
 		table = DatabaseObjectName(table, "libsql")
 	}
 	found := false
-	err := s.Read(ctx, func(ctx context.Context, reader Reader) error {
+	err := s.Read(ctx, func(ctx context.Context, reader Reader) (retErr error) {
 		rows, err := reader.QueryContext(ctx, "PRAGMA table_info("+table+")")
 		if err != nil {
 			return err
 		}
-		defer rows.Close()
+		defer func() { retErr = errors.Join(retErr, rows.Close()) }()
 		for rows.Next() {
 			var ordinal, notNull, primaryKey int
 			var name, columnType string
@@ -625,7 +625,7 @@ func applyCanonicalColumnRenames(ctx context.Context, tx *sql.Tx, remote bool) e
 	return nil
 }
 
-func tableColumnNames(ctx context.Context, tx *sql.Tx, table string, remote bool) (map[string]bool, error) {
+func tableColumnNames(ctx context.Context, tx *sql.Tx, table string, remote bool) (columns map[string]bool, retErr error) {
 	name := table
 	if remote {
 		name = DatabaseObjectName(table, "libsql")
@@ -634,8 +634,8 @@ func tableColumnNames(ctx context.Context, tx *sql.Tx, table string, remote bool
 	if err != nil {
 		return nil, fmt.Errorf("inspect %s columns: %w", table, err)
 	}
-	defer rows.Close()
-	columns := make(map[string]bool)
+	defer func() { retErr = errors.Join(retErr, rows.Close()) }()
+	columns = make(map[string]bool)
 	for rows.Next() {
 		var ordinal, notNull, primaryKey int
 		var column, columnType string

@@ -146,7 +146,8 @@ var publicPageTemplate = template.Must(template.New("public-page").Funcs(templat
   <meta name="theme-color" content="#1a1a1a">
   {{.SEOHead}}
   {{.TrackingScript}}
-  <link rel="stylesheet" href="{{asset (printf "%s/static/css/main.css" .BaseURL)}}">
+  <link rel="stylesheet" href="{{asset (printf "%s/static/css/common.css" .BaseURL)}}">
+  <link rel="stylesheet" href="{{asset (printf "%s/static/css/components.css" .BaseURL)}}">
   {{if .HasAccent}}<link rel="stylesheet" href="{{asset (printf "%s/static/css/accent.css" .BaseURL)}}">{{end}}
 </head>
 <body>
@@ -491,11 +492,10 @@ func (s *Server) publicPageWithDetails(w http.ResponseWriter, r *http.Request, t
 		if titleKey == "pages.about.title" {
 			content, source := s.operatorPageSource(r, "about")
 			format := strings.ToLower(strings.TrimSpace(content.Format))
-			if format == "" {
+			switch format {
+			case "", "md":
 				format = "markdown"
-			} else if format == "md" {
-				format = "markdown"
-			} else if format == "txt" {
+			case "txt":
 				format = "text"
 			}
 			if source == "" {
@@ -550,9 +550,10 @@ func (s *Server) publicPageWithDetails(w http.ResponseWriter, r *http.Request, t
 		if titleKey == "pages.terms.title" {
 			content, source := s.operatorPageSource(r, "terms")
 			format := strings.ToLower(strings.TrimSpace(content.Format))
-			if format == "" || format == "md" {
+			switch format {
+			case "", "md":
 				format = "markdown"
-			} else if format == "txt" {
+			case "txt":
 				format = "text"
 			}
 			if source == "" {
@@ -704,7 +705,15 @@ func (s *Server) publicPageWithDetails(w http.ResponseWriter, r *http.Request, t
 		s.renderError(w, r, http.StatusInternalServerError, "")
 		return
 	}
-	writeHTMLResponse(w, r, http.StatusOK, []byte(rendered.String()))
+	shared, err := s.applySharedPageShell(r, rendered.String(), map[string]interface{}{
+		"CSRFToken": csrfToken, "ReturnTo": r.URL.RequestURI(), "SiteBanners": s.activeAnnouncements(r, csrfToken, r.URL.RequestURI()),
+		"ConsentBanner": s.renderCookieConsentBanner(r, csrfToken, r.URL.RequestURI()), "TrackingNoscript": s.trackingNoscript(r),
+	})
+	if err != nil {
+		s.renderError(w, r, http.StatusInternalServerError, "")
+		return
+	}
+	writeHTMLResponse(w, r, http.StatusOK, []byte(shared))
 }
 
 func nextTheme(theme string) string {

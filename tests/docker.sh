@@ -92,7 +92,7 @@ docker run --rm --name "citylist-$(tr -dc 'a-z0-9' </dev/urandom | head -c8)" \
       "/api/v1/zipcodes/nearby?lat=40.7128&lon=-74.0060&radius_km=25" /api/v1/random /api/v1/stats \
       /api/v1/count /api/v1/server/about /api/v1/server/help /api/v1/server/preferences \
       /api/v1/server/preferences/sync /api/v1/server/healthz /api/v1/server/swagger \
-      /locales/en.json /static/css/main.css /manifest.json /sw.js /robots.txt \
+      /locales/en.json /static/css/common.css /manifest.json /sw.js /robots.txt \
       /.well-known/security.txt /.well-known/llms.txt /llms.txt; do
       code=$(status "$BASE$path")
       [ "$code" = 200 ] || fail "GET $path returned $code"
@@ -105,8 +105,11 @@ docker run --rm --name "citylist-$(tr -dc 'a-z0-9' </dev/urandom | head -c8)" \
     curl -q -LSsf -H "Accept: text/plain" "$BASE/server/healthz" | grep -qi status || fail "health text negotiation"
     curl -q -LSsf -H "Accept: text/html" "$BASE/search" | grep -qi "<html" || fail "browser HTML negotiation"
     curl -q -LSsf "$BASE/api/v1/server/swagger" | jq -e .openapi >/dev/null || fail "OpenAPI JSON route"
-    [ "$(status "$BASE/api/v1/server/graphql")" = 405 ] || fail "GraphQL GET must be rejected"
-    [ "$(status "$BASE/api/graphql")" = 405 ] || fail "GraphQL alias GET must be rejected"
+    curl -q -LSsf "$BASE/api/v1/server/graphql?query=%7B%20cities%28limit%3A%201%29%20%7B%20name%20%7D%20%7D" \
+      | jq -e .data.cities[0].name >/dev/null || fail "versioned GraphQL GET query"
+    curl -q -LSsf "$BASE/api/graphql?query=%7B%20cities%28limit%3A%201%29%20%7B%20name%20%7D%20%7D" \
+      | jq -e .data.cities[0].name >/dev/null || fail "GraphQL alias GET query"
+    [ "$(status "$BASE/api/v1/server/graphql")" = 200 ] || fail "GraphQL GET without a query must return usage"
     [ "$(status "$BASE/api/v1/server/mcp")" = 405 ] || fail "MCP GET must be rejected"
     curl -q -LSsf -H "Content-Type: application/json" \
       -d "{\"query\":\"{ cities(limit: 1) { name } }\"}" "$BASE/api/v1/server/graphql" \

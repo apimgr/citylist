@@ -8,7 +8,8 @@
     <meta name="description" content="{{tf .Lang "home.description" (dict "cities" .TotalCities "countries" .TotalCountries)}}">
     <meta name="theme-color" content="#6366f1">
     <link rel="manifest" href="{{.BaseURL}}/manifest.json">
-    <link rel="stylesheet" href="{{asset (printf "%s/static/css/main.css" .BaseURL)}}">
+    <link rel="stylesheet" href="{{asset (printf "%s/static/css/common.css" .BaseURL)}}">
+    <link rel="stylesheet" href="{{asset (printf "%s/static/css/components.css" .BaseURL)}}">
   {{if .HasAccent}}<link rel="stylesheet" href="{{asset (printf "%s/static/css/accent.css" .BaseURL)}}">{{end}}
 </head>
 <body>
@@ -17,7 +18,7 @@
   {{.SiteBanners}}
   <input type="checkbox" id="nav-toggle" class="nav-checkbox" aria-label="{{t .Lang "nav.toggle"}}">
   <header class="header">
-    <a href="{{.BaseURL}}/" class="nav-brand">{{.BrandTitle}}</a>
+    <a href="{{.BaseURL}}/" class="nav-brand"><picture><source media="(max-width: 640px)" srcset="{{.LogoURL}}?size=50"><img src="{{.LogoURL}}?size=200" alt="{{.BrandTitle}}"></picture>{{.BrandTitle}}</a>
     <nav id="navigation" class="nav-links" aria-label="{{t .Lang "nav.main"}}">
       <a href="{{.BaseURL}}/" class="nav-link active" aria-current="page">{{t .Lang "common.home"}}</a>
       <a href="{{.BaseURL}}/search" class="nav-link">{{t .Lang "common.search"}}</a>
@@ -34,10 +35,9 @@
       </form>
     </div>
   </header>
-<main id="main-content">
+<main id="main-content" class="container container-lg">
         <!-- Hero Section -->
         <section class="hero">
-            <div class="container">
                 <div class="hero-content">
                     <div class="hero-badge">
                         <span class="hero-badge-dot"></span>
@@ -72,12 +72,10 @@
                         </div>
                     </div>
                 </div>
-            </div>
         </section>
 
         <!-- Features Section -->
         <section class="features">
-            <div class="container">
                 <div class="section-header">
                         <h2 class="section-title">{{t .Lang "home.features"}}</h2>
                         <p class="section-description">{{t .Lang "home.features_description"}}</p>
@@ -99,12 +97,10 @@
                         <p class="feature-description">{{t .Lang "home.rest_api_description"}}</p>
                     </a>
                 </div>
-            </div>
         </section>
 
         <!-- API Preview Section -->
         <section class="search-section">
-            <div class="container container-sm">
                 <div class="section-header">
                         <h2 class="section-title">{{t .Lang "home.quick_start"}}</h2>
                         <p class="section-description">{{t .Lang "home.quick_start_description"}}</p>
@@ -139,7 +135,6 @@
                         <pre>curl "{{.APIBase}}/cities/country/US"</pre>
                     </div>
                 </div>
-            </div>
         </section>
     </main>
   <nav class="nav-panel" id="nav-panel" aria-label="{{t .Lang "nav.main"}}">

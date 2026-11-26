@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -712,6 +713,10 @@ func TestTier3OwnerTokenBrowserLifecycle(t *testing.T) {
 			t.Errorf("owner token auth check returned %d, want %d", resp.StatusCode, want)
 		}
 	}
+	linkedFormState, err := chromedp.Run(ctx, chromedp.Evaluate[string](`JSON.stringify([!!document.querySelector('#linked-name'),!!document.querySelector('#linked-expiry'),!!document.querySelector('#main-content form[action="/server/preferences/tokens"] button[type="submit"]')])`))
+	if err != nil || linkedFormState != `[true,true,true]` {
+		t.Fatalf("linked token form controls are missing after primary token creation: %s, %v", linkedFormState, err)
+	}
 
 	if err := chromedp.Do(ctx,
 		chromedp.SetValue(chromedp.CSS("#linked-name"), "e2e-client"),
@@ -796,7 +801,7 @@ func TestTier3OwnerTokenBrowserLifecycle(t *testing.T) {
 		t.Errorf("linked token expiry was not updated to seven days: %s remaining", remaining)
 	}
 	siblingToken := createLinkedToken(t, primaryMatch, "e2e-sibling")
-	linkedRotateAction, err := chromedp.Run(ctx, chromedp.Evaluate[string](`document.querySelector('.token-card form[action*="/rotate"]').getAttribute('action')`))
+	linkedRotateAction, err := chromedp.Run(ctx, chromedp.Evaluate[string](`Array.from(document.querySelectorAll('.token-card form')).map(form => form.getAttribute('action')).find(action => action && action.endsWith('/rotate')) || ''`))
 	if err != nil || linkedRotateAction == "" {
 		t.Fatalf("could not find linked token rotation form: %v", err)
 	}
@@ -882,15 +887,27 @@ func TestTier3OwnerTokenBrowserLifecycle(t *testing.T) {
 func TestTier3InternalPageCrawl(t *testing.T) {
 	ctx := browserContext(t)
 	saveBrowserFailure(t, ctx)
+	base, err := url.Parse(baseURL(t))
+	if err != nil {
+		t.Fatal(err)
+	}
 	var mu sync.Mutex
 	var failedRequests []string
+	requestURLs := make(map[network.RequestID]string)
 	var consoleErrors []string
 	if err := chromedp.Listen(ctx, func(event any) {
 		mu.Lock()
 		defer mu.Unlock()
 		switch e := event.(type) {
+		case *network.EventRequestWillBeSent:
+			requestURLs[e.RequestID] = e.Request.URL
 		case *network.EventLoadingFailed:
-			failedRequests = append(failedRequests, e.ErrorText)
+			if !e.Canceled {
+				requestURL, parseErr := url.Parse(requestURLs[e.RequestID])
+				if parseErr == nil && requestURL.Host == base.Host {
+					failedRequests = append(failedRequests, fmt.Sprintf("%s %s: %s", e.Type, requestURL.Path, e.ErrorText))
+				}
+			}
 		case *runtime.EventExceptionThrown:
 			consoleErrors = append(consoleErrors, e.ExceptionDetails.Text)
 		case *runtime.EventConsoleAPICalled:
@@ -902,10 +919,6 @@ func TestTier3InternalPageCrawl(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := chromedp.Call(ctx, network.Enable, network.EnableParams{}); err != nil {
-		t.Fatal(err)
-	}
-	base, err := url.Parse(baseURL(t))
-	if err != nil {
 		t.Fatal(err)
 	}
 	queue := []string{"/"}

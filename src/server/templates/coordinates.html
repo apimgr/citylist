@@ -8,7 +8,8 @@
     <meta name="description" content="{{t .Lang "coordinates.description"}}">
     <meta name="theme-color" content="#6366f1">
     <link rel="manifest" href="{{.BaseURL}}/manifest.json">
-    <link rel="stylesheet" href="{{asset (printf "%s/static/css/main.css" .BaseURL)}}">
+    <link rel="stylesheet" href="{{asset (printf "%s/static/css/common.css" .BaseURL)}}">
+    <link rel="stylesheet" href="{{asset (printf "%s/static/css/components.css" .BaseURL)}}">
   {{if .HasAccent}}<link rel="stylesheet" href="{{asset (printf "%s/static/css/accent.css" .BaseURL)}}">{{end}}
 </head>
 <body>
@@ -17,7 +18,7 @@
   {{.SiteBanners}}
   <input type="checkbox" id="nav-toggle" class="nav-checkbox" aria-label="{{t .Lang "nav.toggle"}}">
   <header class="header">
-    <a href="{{.BaseURL}}/" class="nav-brand">{{.BrandTitle}}</a>
+    <a href="{{.BaseURL}}/" class="nav-brand"><picture><source media="(max-width: 640px)" srcset="{{.LogoURL}}?size=50"><img src="{{.LogoURL}}?size=200" alt="{{.BrandTitle}}"></picture>{{.BrandTitle}}</a>
     <nav id="navigation" class="nav-links" aria-label="{{t .Lang "nav.main"}}">
       <a href="{{.BaseURL}}/" class="nav-link">{{t .Lang "common.home"}}</a>
       <a href="{{.BaseURL}}/search" class="nav-link">{{t .Lang "common.search"}}</a>
@@ -34,10 +35,9 @@
       </form>
     </div>
   </header>
-<main id="main-content">
+<main id="main-content" class="container container-lg">
         <!-- Location Section -->
         <section class="search-section">
-            <div class="container container-sm">
                 <div class="section-header">
                     <h1 class="section-title">{{t .Lang "coordinates.title"}}</h1>
                     <p class="section-description">{{t .Lang "coordinates.description"}}</p>
@@ -155,12 +155,10 @@
                     <h3 class="empty-state-title">{{t .Lang "coordinates.no_results"}}</h3>
                     <p class="empty-state-description">{{t .Lang "coordinates.no_results_hint"}}</p>
                 </div>
-            </div>
         </section>
 
         <!-- Quick Tips -->
         <section class="features">
-            <div class="container">
                 <div class="section-header">
                         <h2 class="section-title">{{t .Lang "coordinates.quick_tips"}}</h2>
                         <p class="section-description">{{t .Lang "coordinates.tips_description"}}</p>
@@ -182,7 +180,6 @@
                         <p class="feature-description">{{t .Lang "coordinates.world_coverage_description"}}</p>
                     </div>
                 </div>
-            </div>
         </section>
     </main>
   <nav class="nav-panel" id="nav-panel" aria-label="{{t .Lang "nav.main"}}">

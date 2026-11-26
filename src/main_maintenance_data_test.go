@@ -145,7 +145,11 @@ func TestMaintenanceDataExportAndComplianceReportCommands(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer store.Close()
+	t.Cleanup(func() {
+		if err := store.Close(); err != nil {
+			t.Errorf("close maintenance data store: %v", err)
+		}
+	})
 	if err := store.EnsureSchema(context.Background()); err != nil {
 		t.Fatal(err)
 	}

@@ -423,9 +423,10 @@ func TestServiceInstallerTemplatesUseConfiguredPathsAndCommands(t *testing.T) {
 			commandNames := map[string]bool{"systemctl": true, "rc-update": true, "rc-service": true, "update-rc.d": true, "install": true, "chown": true, "start-stop-daemon": true, "launchctl": true, "sc.exe": true, "icacls.exe": true, "sysrc": true, "service": true, "dirname": true}
 			for name := range commandNames {
 				script := "#!/bin/sh\nprintf '%s\\n' \"$0 $*\" >> \"$SERVICE_TEST_CALLS\"\n"
-				if name == "install" {
+				switch name {
+				case "install":
 					script += "/usr/bin/install \"$@\"\n"
-				} else if name == "dirname" {
+				case "dirname":
 					script += "printf '%s\\n' \"${1%/*}\"\n"
 				}
 				if err := os.WriteFile(filepath.Join(binDir, name), []byte(script), 0755); err != nil {

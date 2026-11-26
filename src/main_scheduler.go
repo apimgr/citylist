@@ -13,8 +13,10 @@ import (
 	"net/netip"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/apimgr/citylist/src/config"
@@ -30,13 +32,104 @@ var scheduledUpdateRestart = make(chan struct{}, 1)
 
 type operatorEventNotifier func(context.Context, string, map[string]string) error
 
-func newApplicationScheduler(cfg *config.Config, configDir, dataDir, logsDir, backupDir string, store *database.Store, appContext context.Context, healthTasks map[string]func() error, notifiers ...operatorEventNotifier) (*scheduler.Scheduler, error) {
+type databaseErrorMonitor struct {
+	mu           sync.Mutex
+	failures     int
+	since        time.Time
+	lastNotified time.Time
+}
+
+func (m *databaseErrorMonitor) observe(ctx context.Context, err error, cfg *config.Config, notify operatorEventNotifier, now time.Time) {
+	settings := cfg.Server.Notifications.DatabaseError
+	m.mu.Lock()
+	if err == nil {
+		recovered := m.failures > 0
+		m.failures, m.since, m.lastNotified = 0, time.Time{}, time.Time{}
+		m.mu.Unlock()
+		if recovered {
+			slog.Info("database.connection_recovered")
+		}
+		return
+	}
+	m.failures++
+	if m.since.IsZero() {
+		m.since = now
+	}
+	threshold, repeat := settings.Failures, 24*time.Hour
+	if threshold < 1 {
+		threshold = 3
+	}
+	if duration, parseErr := time.ParseDuration(settings.Repeat); parseErr == nil && duration > 0 {
+		repeat = duration
+	}
+	shouldNotify := settings.Enabled && m.failures >= threshold && (m.lastNotified.IsZero() || now.Sub(m.lastNotified) >= repeat)
+	since := m.since.UTC().Format(time.RFC3339)
+	if shouldNotify {
+		m.lastNotified = now
+	}
+	m.mu.Unlock()
+	if !shouldNotify {
+		return
+	}
+	message := sanitizeDatabaseError(err, cfg)
+	slog.Warn("database.connection_failed", "since", since, "error", message, "failures", threshold)
+	if notify != nil {
+		notifyContext, cancel := context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
+		if notifyErr := notify(notifyContext, "database_error", map[string]string{"since": since, "error": message}); notifyErr != nil {
+			slog.Warn("database.notification_failed", "error", notifyErr)
+		}
+	}
+}
+
+func sanitizeDatabaseError(err error, cfg *config.Config) string {
+	if err == nil {
+		return "unknown database error"
+	}
+	message := strings.NewReplacer("\r", " ", "\n", " ").Replace(err.Error())
+	if cfg != nil {
+		for _, secret := range []string{cfg.Server.Database.URL, cfg.Server.Database.Token} {
+			if secret != "" {
+				message = strings.ReplaceAll(message, secret, "[REDACTED]")
+			}
+		}
+	}
+	message = databaseCredentialPattern.ReplaceAllString(message, "$1$2[REDACTED]")
+	if len(message) > 512 {
+		message = message[:512]
+	}
+	return message
+}
+
+var databaseCredentialPattern = regexp.MustCompile(`(?i)(password|token|secret|authorization)([=: ]+)[^\s,&;]+`)
+
+func newApplicationScheduler(cfg *config.Config, configDir, dataDir, logsDir, backupDir string, store *database.Store, appContext context.Context, healthTasks map[string]func() error, refreshBrandingImages func(context.Context) error, notifiers ...operatorEventNotifier) (*scheduler.Scheduler, error) {
 	if cfg == nil || store == nil {
 		return nil, errors.New("scheduler requires configuration and database")
 	}
+	var notify operatorEventNotifier
+	if len(notifiers) > 0 {
+		notify = notifiers[0]
+	}
 	if store.UsingOfflineCache() {
 		slog.Warn("scheduled tasks are disabled while the database is in offline read-only cache mode")
-		return scheduler.New(), nil
+		instance := scheduler.New()
+		settings := cfg.Server.Notifications.DatabaseError
+		if settings.Enabled {
+			location, err := time.LoadLocation(cfg.Server.Scheduler.Timezone)
+			if err != nil {
+				return nil, fmt.Errorf("load scheduler timezone: %w", err)
+			}
+			monitor := &databaseErrorMonitor{}
+			run := func() error {
+				monitor.observe(appContext, probeDatabaseConnections(store), cfg, notify, time.Now())
+				return nil
+			}
+			if err := instance.AddScheduledTask("database_check", "@every "+settings.CheckInterval, true, location, run); err != nil {
+				return nil, err
+			}
+		}
+		return instance, nil
 	}
 	location, err := time.LoadLocation(cfg.Server.Scheduler.Timezone)
 	if err != nil {
@@ -49,10 +142,6 @@ func newApplicationScheduler(cfg *config.Config, configDir, dataDir, logsDir, ba
 	instance, err := scheduler.NewPersistent(store, catchUpWindow)
 	if err != nil {
 		return nil, err
-	}
-	var notify operatorEventNotifier
-	if len(notifiers) > 0 {
-		notify = notifiers[0]
 	}
 	instance.SetFailureHook(func(name string, taskErr error) {
 		if auditErr := writeAuditEvent("scheduler.task_failed", "warn", "failure", "scheduler", "127.0.0.1", map[string]string{"type": "task", "id": name}, map[string]any{"error": taskErr.Error()}); auditErr != nil {
@@ -85,6 +174,7 @@ func newApplicationScheduler(cfg *config.Config, configDir, dataDir, logsDir, ba
 		securityDir = filepath.Join(dataDir, securityDir)
 	}
 	updateClient := &http.Client{Timeout: 2 * time.Minute}
+	databaseMonitor := &databaseErrorMonitor{}
 	registered := map[string]func() error{
 		"security_cleanup": func() error { return cleanupSecurityData(cfg, configDir, store) },
 		"keyserver_retry": func() error {
@@ -94,6 +184,11 @@ func newApplicationScheduler(cfg *config.Config, configDir, dataDir, logsDir, ba
 		},
 		"token_cleanup":    func() error { return cleanupTokenData(cfg, store) },
 		"healthcheck_self": func() error { return checkDatabaseHealth(store) },
+		"database_check": func() error {
+			err := probeDatabaseConnections(store)
+			databaseMonitor.observe(appContext, err, cfg, notify, time.Now())
+			return nil
+		},
 		"ssl_renewal": func() error {
 			return runScheduledSSLRenewal(configDir, cfg, notify)
 		},
@@ -134,6 +229,13 @@ func newApplicationScheduler(cfg *config.Config, configDir, dataDir, logsDir, ba
 		"disk_check":   func() error { return runScheduledDiskCheck(dataDir, cfg, notify) },
 		"log_rotation": rotateConfiguredLogs,
 	}
+	if refreshBrandingImages != nil {
+		registered["branding_image_refresh"] = func() error {
+			ctx, cancel := context.WithTimeout(appContext, 2*time.Minute)
+			defer cancel()
+			return refreshBrandingImages(ctx)
+		}
+	}
 	for name, run := range healthTasks {
 		if name == "tor_health" || name == "i2p_health" {
 			registered[name] = run
@@ -149,6 +251,10 @@ func newApplicationScheduler(cfg *config.Config, configDir, dataDir, logsDir, ba
 		taskConfig, ok := cfg.Server.Scheduler.Tasks[name]
 		if !ok {
 			continue
+		}
+		if name == "database_check" {
+			taskConfig.Schedule = "@every " + cfg.Server.Notifications.DatabaseError.CheckInterval
+			taskConfig.Enabled = cfg.Server.Notifications.DatabaseError.Enabled
 		}
 		if err := instance.AddScheduledTask(name, taskConfig.Schedule, taskConfig.Enabled, location, run); err != nil {
 			return nil, err
@@ -491,7 +597,7 @@ func validBlocklistFileID(value string) bool {
 		return false
 	}
 	for _, char := range value {
-		if !(char >= 'a' && char <= 'z' || char >= '0' && char <= '9' || char == '_') {
+		if (char < 'a' || char > 'z') && (char < '0' || char > '9') && char != '_' {
 			return false
 		}
 	}
@@ -499,9 +605,21 @@ func validBlocklistFileID(value string) bool {
 }
 
 func checkDatabaseHealth(store *database.Store) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	return store.Read(ctx, func(ctx context.Context, reader database.Reader) error {
+	return probeDatabaseConnections(store)
+}
+
+func probeDatabaseConnections(store *database.Store) error {
+	writeCtx, cancelWrite := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancelWrite()
+	if err := store.Write(writeCtx, func(tx *sql.Tx) error {
+		var result int
+		return tx.QueryRowContext(writeCtx, `SELECT 1`).Scan(&result)
+	}); err != nil {
+		return fmt.Errorf("write handle: %w", err)
+	}
+	readCtx, cancelRead := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancelRead()
+	return store.Read(readCtx, func(ctx context.Context, reader database.Reader) error {
 		var result int
 		return reader.QueryRowContext(ctx, `SELECT 1`).Scan(&result)
 	})

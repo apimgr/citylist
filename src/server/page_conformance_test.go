@@ -210,6 +210,9 @@ func assertPageConformance(t *testing.T, body []byte, path string, resolveLink f
 			if _, exists := attr(node, "alt"); !exists {
 				t.Errorf("%s contains an image without alt", path)
 			}
+			if hasAncestorClass(node, "nav-brand") && strings.TrimSpace(attrValue(node, "alt")) == "" {
+				t.Errorf("%s brand logo has no accessible application name", path)
+			}
 		case "table":
 			if !hasDescendant(node, "thead") {
 				t.Errorf("%s contains a table without thead", path)

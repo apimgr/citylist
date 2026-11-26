@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -119,6 +120,7 @@ func TestValidateSchedulerRestoresInvalidValuesAndPreservesOverrides(t *testing.
 	cfg.Server.Scheduler.Tasks["pgp_publish_retry"] = SchedulerTask{Schedule: "@every 1m", Enabled: false}
 	cfg.Server.Scheduler.Tasks["backup_daily"] = SchedulerTask{Schedule: "70 * * * *", Enabled: true}
 	cfg.Server.Scheduler.Tasks["blocklist_update"] = SchedulerTask{Schedule: "@daily", Enabled: true, RetryOnFail: true, RetryDelay: "bad"}
+	cfg.Server.Scheduler.Tasks["branding_image_refresh"] = SchedulerTask{Schedule: "@hourly", Enabled: false}
 
 	validateScheduler(cfg, "scheduler-test.yml")
 	defaults := DefaultConfig().Server.Scheduler
@@ -137,6 +139,9 @@ func TestValidateSchedulerRestoresInvalidValuesAndPreservesOverrides(t *testing.
 	if task := cfg.Server.Scheduler.Tasks["keyserver_retry"]; !task.Enabled {
 		t.Fatalf("PGP retry task was disabled: %+v", task)
 	}
+	if task := cfg.Server.Scheduler.Tasks["branding_image_refresh"]; !task.Enabled || task.Schedule != defaults.Tasks["branding_image_refresh"].Schedule {
+		t.Fatalf("fixed branding refresh schedule was overridden: %+v", task)
+	}
 	if _, legacy := cfg.Server.Scheduler.Tasks["pgp_publish_retry"]; legacy {
 		t.Fatal("legacy PGP retry task was not renamed")
 	}
@@ -145,6 +150,18 @@ func TestValidateSchedulerRestoresInvalidValuesAndPreservesOverrides(t *testing.
 	}
 	if _, ok := cfg.Server.Scheduler.Tasks["healthcheck_self"]; !ok {
 		t.Fatal("missing built-in task was not restored")
+	}
+}
+
+func TestValidateDatabaseErrorNotificationRestoresInvalidValues(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Server.Notifications.DatabaseError.Failures = 0
+	cfg.Server.Notifications.DatabaseError.CheckInterval = "0s"
+	cfg.Server.Notifications.DatabaseError.Repeat = "invalid"
+	validateDatabaseErrorNotification(cfg, "database-error-test.yml")
+	want := DefaultConfig().Server.Notifications.DatabaseError
+	if got := cfg.Server.Notifications.DatabaseError; got != want {
+		t.Fatalf("database error notification defaults = %+v, want %+v", got, want)
 	}
 }
 
@@ -682,6 +699,51 @@ func TestLegacySecretsInAreaFilesMoveAndAreRemoved(t *testing.T) {
 		if strings.Contains(string(remaining), value) {
 			t.Errorf("legacy drop-in still contains credential %q: %s", value, remaining)
 		}
+	}
+}
+
+func TestLoadGeneratesAndPersistsWebhookSigningSecret(t *testing.T) {
+	tmpDir := t.TempDir()
+	path := filepath.Join(tmpDir, "server.yml")
+	content := "server:\n  contact:\n    admin:\n      webhooks:\n        generic: https://hooks.example.test/citylist\n"
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatalf("write server.yml: %v", err)
+	}
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+	secret := cfg.Server.Contact.Admin.WebhookSecrets["generic"]
+	decoded, err := base64.StdEncoding.DecodeString(secret)
+	if err != nil || len(decoded) != 32 {
+		t.Fatalf("generated webhook secret is not a base64-encoded 32-byte key: %q", secret)
+	}
+	if cfg.Server.Contact.Admin.Webhooks["generic"] != "https://hooks.example.test/citylist" {
+		t.Fatal("webhook URL was not loaded into the runtime config")
+	}
+	if !slices.Contains(cfg.GeneratedSecrets, "server.contact.admin.webhooks.generic_secret") {
+		t.Fatalf("generated webhook secret was not reported for audit: %v", cfg.GeneratedSecrets)
+	}
+	secrets, err := os.ReadFile(filepath.Join(tmpDir, "secrets.yml"))
+	if err != nil {
+		t.Fatalf("read secrets.yml: %v", err)
+	}
+	if !strings.Contains(string(secrets), secret) || !strings.Contains(string(secrets), "https://hooks.example.test/citylist") {
+		t.Fatal("webhook URL and signing secret were not persisted in secrets.yml")
+	}
+	storedConfig, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read migrated server.yml: %v", err)
+	}
+	if strings.Contains(string(storedConfig), "https://hooks.example.test/citylist") {
+		t.Fatal("webhook URL remained in server.yml after secret migration")
+	}
+	reloaded, err := Load(path)
+	if err != nil {
+		t.Fatalf("reload configuration: %v", err)
+	}
+	if got := reloaded.Server.Contact.Admin.WebhookSecrets["generic"]; got != secret {
+		t.Fatalf("webhook signing secret changed on reload: %q", got)
 	}
 }
 

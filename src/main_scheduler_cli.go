@@ -28,7 +28,9 @@ type schedulerHistoryEntry struct {
 
 func runSchedulerCommand(args []string, stdout io.Writer) error {
 	if len(args) == 0 || args[0] == "--help" || args[0] == "help" {
-		fmt.Fprintln(stdout, schedulerFormat("scheduler_help", "Usage: {binary} scheduler {list|show <id>|run <id>|enable <id>|disable <id>|history <id>}", map[string]string{"binary": filepath.Base(os.Args[0])}))
+		if _, err := fmt.Fprintln(stdout, schedulerFormat("scheduler_help", "Usage: {binary} scheduler {list|show <id>|run <id>|enable <id>|disable <id>|history <id>}", map[string]string{"binary": filepath.Base(os.Args[0])})); err != nil {
+			return err
+		}
 		return nil
 	}
 	configDir, dataDir, logsDir := paths.GetDefaultDirs(projectName)
@@ -71,7 +73,7 @@ func runSchedulerCommand(args []string, stdout io.Writer) error {
 	if err := store.EnsureSchema(ctx); err != nil {
 		return fmt.Errorf("%s", schedulerFormat("scheduler_schema_error", "could not initialize database schema: {error}", map[string]string{"error": err.Error()}))
 	}
-	appScheduler, err := newApplicationScheduler(cfg, configDir, dataDir, logsDir, backupDir, store, ctx, nil)
+	appScheduler, err := newApplicationScheduler(cfg, configDir, dataDir, logsDir, backupDir, store, ctx, nil, nil)
 	if err != nil {
 		return fmt.Errorf("%s", schedulerFormat("scheduler_init_error", "could not initialize scheduler: {error}", map[string]string{"error": err.Error()}))
 	}
@@ -84,7 +86,9 @@ func executeSchedulerCommand(args []string, stdout io.Writer, appScheduler *sche
 	}
 	action := args[0]
 	if action == "--help" || action == "help" {
-		fmt.Fprintln(stdout, schedulerFormat("scheduler_help", "Usage: {binary} scheduler {list|show <id>|run <id>|enable <id>|disable <id>|history <id>}", map[string]string{"binary": filepath.Base(os.Args[0])}))
+		if _, err := fmt.Fprintln(stdout, schedulerFormat("scheduler_help", "Usage: {binary} scheduler {list|show <id>|run <id>|enable <id>|disable <id>|history <id>}", map[string]string{"binary": filepath.Base(os.Args[0])})); err != nil {
+			return err
+		}
 		return nil
 	}
 	if action == "list" {
@@ -120,20 +124,20 @@ func executeSchedulerCommand(args []string, stdout io.Writer, appScheduler *sche
 		if err := appScheduler.RunNow(id); err != nil {
 			return fmt.Errorf("%s", schedulerFormat("scheduler_run_error", "could not run {id}: {error}", map[string]string{"id": id, "error": err.Error()}))
 		}
-		fmt.Fprintln(stdout, schedulerFormat("scheduler_run_complete", "task {id} completed successfully", map[string]string{"id": id}))
-		return nil
+		_, err := fmt.Fprintln(stdout, schedulerFormat("scheduler_run_complete", "task {id} completed successfully", map[string]string{"id": id}))
+		return err
 	case "enable":
 		if err := appScheduler.EnableTask(id); err != nil {
 			return err
 		}
-		fmt.Fprintln(stdout, schedulerFormat("scheduler_enabled", "enabled task {id}", map[string]string{"id": id}))
-		return nil
+		_, err := fmt.Fprintln(stdout, schedulerFormat("scheduler_enabled", "enabled task {id}", map[string]string{"id": id}))
+		return err
 	case "disable":
 		if err := appScheduler.DisableTask(id); err != nil {
 			return err
 		}
-		fmt.Fprintln(stdout, schedulerFormat("scheduler_disabled", "disabled task {id}", map[string]string{"id": id}))
-		return nil
+		_, err := fmt.Fprintln(stdout, schedulerFormat("scheduler_disabled", "disabled task {id}", map[string]string{"id": id}))
+		return err
 	}
 	return nil
 }
@@ -180,12 +184,12 @@ func printSchedulerDetails(stdout io.Writer, task scheduler.Task) error {
 
 func printSchedulerHistory(stdout io.Writer, store *database.Store, taskID string) error {
 	var history []schedulerHistoryEntry
-	if err := store.Read(context.Background(), func(ctx context.Context, reader database.Reader) error {
+	if err := store.Read(context.Background(), func(ctx context.Context, reader database.Reader) (retErr error) {
 		rows, err := reader.QueryContext(ctx, `SELECT started_at, finished_at, status, error, duration_ms FROM scheduler_history WHERE task_id = ? ORDER BY started_at DESC, id DESC LIMIT 100`, taskID)
 		if err != nil {
 			return err
 		}
-		defer rows.Close()
+		defer func() { retErr = errors.Join(retErr, rows.Close()) }()
 		for rows.Next() {
 			var item schedulerHistoryEntry
 			if err := rows.Scan(&item.startedAt, &item.finishedAt, &item.status, &item.errText, &item.durationMS); err != nil {

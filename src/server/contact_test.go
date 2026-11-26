@@ -44,6 +44,29 @@ func TestBuildContactMIMEIsPlainText(t *testing.T) {
 	}
 }
 
+func TestContactRequestOnPrivateNetworkRequiresConfiguredOverlayHost(t *testing.T) {
+	s := testServer(t)
+	for _, host := range []string{"service.onion", "service.b32.i2p", "example.test"} {
+		r := httptest.NewRequest(http.MethodGet, "http://"+host+"/", nil)
+		if s.contactRequestOnPrivateNetwork(r) {
+			t.Errorf("unconfigured host %q was classified as a private overlay", host)
+		}
+	}
+}
+
+func TestContactSuccessDoesNotExposeSkippedTorWebhook(t *testing.T) {
+	s := testServer(t)
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/server/contact", nil)
+	s.contactSuccess(response, request, true, "sec_1234567890abcdef", false)
+	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), "sec_1234567890abcdef") {
+		t.Fatalf("security report success response = %d %s", response.Code, response.Body.String())
+	}
+	if strings.Contains(strings.ToLower(response.Body.String()), "webhook") || strings.Contains(response.Body.String(), "operator retrieval") {
+		t.Fatalf("security report response exposes skipped webhook delivery: %s", response.Body.String())
+	}
+}
+
 func TestContactTLSVerificationPolicy(t *testing.T) {
 	tests := []struct {
 		host            string
@@ -348,6 +371,7 @@ func TestContactAPIReviewConfirmDeliversOnceAndDropsDuplicates(t *testing.T) {
 	cfg.Server.Contact.DPO.Email = "privacy@citylist.test"
 	cfg.Server.Notifications.Email.From.Name = "Citylist"
 	cfg.Server.Notifications.Email.From.Email = "no-reply@citylist.test"
+	cfg.Server.Notifications.Email.SMTP.Host = "smtp.citylist.test"
 	s := testServerWithConfig(t, cfg)
 
 	sendCount := 0

@@ -136,7 +136,9 @@
     },
     "footer": {
       "brand": "Citylist API - Teil von apimgr",
-      "github": "GitHub"
+      "github": "GitHub",
+      "made_with": "Erstellt mit",
+      "last_update": "Letzte Aktualisierung"
     },
     "graphql": {
       "title": "GraphQL-Explorer",
@@ -148,6 +150,8 @@
       "loading": "Abfrage wird geladen…",
       "failed": "Die Abfrage konnte nicht ausgeführt werden.",
       "openapi": "OpenAPI-Spezifikation",
+      "nojs": "GraphQL-Endpunkt ohne JavaScript öffnen",
+      "javascript_required": "Dieser interaktive API-Explorer benötigt JavaScript.",
       "schema": {
         "types": {
           "Query": "Schreibgeschützte Abfragen für Stadt- und ZIP-Code-Referenzdaten.",
@@ -693,11 +697,13 @@
         "ssl_expiring": "Zertifikat läuft ab",
         "ssl_renewed": "Zertifikat erneuert",
         "ssl_renewal_failed": "Zertifikatserneuerung fehlgeschlagen",
-        "disk_low": "Wenig Speicherplatz"
+        "disk_low": "Wenig Speicherplatz",
+        "database_error": "Datenbankverbindungsproblem"
       },
       "fields": {
         "task_name": "Aufgabe",
         "error": "Fehler",
+        "since": "Seit",
         "next_run": "Nächster Lauf",
         "fqdn": "Domain",
         "expires_in": "Tage bis zum Ablauf",

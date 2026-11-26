@@ -7,7 +7,7 @@ let clientMessages = {};
 
 async function loadClientTranslations() {
     const language = document.documentElement.lang || 'en';
-    const stylesheet = document.querySelector('link[rel="stylesheet"][href*="/static/css/main.css"]');
+    const stylesheet = document.querySelector('link[rel="stylesheet"][href*="/static/css/common.css"]');
     let stamp = '';
     try {
         stamp = new URL(stylesheet.href, window.location.href).searchParams.get('v') || '';
@@ -437,51 +437,6 @@ function bindCoordinatesPage() {
     });
 }
 
-function bindGraphQLPage() {
-    const form = document.getElementById('graphql-query-form');
-    const queryInput = document.getElementById('query');
-    const resultOutput = document.getElementById('result');
-    const runButton = document.getElementById('run-query');
-    if (!form || !queryInput || !resultOutput || !runButton) return;
-    form.addEventListener('submit', async (event) => {
-        event.preventDefault();
-        runButton.disabled = true;
-        runButton.setAttribute('aria-busy', 'true');
-        runButton.textContent = form.dataset.loadingLabel;
-        resultOutput.textContent = form.dataset.loadingLabel;
-        try {
-            const response = await fetch(citylistPath(form.dataset.apiUrl), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ query: queryInput.value }),
-            });
-            resultOutput.textContent = JSON.stringify(await response.json(), null, 2);
-        } catch {
-            resultOutput.textContent = form.dataset.errorLabel;
-        } finally {
-            runButton.disabled = false;
-            runButton.removeAttribute('aria-busy');
-            runButton.textContent = form.dataset.runLabel;
-        }
-    });
-}
-
-function bindSwaggerUI() {
-    const mount = document.getElementById('swagger-ui');
-    if (!mount || !window.SwaggerUIBundle) return;
-    window.SwaggerUIBundle({
-        url: mount.dataset.openapiUrl,
-        dom_id: '#swagger-ui',
-        deepLinking: true,
-        validatorUrl: null,
-        persistAuthorization: false,
-        presets: [window.SwaggerUIBundle.presets.apis],
-        plugins: [window.SwaggerUIBundle.plugins.DownloadUrl],
-        layout: 'BaseLayout',
-        docExpansion: 'list',
-    });
-}
-
 async function showUpdateNotification(registration) {
     if (document.querySelector('.update-banner')) return;
     clientMessages = await getClientTranslations();
@@ -675,8 +630,6 @@ document.addEventListener('DOMContentLoaded', () => {
     bindNavigation();
     bindSearchPage();
     bindCoordinatesPage();
-    bindGraphQLPage();
-    bindSwaggerUI();
     const isIOS = /iPad|iPhone|iPod/.test(window.navigator.userAgent) && !window.navigator.MSStream;
     if (isIOS && !isInstalledPWA()) showInstallButton(true);
     if ('serviceWorker' in navigator) {

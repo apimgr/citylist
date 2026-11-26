@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/apimgr/citylist/src/cities"
 	"github.com/apimgr/citylist/src/common/i18n"
+	"github.com/apimgr/citylist/src/common/theme"
 	"github.com/apimgr/citylist/src/config"
 	"github.com/apimgr/citylist/src/database"
 )
@@ -72,7 +74,11 @@ func TestTLSListenerSelection(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer listener.Close()
+			defer func() {
+				if err := listener.Close(); err != nil {
+					t.Errorf("close listener: %v", err)
+				}
+			}()
 			if got := shouldServeTLS(listener, tt.ports, tt.ssl); got != tt.want {
 				t.Errorf("shouldServeTLS() = %t, want %t", got, tt.want)
 			}
@@ -282,9 +288,13 @@ func TestGraphQLExplorerProvidesNoJavaScriptQueryPath(t *testing.T) {
 		t.Fatalf("GET /server/docs/graphql = %d, want 200", page.Code)
 	}
 	for _, required := range []string{
-		`class="page-title"`, `class="section-card"`,
-		`id="graphql-query-form" method="post" enctype="application/x-www-form-urlencoded" action="/api/v1/server/graphql"`,
-		`name="query"`, `id="run-query" type="submit"`, `id="result"`,
+		`class="page-title"`, `class="section-card"`, `id="graphiql"`,
+		`data-endpoint="/api/v1/server/graphql"`, `<noscript>`,
+		`href="/api/v1/server/graphql"`,
+		`/static/vendor/graphiql/react.production.min.js`,
+		`/static/vendor/graphiql/react-dom.production.min.js`,
+		`/static/vendor/graphiql/graphiql.umd.js`,
+		`/static/js/docs-graphql.js`,
 	} {
 		if !strings.Contains(page.Body.String(), required) {
 			t.Errorf("GraphQL explorer is missing %q", required)
@@ -303,9 +313,54 @@ func TestGraphQLExplorerProvidesNoJavaScriptQueryPath(t *testing.T) {
 	if !strings.Contains(result.Body.String(), `"data"`) {
 		t.Fatalf("form-encoded GraphQL query returned %q, want a data result", result.Body.String())
 	}
-	get := doRequest(t, s, http.MethodGet, "/api/v1/server/graphql", nil)
-	if get.Code != http.StatusMethodNotAllowed {
-		t.Errorf("GET /api/v1/server/graphql = %d, want 405", get.Code)
+	get := doRequest(t, s, http.MethodGet, "/api/v1/server/graphql?query="+url.QueryEscape(`{cities(limit:1){name}}`), nil)
+	if get.Code != http.StatusOK || !strings.Contains(get.Body.String(), `"London"`) {
+		t.Errorf("GET GraphQL query = %d %q, want a London result", get.Code, get.Body.String())
+	}
+	variables := url.QueryEscape(`{"limit":1}`)
+	variableQuery := url.QueryEscape(`query CityList($limit:Int){cities(limit:$limit){name}}`)
+	variableResult := doRequest(t, s, http.MethodGet, "/api/graphql?query="+variableQuery+"&variables="+variables+"&operationName=CityList", nil)
+	if variableResult.Code != http.StatusOK || !strings.Contains(variableResult.Body.String(), `"London"`) {
+		t.Errorf("GET GraphQL query with variables = %d %q", variableResult.Code, variableResult.Body.String())
+	}
+	mutation := doRequest(t, s, http.MethodGet, "/api/v1/server/graphql?query="+url.QueryEscape(`mutation { cities(limit:1) { name } }`), nil)
+	if mutation.Code != http.StatusOK || !strings.Contains(mutation.Body.String(), `"errors"`) {
+		t.Errorf("GET GraphQL mutation = %d %q, want a non-executed GraphQL error", mutation.Code, mutation.Body.String())
+	}
+	usage := doRequest(t, s, http.MethodGet, "/api/v1/server/graphql", nil)
+	if usage.Code != http.StatusOK || !strings.Contains(usage.Body.String(), "query parameter") {
+		t.Errorf("GET GraphQL usage = %d %q", usage.Code, usage.Body.String())
+	}
+	invalid := doRequest(t, s, http.MethodGet, "/api/v1/server/graphql?unknown=value", nil)
+	if invalid.Code != http.StatusBadRequest {
+		t.Errorf("GET GraphQL unknown parameter = %d, want 400", invalid.Code)
+	}
+}
+
+func TestCommonCSSIsRenderedFromTheGoThemePalette(t *testing.T) {
+	s := testServer(t)
+	response := doRequest(t, s, http.MethodGet, "/static/css/common.css?v="+AssetStamp(), nil)
+	if response.Code != http.StatusOK || !strings.HasPrefix(response.Header().Get("Content-Type"), "text/css") {
+		t.Fatalf("GET common.css = %d %q", response.Code, response.Header().Get("Content-Type"))
+	}
+	for _, color := range []string{
+		theme.ThemePaletteDark.Background,
+		theme.ThemePaletteDark.Foreground,
+		theme.ThemePaletteDark.Muted,
+		theme.ThemePaletteLight.Background,
+		theme.ThemePaletteLight.Foreground,
+		theme.ThemePaletteLight.Muted,
+	} {
+		if !strings.Contains(response.Body.String(), color) {
+			t.Errorf("common.css is missing palette color %s", color)
+		}
+	}
+	if strings.Contains(response.Body.String(), "__CITYLIST_") {
+		t.Error("common.css response contains unresolved palette placeholders")
+	}
+	head := doRequest(t, s, http.MethodHead, "/static/css/common.css?v="+AssetStamp(), nil)
+	if head.Code != http.StatusOK || head.Body.Len() != 0 {
+		t.Errorf("HEAD common.css = %d with %d body bytes", head.Code, head.Body.Len())
 	}
 }
 
@@ -1466,22 +1521,24 @@ func TestHandleOpenAPI(t *testing.T) {
 	for _, expected := range []string{
 		`class="page-title"`, `id="swagger-ui"`,
 		`data-openapi-url="/api/v1/server/swagger"`,
-		`/server/docs/swagger/swagger-ui.css`,
-		`/server/docs/swagger/swagger-ui-bundle.js`,
+		`/static/vendor/swagger-ui/swagger-ui.css`,
+		`/static/vendor/swagger-ui/swagger-ui-bundle.js`,
+		`/static/vendor/swagger-ui/swagger-ui-standalone-preset.js`,
+		`/static/js/docs-swagger.js`,
 		`<noscript>`,
 	} {
 		if !strings.Contains(rec.Body.String(), expected) {
 			t.Errorf("Swagger page is missing %q", expected)
 		}
 	}
-	asset := doRequest(t, s, http.MethodGet, "/server/docs/swagger/swagger-ui.css", nil)
+	asset := doRequest(t, s, http.MethodGet, "/static/vendor/swagger-ui/swagger-ui.css", nil)
 	if asset.Code != http.StatusOK || !strings.Contains(asset.Header().Get("Content-Type"), "text/css") {
 		t.Errorf("Swagger UI CSS asset = %d %q, want CSS 200", asset.Code, asset.Header().Get("Content-Type"))
 	}
 	if got := asset.Header().Get("Cache-Control"); got != "no-cache" {
 		t.Errorf("unstamped Swagger asset Cache-Control = %q, want no-cache", got)
 	}
-	missingSwaggerAsset := doRequest(t, s, http.MethodGet, "/server/docs/swagger/missing.js?v="+AssetStamp(), nil)
+	missingSwaggerAsset := doRequest(t, s, http.MethodGet, "/static/vendor/swagger-ui/missing.js?v="+AssetStamp(), nil)
 	if missingSwaggerAsset.Code != http.StatusNotFound || strings.Contains(missingSwaggerAsset.Header().Get("Cache-Control"), "immutable") {
 		t.Errorf("missing Swagger asset returned %d with Cache-Control %q", missingSwaggerAsset.Code, missingSwaggerAsset.Header().Get("Cache-Control"))
 	}
@@ -1515,8 +1572,14 @@ func TestHandleOpenAPISpec(t *testing.T) {
 		if _, ok := operations["post"]; !ok {
 			t.Errorf("OpenAPI document is missing POST %s", route)
 		}
-		if _, ok := operations["get"]; ok {
-			t.Errorf("OpenAPI document incorrectly exposes GET %s", route)
+		if _, ok := operations["get"]; !ok {
+			t.Errorf("OpenAPI document is missing GET %s", route)
+		} else {
+			getOperation := operations["get"].(map[string]interface{})
+			parameters := getOperation["parameters"].([]interface{})
+			if len(parameters) != 3 {
+				t.Errorf("OpenAPI GET %s has %d parameters, want query, variables, operationName", route, len(parameters))
+			}
 		}
 	}
 	for _, obsolete := range []string{"/api/v1/openapi.json", "/graphql"} {

@@ -117,12 +117,12 @@ func createBackupTestDatabase(t *testing.T, path, value string) {
 	}
 }
 
-func copyBackupTestFile(source, destination string) error {
+func copyBackupTestFile(source, destination string) (retErr error) {
 	input, err := os.Open(source)
 	if err != nil {
 		return err
 	}
-	defer input.Close()
+	defer func() { retErr = errors.Join(retErr, input.Close()) }()
 	if err := os.MkdirAll(filepath.Dir(destination), 0700); err != nil {
 		return err
 	}

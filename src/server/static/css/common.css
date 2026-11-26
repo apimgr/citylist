@@ -17,31 +17,34 @@
 	--z-toast: 500;
 	--z-tooltip: 600;
     /* Colors - Dark Theme (Default) */
-    --color-bg-primary: #0a0a0f;
-    --color-bg-secondary: #12121a;
-    --color-bg-tertiary: #1a1a24;
-    --color-bg-elevated: #22222e;
-    --color-bg-hover: #2a2a38;
+    --color-bg-primary: __CITYLIST_DARK_BACKGROUND__;
+    --color-bg-secondary: __CITYLIST_DARK_SURFACE_ALT__;
+    --color-bg-tertiary: __CITYLIST_DARK_SURFACE__;
+    --color-bg-elevated: __CITYLIST_DARK_SURFACE__;
+    --color-bg-hover: __CITYLIST_DARK_HOVER__;
 
-    --color-text-primary: #f4f4f6;
-    --color-text-secondary: #a0a0b0;
-    --color-text-muted: #6a6a7a;
-    --color-text-inverse: #0a0a0f;
+    --color-text-primary: __CITYLIST_DARK_FOREGROUND__;
+    --color-text-secondary: var(--color-muted);
+    --color-muted: __CITYLIST_DARK_MUTED__;
+    --color-text-muted: var(--color-muted);
+    --color-text-inverse: __CITYLIST_DARK_BACKGROUND__;
 
-    --color-accent-primary: #6366f1;
-    --color-accent-secondary: #8b5cf6;
-    --color-accent-gradient: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-    --color-accent-hover: #818cf8;
-    --color-accent-glow: rgba(99, 102, 241, 0.4);
+    --color-accent-primary: __CITYLIST_DARK_PRIMARY__;
+    --color-primary: var(--color-accent-primary);
+    --color-accent-secondary: __CITYLIST_DARK_SECONDARY__;
+    --color-accent-gradient: linear-gradient(135deg, __CITYLIST_DARK_PRIMARY__ 0%, __CITYLIST_DARK_ACCENT__ 100%);
+    --color-accent-hover: __CITYLIST_DARK_ACCENT__;
+    --color-accent-glow: color-mix(in srgb, __CITYLIST_DARK_PRIMARY__ 40%, transparent);
 
-    --color-success: #10b981;
-    --color-warning: #f59e0b;
-    --color-error: #ef4444;
-    --color-info: #3b82f6;
+    --color-success: __CITYLIST_DARK_SUCCESS__;
+    --color-warning: __CITYLIST_DARK_WARNING__;
+    --color-error: __CITYLIST_DARK_ERROR__;
+    --color-info: __CITYLIST_DARK_INFO__;
 
-    --color-border: rgba(255, 255, 255, 0.08);
-    --color-border-hover: rgba(255, 255, 255, 0.15);
+    --color-border: __CITYLIST_DARK_BORDER__;
+    --color-border-hover: __CITYLIST_DARK_BORDER_HOVER__;
     --color-border-focus: var(--color-accent-primary);
+    --color-on-error: __CITYLIST_DARK_ON_ERROR__;
 
     /* Shadows */
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
@@ -92,19 +95,32 @@
 
 /* Light Theme */
 html.theme-light {
-    --color-bg-primary: #fafafa;
-    --color-bg-secondary: #ffffff;
-    --color-bg-tertiary: #f5f5f5;
-    --color-bg-elevated: #ffffff;
-    --color-bg-hover: #f0f0f0;
+    --color-bg-primary: __CITYLIST_LIGHT_BACKGROUND__;
+    --color-bg-secondary: __CITYLIST_LIGHT_SURFACE_ALT__;
+    --color-bg-tertiary: __CITYLIST_LIGHT_SURFACE__;
+    --color-bg-elevated: __CITYLIST_LIGHT_SURFACE__;
+    --color-bg-hover: __CITYLIST_LIGHT_HOVER__;
 
-    --color-text-primary: #18181b;
-    --color-text-secondary: #52525b;
-    --color-text-muted: #a1a1aa;
-    --color-text-inverse: #fafafa;
+    --color-text-primary: __CITYLIST_LIGHT_FOREGROUND__;
+    --color-text-secondary: var(--color-muted);
+    --color-muted: __CITYLIST_LIGHT_MUTED__;
+    --color-text-muted: var(--color-muted);
+    --color-text-inverse: __CITYLIST_LIGHT_BACKGROUND__;
 
-    --color-border: rgba(0, 0, 0, 0.08);
-    --color-border-hover: rgba(0, 0, 0, 0.15);
+    --color-accent-primary: __CITYLIST_LIGHT_PRIMARY__;
+    --color-primary: var(--color-accent-primary);
+    --color-accent-secondary: __CITYLIST_LIGHT_SECONDARY__;
+    --color-accent-gradient: linear-gradient(135deg, __CITYLIST_LIGHT_PRIMARY__ 0%, __CITYLIST_LIGHT_ACCENT__ 100%);
+    --color-accent-hover: __CITYLIST_LIGHT_ACCENT__;
+    --color-accent-glow: color-mix(in srgb, __CITYLIST_LIGHT_PRIMARY__ 20%, transparent);
+    --color-success: __CITYLIST_LIGHT_SUCCESS__;
+    --color-warning: __CITYLIST_LIGHT_WARNING__;
+    --color-error: __CITYLIST_LIGHT_ERROR__;
+    --color-info: __CITYLIST_LIGHT_INFO__;
+
+    --color-border: __CITYLIST_LIGHT_BORDER__;
+    --color-border-hover: __CITYLIST_LIGHT_BORDER_HOVER__;
+    --color-on-error: __CITYLIST_LIGHT_ON_ERROR__;
 
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
     --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
@@ -113,17 +129,29 @@ html.theme-light {
 
 @media (prefers-color-scheme: light) {
     html.theme-auto {
-        --color-bg-primary: #fafafa;
-        --color-bg-secondary: #ffffff;
-        --color-bg-tertiary: #f5f5f5;
-        --color-bg-elevated: #ffffff;
-        --color-bg-hover: #f0f0f0;
-        --color-text-primary: #18181b;
-        --color-text-secondary: #52525b;
-        --color-text-muted: #71717a;
-        --color-text-inverse: #fafafa;
-        --color-border: rgba(0, 0, 0, 0.12);
-        --color-border-hover: rgba(0, 0, 0, 0.2);
+        --color-bg-primary: __CITYLIST_LIGHT_BACKGROUND__;
+        --color-bg-secondary: __CITYLIST_LIGHT_SURFACE_ALT__;
+        --color-bg-tertiary: __CITYLIST_LIGHT_SURFACE__;
+        --color-bg-elevated: __CITYLIST_LIGHT_SURFACE__;
+        --color-bg-hover: __CITYLIST_LIGHT_HOVER__;
+        --color-text-primary: __CITYLIST_LIGHT_FOREGROUND__;
+        --color-text-secondary: var(--color-muted);
+        --color-muted: __CITYLIST_LIGHT_MUTED__;
+        --color-text-muted: var(--color-muted);
+        --color-text-inverse: __CITYLIST_LIGHT_BACKGROUND__;
+        --color-accent-primary: __CITYLIST_LIGHT_PRIMARY__;
+        --color-primary: var(--color-accent-primary);
+        --color-accent-secondary: __CITYLIST_LIGHT_SECONDARY__;
+        --color-accent-gradient: linear-gradient(135deg, __CITYLIST_LIGHT_PRIMARY__ 0%, __CITYLIST_LIGHT_ACCENT__ 100%);
+        --color-accent-hover: __CITYLIST_LIGHT_ACCENT__;
+        --color-accent-glow: color-mix(in srgb, __CITYLIST_LIGHT_PRIMARY__ 20%, transparent);
+        --color-success: __CITYLIST_LIGHT_SUCCESS__;
+        --color-warning: __CITYLIST_LIGHT_WARNING__;
+        --color-error: __CITYLIST_LIGHT_ERROR__;
+        --color-info: __CITYLIST_LIGHT_INFO__;
+        --color-border: __CITYLIST_LIGHT_BORDER__;
+        --color-border-hover: __CITYLIST_LIGHT_BORDER_HOVER__;
+        --color-on-error: __CITYLIST_LIGHT_ON_ERROR__;
         --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
         --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
         --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.12);
@@ -243,6 +271,12 @@ html.theme-light .header {
     text-decoration: none;
 }
 
+.nav-brand img {
+    max-width: 200px;
+    max-height: 40px;
+    object-fit: contain;
+}
+
 .nav-brand:hover {
     color: var(--color-text-primary);
 }
@@ -318,9 +352,18 @@ main {
 
 .container {
     width: 100%;
-    max-width: 1280px;
     margin: 0 auto;
-    padding: 0 var(--space-6);
+    padding-left: 1rem;
+    padding-right: 1rem;
+}
+
+@media (min-width: 768px) {
+    .container {
+        width: 90%;
+        padding-left: 0;
+        padding-right: 0;
+        max-width: 1400px;
+    }
 }
 
 .container-sm {
@@ -972,8 +1015,8 @@ main {
     bottom: 0;
     left: 0;
     width: 100%;
-    background: #7c5295;
-    color: #fff;
+    background: var(--color-accent-primary);
+    color: var(--color-text-primary);
 }
 
 .cookie-banner-top {
@@ -998,7 +1041,7 @@ main {
 }
 
 .cookie-banner .policy-link {
-    color: #fff;
+    color: inherit;
     text-decoration: underline;
 }
 
@@ -1017,7 +1060,7 @@ main {
 .cookie-banner .btn-accept {
     min-height: 44px;
     padding: var(--space-2) var(--space-5);
-    border: 1px solid #fff;
+    border: 1px solid currentColor;
     border-radius: var(--radius-sm);
     cursor: pointer;
     font: inherit;
@@ -1025,12 +1068,12 @@ main {
 
 .cookie-banner .btn-decline {
     background: transparent;
-    color: #fff;
+    color: inherit;
 }
 
 .cookie-banner .btn-accept {
-    background: #fff;
-    color: #7c5295;
+    background: var(--color-bg-primary);
+    color: var(--color-accent-primary);
 }
 
 .cookie-preferences-modal {
@@ -1577,6 +1620,9 @@ body:has(#nav-toggle:checked) {
 }
 
 @media (max-width: 640px) {
+    .nav-brand img {
+        max-width: 50px;
+    }
     .form-row {
         grid-template-columns: 1fr;
     }
@@ -2012,103 +2058,103 @@ body:has(#nav-toggle:checked) {
 }
 
 .swagger-ui.theme-dark {
-    background: #282a36;
-    color: #f8f8f2;
+    background: var(--color-bg-primary);
+    color: var(--color-text-primary);
 }
 
 .swagger-ui.theme-dark .topbar {
-    background: #1e1f29;
+    background: var(--color-bg-secondary);
 }
 
 .swagger-ui.theme-dark .info .title,
 .swagger-ui.theme-dark .opblock-tag {
-    color: #f8f8f2;
+    color: var(--color-text-primary);
 }
 
 .swagger-ui.theme-dark .opblock.opblock-get {
-    background: rgba(139, 233, 253, 0.1);
-    border-color: #8be9fd;
+    background: color-mix(in srgb, var(--color-info) 10%, transparent);
+    border-color: var(--color-info);
 }
 
 .swagger-ui.theme-dark .opblock.opblock-post {
-    background: rgba(80, 250, 123, 0.1);
-    border-color: #50fa7b;
+    background: color-mix(in srgb, var(--color-success) 10%, transparent);
+    border-color: var(--color-success);
 }
 
 .swagger-ui.theme-dark .opblock.opblock-put {
-    background: rgba(255, 184, 108, 0.1);
-    border-color: #ffb86c;
+    background: color-mix(in srgb, var(--color-warning) 10%, transparent);
+    border-color: var(--color-warning);
 }
 
 .swagger-ui.theme-dark .opblock.opblock-delete {
-    background: rgba(255, 85, 85, 0.1);
-    border-color: #ff5555;
+    background: color-mix(in srgb, var(--color-error) 10%, transparent);
+    border-color: var(--color-error);
 }
 
 .swagger-ui.theme-dark input,
 .swagger-ui.theme-dark textarea,
 .swagger-ui.theme-dark select {
-    background: #44475a;
-    color: #f8f8f2;
-    border: 1px solid #6272a4;
+    background: var(--color-bg-tertiary);
+    color: var(--color-text-primary);
+    border: 1px solid var(--color-border-hover);
 }
 
 .swagger-ui.theme-dark .btn {
-    background: #6272a4;
-    color: #f8f8f2;
+    background: var(--color-border-hover);
+    color: var(--color-text-primary);
 }
 
 .swagger-ui.theme-light {
-    background: #ffffff;
-    color: #1a1a1a;
+    background: var(--color-bg-primary);
+    color: var(--color-text-primary);
 }
 
 .swagger-ui.theme-light .topbar {
-    background: #f5f5f5;
-    border-bottom: 1px solid #e0e0e0;
+    background: var(--color-bg-secondary);
+    border-bottom: 1px solid var(--color-border);
 }
 
 .swagger-ui.theme-light .info .title,
 .swagger-ui.theme-light .opblock-tag {
-    color: #1a1a1a;
+    color: var(--color-text-primary);
 }
 
 .swagger-ui.theme-light .opblock.opblock-get {
-    background: rgba(0, 102, 204, 0.05);
-    border-color: #0066cc;
+    background: color-mix(in srgb, var(--color-info) 5%, transparent);
+    border-color: var(--color-info);
 }
 
 .swagger-ui.theme-light .opblock.opblock-post {
-    background: rgba(0, 128, 0, 0.05);
-    border-color: #008000;
+    background: color-mix(in srgb, var(--color-success) 5%, transparent);
+    border-color: var(--color-success);
 }
 
 .swagger-ui.theme-light .opblock.opblock-put {
-    background: rgba(255, 140, 0, 0.05);
-    border-color: #ff8c00;
+    background: color-mix(in srgb, var(--color-warning) 5%, transparent);
+    border-color: var(--color-warning);
 }
 
 .swagger-ui.theme-light .opblock.opblock-delete {
-    background: rgba(204, 0, 0, 0.05);
-    border-color: #cc0000;
+    background: color-mix(in srgb, var(--color-error) 5%, transparent);
+    border-color: var(--color-error);
 }
 
 .swagger-ui.theme-light input,
 .swagger-ui.theme-light textarea,
 .swagger-ui.theme-light select {
-    background: #ffffff;
-    color: #1a1a1a;
-    border: 1px solid #cccccc;
+    background: var(--color-bg-primary);
+    color: var(--color-text-primary);
+    border: 1px solid var(--color-border);
 }
 
 .swagger-ui.theme-light .btn {
-    background: #0066cc;
-    color: #ffffff;
+    background: var(--color-primary);
+    color: var(--color-on-error);
 }
 
 .swagger-ui.theme-auto {
-    background: #282a36;
-    color: #f8f8f2;
+    background: var(--color-bg-primary);
+    color: var(--color-text-primary);
 }
 
 .update-banner,
@@ -2195,45 +2241,45 @@ body:has(#nav-toggle:checked) {
 
 @media (prefers-color-scheme: light) {
     .swagger-ui.theme-auto {
-        background: #ffffff;
-        color: #1a1a1a;
+        background: var(--color-bg-primary);
+        color: var(--color-text-primary);
     }
 
     .swagger-ui.theme-auto .info .title,
     .swagger-ui.theme-auto .opblock-tag {
-        color: #1a1a1a;
+        color: var(--color-text-primary);
     }
 
     .swagger-ui.theme-auto .opblock.opblock-get {
-        background: rgba(0, 102, 204, 0.05);
-        border-color: #0066cc;
+        background: color-mix(in srgb, var(--color-info) 5%, transparent);
+        border-color: var(--color-info);
     }
 
     .swagger-ui.theme-auto .opblock.opblock-post {
-        background: rgba(0, 128, 0, 0.05);
-        border-color: #008000;
+        background: color-mix(in srgb, var(--color-success) 5%, transparent);
+        border-color: var(--color-success);
     }
 
     .swagger-ui.theme-auto .opblock.opblock-put {
-        background: rgba(255, 140, 0, 0.05);
-        border-color: #ff8c00;
+        background: color-mix(in srgb, var(--color-warning) 5%, transparent);
+        border-color: var(--color-warning);
     }
 
     .swagger-ui.theme-auto .opblock.opblock-delete {
-        background: rgba(204, 0, 0, 0.05);
-        border-color: #cc0000;
+        background: color-mix(in srgb, var(--color-error) 5%, transparent);
+        border-color: var(--color-error);
     }
 
     .swagger-ui.theme-auto input,
     .swagger-ui.theme-auto textarea,
     .swagger-ui.theme-auto select {
-        background: #ffffff;
-        color: #1a1a1a;
-        border: 1px solid #cccccc;
+        background: var(--color-bg-primary);
+        color: var(--color-text-primary);
+        border: 1px solid var(--color-border);
     }
 
     .swagger-ui.theme-auto .btn {
-        background: #0066cc;
-        color: #ffffff;
+        background: var(--color-primary);
+        color: var(--color-on-error);
     }
 }

@@ -2,18 +2,18 @@ name: Docker Build
 
 on:
   push:
-    # ALL branches
-    branches: ['**']
+    branches: [main]
     tags:
       - 'v*'
       - '*.*.*'
+      - '??????????????-beta'
   schedule:
     - cron: '0 4 * * *'
   workflow_dispatch:
 
 concurrency:
   group: docker-${{ gitea.ref }}
-  cancel-in-progress: ${{ gitea.ref == 'refs/heads/main' || gitea.ref == 'refs/heads/master' || gitea.ref == 'refs/heads/beta' }}
+  cancel-in-progress: ${{ gitea.ref == 'refs/heads/main' }}
 
 env:
   PROJECT_NAME: citylist
@@ -24,7 +24,7 @@ env:
 jobs:
   build-standard:
     runs-on: ubuntu-26.04
-    if: gitea.event_name != 'schedule'
+    if: (gitea.event_name == 'push' && (gitea.ref == 'refs/heads/main' || startsWith(gitea.ref, 'refs/tags/'))) || (gitea.event_name == 'workflow_dispatch' && gitea.ref == 'refs/heads/main')
     permissions:
       contents: read
       packages: write
@@ -66,9 +66,18 @@ jobs:
           echo "YYMM=$(date +"%y%m")" >> $GITEA_ENV
           if [[ "${{ gitea.ref }}" == refs/tags/* ]]; then
             VERSION="${GITEA_REF_NAME}"
-            # Strip 'v' prefix
-            echo "VERSION=${VERSION#v}" >> $GITEA_ENV
-            echo "IS_TAG=true" >> $GITEA_ENV
+            if [[ "$VERSION" =~ ^[0-9]{14}-beta$ ]]; then
+              echo "VERSION=$VERSION" >> $GITEA_ENV
+              echo "IS_BETA=true" >> $GITEA_ENV
+              echo "IS_TAG=false" >> $GITEA_ENV
+            elif [[ "$VERSION" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "VERSION=${VERSION#v}" >> $GITEA_ENV
+              echo "IS_BETA=false" >> $GITEA_ENV
+              echo "IS_TAG=true" >> $GITEA_ENV
+            else
+              echo "Unsupported Docker release tag: $VERSION" >&2
+              exit 1
+            fi
           else
             echo "VERSION=$(git rev-parse --short=7 HEAD)" >> $GITEA_ENV
             echo "IS_TAG=false" >> $GITEA_ENV
@@ -83,16 +92,12 @@ jobs:
           # Use self-hosted registry URL
           TAGS="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.COMMIT_ID }}"
 
-          if [[ "${{ env.IS_TAG }}" == "true" ]]; then
-            # Release tag - version, latest, YYMM
+          if [[ "${{ env.IS_BETA }}" == "true" ]]; then
+            TAGS="$TAGS,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:beta"
+          elif [[ "${{ env.IS_TAG }}" == "true" ]]; then
             TAGS="$TAGS,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.VERSION }}"
             TAGS="$TAGS,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
             TAGS="$TAGS,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.YYMM }}"
-          else
-            # Beta branch also gets beta tag
-            if [[ "${{ gitea.ref }}" == refs/heads/beta ]]; then
-              TAGS="$TAGS,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:beta"
-            fi
           fi
 
           echo "tags=$TAGS" >> $GITEA_OUTPUT
@@ -141,7 +146,7 @@ jobs:
 
   build-devel:
     runs-on: ubuntu-26.04
-    if: (gitea.event_name == 'schedule' || gitea.event_name == 'workflow_dispatch' || gitea.event_name == 'push') && (gitea.ref == 'refs/heads/main' || gitea.ref == 'refs/heads/master')
+    if: (gitea.event_name == 'schedule' || gitea.event_name == 'workflow_dispatch' || gitea.event_name == 'push') && gitea.ref == 'refs/heads/main'
     permissions:
       contents: read
       packages: write
@@ -220,4 +225,3 @@ jobs:
             manifest:org.opencontainers.image.source=${{ gitea.server_url }}/${{ gitea.repository }}
             manifest:org.opencontainers.image.documentation=${{ gitea.server_url }}/${{ gitea.repository }}
             manifest:org.opencontainers.image.licenses=MIT
-

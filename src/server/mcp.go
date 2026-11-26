@@ -416,7 +416,8 @@ var mcpHelpTemplate = template.Must(template.New("mcp-help").Funcs(template.Func
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="base-url" content="{{.BaseURL}}">
   {{.SEOHead}}
-  <link rel="stylesheet" href="{{asset (printf "%s/static/css/main.css" .BaseURL)}}">
+  <link rel="stylesheet" href="{{asset (printf "%s/static/css/common.css" .BaseURL)}}">
+  <link rel="stylesheet" href="{{asset (printf "%s/static/css/components.css" .BaseURL)}}">
   {{if .HasAccent}}<link rel="stylesheet" href="{{asset (printf "%s/static/css/accent.css" .BaseURL)}}">{{end}}
 </head>
 <body>
@@ -573,7 +574,15 @@ func (s *Server) handleMCPHelp(w http.ResponseWriter, r *http.Request) {
 		s.renderError(w, r, http.StatusInternalServerError, "")
 		return
 	}
-	_, _ = io.WriteString(w, rendered.String())
+	shared, err := s.applySharedPageShell(r, rendered.String(), map[string]interface{}{
+		"CSRFToken": dataHTML.CSRFToken, "ReturnTo": dataHTML.ReturnTo, "SiteBanners": dataHTML.SiteBanners,
+		"ConsentBanner": dataHTML.ConsentBanner, "TrackingNoscript": dataHTML.TrackingNoscript,
+	})
+	if err != nil {
+		s.renderError(w, r, http.StatusInternalServerError, "")
+		return
+	}
+	_, _ = io.WriteString(w, shared)
 }
 
 func mcpHelpStrings(language, tokenEndpoint string) map[string]string {

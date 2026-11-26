@@ -250,6 +250,41 @@ func TestUserModeUninstallDoesNotDeleteSystemAccount(t *testing.T) {
 	}
 }
 
+func TestUninstallSkipsGroupAlreadyRemovedWithServiceUser(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("system account deletion behavior is Linux-specific")
+	}
+	root := t.TempDir()
+	binDir := filepath.Join(root, "bin")
+	if err := os.MkdirAll(binDir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	callLog := filepath.Join(root, "calls")
+	for _, name := range []string{"userdel", "groupdel"} {
+		script := "#!/bin/sh\nprintf '%s\\n' \"" + name + "\" >> \"" + callLog + "\"\nexit 0\n"
+		if err := os.WriteFile(filepath.Join(binDir, name), []byte(script), 0700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Setenv("PATH", binDir)
+	options := Options{
+		Name: "citylist-uninstall-group-test", Org: "apimgr",
+		ConfigDir: filepath.Join(root, "config"), DataDir: filepath.Join(root, "data"),
+		DatabaseDir: filepath.Join(root, "database"), CacheDir: filepath.Join(root, "cache"),
+		LogsDir: filepath.Join(root, "logs"), BackupDir: filepath.Join(root, "backup"),
+	}
+	if err := uninstallWithManager(options, strings.NewReader("yes\n"), &strings.Builder{}, ServiceSystemd); err != nil {
+		t.Fatal(err)
+	}
+	calls, err := os.ReadFile(callLog)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(calls) != "userdel\n" {
+		t.Fatalf("account deletion calls = %q, want only userdel when the group is already absent", calls)
+	}
+}
+
 func TestUserModeSystemdServiceLifecycle(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("systemd user-service behavior is Linux-specific")

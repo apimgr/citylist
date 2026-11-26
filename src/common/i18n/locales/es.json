@@ -136,7 +136,9 @@
     },
     "footer": {
       "brand": "API Citylist - Parte de apimgr",
-      "github": "GitHub"
+      "github": "GitHub",
+      "made_with": "Hecho con",
+      "last_update": "Última actualización"
     },
     "graphql": {
       "title": "Explorador GraphQL",
@@ -148,6 +150,8 @@
       "loading": "Cargando consulta…",
       "failed": "No se pudo completar la consulta.",
       "openapi": "Especificación OpenAPI",
+      "nojs": "Abrir el endpoint GraphQL sin JavaScript",
+      "javascript_required": "Este explorador interactivo de API requiere JavaScript.",
       "schema": {
         "types": {
           "Query": "Consultas de solo lectura sobre datos de ciudades y códigos ZIP.",
@@ -693,11 +697,13 @@
         "ssl_expiring": "Certificado próximo a vencer",
         "ssl_renewed": "Certificado renovado",
         "ssl_renewal_failed": "Error al renovar el certificado",
-        "disk_low": "Poco espacio en disco"
+        "disk_low": "Poco espacio en disco",
+        "database_error": "Problema de conexión con la base de datos"
       },
       "fields": {
         "task_name": "Tarea",
         "error": "Error",
+        "since": "Desde",
         "next_run": "Próxima ejecución",
         "fqdn": "Dominio",
         "expires_in": "Días hasta el vencimiento",

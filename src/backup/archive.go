@@ -93,13 +93,13 @@ func ExtractVerified(ctx context.Context, path, password string, limits Limits, 
 	return manifest, nil
 }
 
-func readArchive(ctx context.Context, path, password string, limits Limits) (Manifest, map[string][]byte, string, error) {
+func readArchive(ctx context.Context, path, password string, limits Limits) (manifest Manifest, contents map[string][]byte, checksum string, retErr error) {
 	limits = normalizeLimits(limits)
 	file, err := os.Open(path)
 	if err != nil {
 		return Manifest{}, nil, "", fmt.Errorf("open backup: %w", err)
 	}
-	defer file.Close()
+	defer func() { retErr = errors.Join(retErr, file.Close()) }()
 	info, err := file.Stat()
 	if err != nil {
 		return Manifest{}, nil, "", err
@@ -120,7 +120,7 @@ func readArchive(ctx context.Context, path, password string, limits Limits) (Man
 	default:
 	}
 	archiveDigest := sha256.Sum256(archive)
-	checksum := hex.EncodeToString(archiveDigest[:])
+	checksum = hex.EncodeToString(archiveDigest[:])
 	encrypted := bytes.HasPrefix(archive, []byte(encryptionMark))
 	if encrypted {
 		if password == "" {
@@ -160,17 +160,16 @@ func readArchive(ctx context.Context, path, password string, limits Limits) (Man
 	return manifest, files, checksum, nil
 }
 
-func decodeArchive(data []byte, limits Limits) (Manifest, map[string][]byte, error) {
+func decodeArchive(data []byte, limits Limits) (manifest Manifest, files map[string][]byte, retErr error) {
 	limits = normalizeLimits(limits)
 	compressedSize := int64(len(data))
 	reader, err := gzip.NewReader(bytes.NewReader(data))
 	if err != nil {
 		return Manifest{}, nil, fmt.Errorf("invalid gzip archive: %w", err)
 	}
-	defer reader.Close()
+	defer func() { retErr = errors.Join(retErr, reader.Close()) }()
 	tarReader := tar.NewReader(reader)
-	files := make(map[string][]byte)
-	var manifest Manifest
+	files = make(map[string][]byte)
 	manifestFound := false
 	var expandedSize int64
 	count := 0
@@ -314,7 +313,7 @@ func verifyManifestContents(manifest Manifest, files map[string][]byte) error {
 	return nil
 }
 
-func verifySQLite(ctx context.Context, content []byte, temporaryRoot string) error {
+func verifySQLite(ctx context.Context, content []byte, temporaryRoot string) (retErr error) {
 	if temporaryRoot == "" {
 		return errors.New("project-scoped temporary directory is required for SQLite verification")
 	}
@@ -326,7 +325,11 @@ func verifySQLite(ctx context.Context, content []byte, temporaryRoot string) err
 		return err
 	}
 	path := file.Name()
-	defer os.Remove(path)
+	defer func() {
+		if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+			retErr = errors.Join(retErr, fmt.Errorf("remove temporary backup database: %w", err))
+		}
+	}()
 	if err := file.Chmod(0600); err != nil {
 		_ = file.Close()
 		return err
@@ -346,7 +349,7 @@ func verifySQLite(ctx context.Context, content []byte, temporaryRoot string) err
 	if err != nil {
 		return err
 	}
-	defer db.Close()
+	defer func() { retErr = errors.Join(retErr, db.Close()) }()
 	var result string
 	if err := db.QueryRowContext(ctx, "PRAGMA integrity_check").Scan(&result); err != nil {
 		return err

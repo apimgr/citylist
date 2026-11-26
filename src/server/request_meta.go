@@ -194,7 +194,11 @@ func (s *Server) BuildURL(r *http.Request, requestPath string) string {
 	domains := configuredDomains()
 	host := ""
 	forwardedHost := false
-	if trusted {
+	overlayHost := s.overlayRequestHost(r)
+	if overlayHost != "" {
+		host = overlayHost
+		forwardedHost = true
+	} else if trusted {
 		for _, header := range []string{"X-Forwarded-Host", "X-Real-Host", "X-Original-Host"} {
 			if candidate := firstHeaderValue(r.Header.Values(header)); candidate != "" {
 				if validHostPort(candidate) {
@@ -257,6 +261,31 @@ func (s *Server) BuildURL(r *http.Request, requestPath string) string {
 		pathValue = strings.TrimSuffix(s.baseURL, "/") + pathValue
 	}
 	return (&url.URL{Scheme: proto, Host: host, Path: pathValue}).String()
+}
+
+func (s *Server) overlayRequestHost(r *http.Request) string {
+	if r == nil {
+		return ""
+	}
+	requestHost := strings.ToLower(strings.TrimSuffix(strings.TrimSpace(r.Host), "."))
+	if requestHost == "" {
+		return ""
+	}
+	if s.torManager != nil {
+		snapshot := s.torManager.Snapshot()
+		configured := strings.TrimSuffix(strings.ToLower(strings.TrimSpace(snapshot.Hostname)), ".")
+		if configured != "" && requestHost == configured {
+			return snapshot.Hostname
+		}
+	}
+	if s.i2pManager != nil {
+		snapshot := s.i2pManager.Snapshot()
+		configured := strings.TrimSuffix(strings.ToLower(strings.TrimSpace(snapshot.Hostname)), ".")
+		if configured != "" && requestHost == configured {
+			return snapshot.Hostname
+		}
+	}
+	return ""
 }
 
 func (s *Server) trustedProxySnapshot() []netip.Prefix {

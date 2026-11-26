@@ -9,7 +9,8 @@
     <meta name="description" content="{{t .Lang "search.description"}}">
     <meta name="theme-color" content="#6366f1">
     <link rel="manifest" href="{{.BaseURL}}/manifest.json">
-    <link rel="stylesheet" href="{{asset (printf "%s/static/css/main.css" .BaseURL)}}">
+    <link rel="stylesheet" href="{{asset (printf "%s/static/css/common.css" .BaseURL)}}">
+    <link rel="stylesheet" href="{{asset (printf "%s/static/css/components.css" .BaseURL)}}">
   {{if .HasAccent}}<link rel="stylesheet" href="{{asset (printf "%s/static/css/accent.css" .BaseURL)}}">{{end}}
 </head>
 <body>
@@ -18,7 +19,7 @@
   {{.SiteBanners}}
   <input type="checkbox" id="nav-toggle" class="nav-checkbox" aria-label="{{t .Lang "nav.toggle"}}">
   <header class="header">
-    <a href="{{.BaseURL}}/" class="nav-brand">{{.BrandTitle}}</a>
+    <a href="{{.BaseURL}}/" class="nav-brand"><picture><source media="(max-width: 640px)" srcset="{{.LogoURL}}?size=50"><img src="{{.LogoURL}}?size=200" alt="{{.BrandTitle}}"></picture>{{.BrandTitle}}</a>
     <nav id="navigation" class="nav-links" aria-label="{{t .Lang "nav.main"}}">
       <a href="{{.BaseURL}}/" class="nav-link">{{t .Lang "common.home"}}</a>
       <a href="{{.BaseURL}}/search" class="nav-link active" aria-current="page">{{t .Lang "common.search"}}</a>
@@ -35,10 +36,9 @@
       </form>
     </div>
   </header>
-<main id="main-content">
+<main id="main-content" class="container container-lg">
         <!-- Search Section -->
         <section class="search-section">
-            <div class="container container-sm">
                 <div class="section-header">
                     <h1 class="section-title">{{t .Lang "search.title"}}</h1>
                     <p class="section-description">{{t .Lang "search.description"}}</p>
@@ -165,7 +165,6 @@
                     <h3 id="emptyStateTitle" class="empty-state-title">{{if eq .SearchType "zip"}}{{t .Lang "search.no_zip_found"}}{{else}}{{t .Lang "search.no_results"}}{{end}}</h3>
                     <p class="empty-state-description">{{t .Lang "search.try_again"}}</p>
                 </div>
-            </div>
         </section>
     </main>
   <nav class="nav-panel" id="nav-panel" aria-label="{{t .Lang "nav.main"}}">

@@ -452,6 +452,12 @@ func runServer(args []string) {
 	if err := configureLogs(logsDir, cfg.Server.Mode, cfg.Server.Logs); err != nil {
 		log.Fatal(serverOutputFormat("error_configure_logging", "Failed to configure logging: {error}", map[string]string{"error": err.Error()}))
 	}
+	for _, key := range cfg.GeneratedSecrets {
+		if err := writeAuditEvent("config.secret_generated", "info", "success", "startup", "127.0.0.1", map[string]string{"type": "configuration", "id": key}, map[string]any{"key": key}); err != nil {
+			log.Fatal(serverOutputFormat("error_audit_secret_generation", "Failed to audit generated configuration secret: {error}", map[string]string{"error": err.Error()}))
+		}
+	}
+	cfg.GeneratedSecrets = nil
 	if err := server.ConfigureAccessLog(logsDir, cfg.Server.Logs); err != nil {
 		log.Fatal(serverOutputFormat("error_configure_access_logging", "Failed to configure access logging: {error}", map[string]string{"error": err.Error()}))
 	}
@@ -580,6 +586,7 @@ func runServer(args []string) {
 		log.Fatal(serverOutputFormat("error_migrate_owner_token_suffix", "Failed to migrate owner-token metadata: {error}", map[string]string{"error": err.Error()}))
 	}
 	srv.SetConfigDir(configDir)
+	srv.SetCacheDir(cacheDir)
 	srv.SetDataDir(dataDir)
 	effectiveBaseURL := cfg.Server.BaseURL
 	if baseURLFlagSet {
@@ -650,7 +657,7 @@ func runServer(args []string) {
 	}
 	srv.SetOverlayManagers(torManager, i2pManager, torErr != nil, i2pEnabled && i2pErr != nil)
 	operatorNotify := operatorEventNotifier(func(notifyContext context.Context, event string, details map[string]string) error {
-		return server.NotifyOperator(notifyContext, cfg, event, details)
+		return server.NotifyOperatorWithVersion(notifyContext, cfg, event, details, Version)
 	})
 	healthTasks := map[string]func() error{}
 	if torManager != nil && torManager.Snapshot().Enabled {
@@ -672,12 +679,19 @@ func runServer(args []string) {
 			return nil
 		}
 	}
-	appScheduler, err := newApplicationScheduler(cfg, configDir, dataDir, logsDir, backupDir, store, ctx, healthTasks, operatorNotify)
+	appScheduler, err := newApplicationScheduler(cfg, configDir, dataDir, logsDir, backupDir, store, ctx, healthTasks, srv.RefreshBrandingImages, operatorNotify)
 	if err != nil {
 		_ = store.Close()
 		log.Fatal(serverOutputFormat("error_scheduler_init", "Failed to initialize scheduler: {error}", map[string]string{"error": err.Error()}))
 	}
 	appScheduler.Start()
+	go func() {
+		refreshContext, cancel := context.WithTimeout(ctx, 2*time.Minute)
+		defer cancel()
+		if refreshErr := srv.RefreshBrandingImages(refreshContext); refreshErr != nil {
+			log.Printf("branding.image_initial_refresh_failed error=%v", refreshErr)
+		}
+	}()
 	initializeSecurityData(appScheduler, cfg, dataDir)
 
 	sigChan := make(chan os.Signal, 1)
@@ -721,7 +735,23 @@ func runServer(args []string) {
 		if err := server.ConfigureAccessLog(logsDir, next.Server.Logs); err != nil {
 			return fmt.Errorf("configure reloaded access log: %w", err)
 		}
-		return srv.ApplyConfig(next, restartRequired, next.Server.BaseURL)
+		for _, key := range next.GeneratedSecrets {
+			if err := writeAuditEvent("config.secret_generated", "info", "success", "config_reload", "127.0.0.1", map[string]string{"type": "configuration", "id": key}, map[string]any{"key": key}); err != nil {
+				return fmt.Errorf("audit generated configuration secret: %w", err)
+			}
+		}
+		next.GeneratedSecrets = nil
+		if err := srv.ApplyConfig(next, restartRequired, next.Server.BaseURL); err != nil {
+			return err
+		}
+		go func() {
+			refreshContext, cancel := context.WithTimeout(ctx, 2*time.Minute)
+			defer cancel()
+			if refreshErr := srv.RefreshBrandingImages(refreshContext); refreshErr != nil {
+				log.Printf("branding.image_reload_refresh_failed error=%v", refreshErr)
+			}
+		}()
+		return nil
 	})
 	if err != nil {
 		log.Print(serverOutputFormat("error_config_watcher", "Unable to start configuration watcher: {error}", map[string]string{"error": err.Error()}))

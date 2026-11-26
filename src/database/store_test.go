@@ -43,7 +43,7 @@ func TestOpenSQLiteEnsuresPrivateFileAndSchema(t *testing.T) {
 	if err := store.EnsureSchema(ctx); err != nil {
 		t.Fatalf("second schema pass: %v", err)
 	}
-	if err := store.Read(ctx, func(ctx context.Context, db Reader) error {
+	if err := store.Read(ctx, func(ctx context.Context, db Reader) (retErr error) {
 		var count int
 		if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'audit_log'`).Scan(&count); err != nil {
 			return err
@@ -55,7 +55,7 @@ func TestOpenSQLiteEnsuresPrivateFileAndSchema(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		defer columns.Close()
+		defer func() { retErr = errors.Join(retErr, columns.Close()) }()
 		hasWindow, hasSecurityID := false, false
 		for columns.Next() {
 			var ordinal, notNull, primaryKey int
@@ -154,7 +154,7 @@ func TestEnsureSchemaAppliesCanonicalSchedulerColumnUpdates(t *testing.T) {
 	if err := store.EnsureSchema(ctx); err != nil {
 		t.Fatalf("EnsureSchema() legacy upgrade error: %v", err)
 	}
-	if err := store.Read(ctx, func(ctx context.Context, reader Reader) error {
+	if err := store.Read(ctx, func(ctx context.Context, reader Reader) (retErr error) {
 		var id, name string
 		if err := reader.QueryRowContext(ctx, `SELECT id,name FROM scheduler_tasks WHERE id='cleanup'`).Scan(&id, &name); err != nil {
 			return err
@@ -166,7 +166,7 @@ func TestEnsureSchemaAppliesCanonicalSchedulerColumnUpdates(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		defer rows.Close()
+		defer func() { retErr = errors.Join(retErr, rows.Close()) }()
 		columns := map[string]bool{}
 		for rows.Next() {
 			var ordinal, notNull, primaryKey int

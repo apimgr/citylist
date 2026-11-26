@@ -5,7 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="base-url" content="{{.BaseURL}}">
   <title>{{t .Lang "graphql.title"}} - Citylist</title>
-  <link rel="stylesheet" href="{{asset (printf "%s/static/css/main.css" .BaseURL)}}">
+  <link rel="stylesheet" href="{{asset (printf "%s/static/vendor/graphiql/graphiql.css" .BaseURL)}}">
+  <link rel="stylesheet" href="{{asset (printf "%s/static/css/common.css" .BaseURL)}}">
+  <link rel="stylesheet" href="{{asset (printf "%s/static/css/components.css" .BaseURL)}}">
   {{if .HasAccent}}<link rel="stylesheet" href="{{asset (printf "%s/static/css/accent.css" .BaseURL)}}">{{end}}
 </head>
 <body>
@@ -14,7 +16,7 @@
   {{.SiteBanners}}
   <input type="checkbox" id="nav-toggle" class="nav-checkbox" aria-label="{{t .Lang "nav.toggle"}}">
   <header class="header">
-    <a href="{{.BaseURL}}/" class="nav-brand">{{.BrandTitle}}</a>
+    <a href="{{.BaseURL}}/" class="nav-brand"><picture><source media="(max-width: 640px)" srcset="{{.LogoURL}}?size=50"><img src="{{.LogoURL}}?size=200" alt="{{.BrandTitle}}"></picture>{{.BrandTitle}}</a>
     <nav id="navigation" class="nav-links" aria-label="{{t .Lang "nav.main"}}">
       <a href="{{.BaseURL}}/" {{if eq .CurrentPath "/"}} class="nav-link active" aria-current="page"{{else}} class="nav-link"{{end}}>{{t .Lang "common.home"}}</a>
       <a href="{{.BaseURL}}/search" {{if eq .CurrentPath "/search"}} class="nav-link active" aria-current="page"{{else}} class="nav-link"{{end}}>{{t .Lang "common.search"}}</a>
@@ -35,26 +37,14 @@
     <header class="page-header"><h1 class="page-title">{{t .Lang "graphql.title"}}</h1><p class="page-lead">{{t .Lang "graphql.description"}}</p></header>
     <section class="section-card" aria-labelledby="graphql-editor-title">
       <h2 id="graphql-editor-title">{{t .Lang "graphql.editor"}}</h2>
-      <form id="graphql-query-form" method="post" enctype="application/x-www-form-urlencoded" action="{{.APIBase}}/server/graphql" data-api-url="{{.APIBase}}/server/graphql" data-run-label="{{t .Lang "graphql.run"}}" data-loading-label="{{t .Lang "graphql.loading"}}" data-error-label="{{t .Lang "graphql.failed"}}">
-        <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
-        <div class="form-group">
-          <label for="query">{{t .Lang "graphql.query"}}</label>
-          <textarea class="form-input" id="query" name="query" rows="12" spellcheck="false" required>query {
-  cities(search: "Tokyo", limit: 5) {
-    id
-    name
-    country
-    coord { lat lon }
-  }
-}</textarea>
-        </div>
-        <div class="actions"><button class="btn btn-primary" id="run-query" type="submit">{{t .Lang "graphql.run"}}</button></div>
-      </form>
+      <div id="graphiql" class="graphiql-container" data-endpoint="{{.APIBase}}/server/graphql"></div>
     </section>
-    <section class="section-card" aria-labelledby="graphql-results-title">
-      <h2 id="graphql-results-title">{{t .Lang "graphql.results"}}</h2>
-      <div class="code-block"><pre role="status" aria-live="polite"><code id="result"></code></pre></div>
-    </section>
+    <noscript>
+      <section class="section-card" aria-labelledby="graphql-noscript-heading">
+        <h2 id="graphql-noscript-heading">{{t .Lang "graphql.javascript_required"}}</h2>
+        <p><a href="{{.APIBase}}/server/graphql">{{t .Lang "graphql.nojs"}}</a></p>
+      </section>
+    </noscript>
     <section class="section-card" aria-labelledby="graphql-documentation-title">
       <h2 id="graphql-documentation-title">{{t .Lang "common.api_docs"}}</h2>
       <p><a href="{{.APIBase}}/server/swagger">{{t .Lang "graphql.openapi"}}</a></p>
@@ -78,6 +68,10 @@
       <a href="{{.BaseURL}}/server/preferences#language" lang="{{.Lang}}">{{.LanguageName}}</a>
     </nav>
   </footer>
+    <script src="{{asset (printf "%s/static/vendor/graphiql/react.production.min.js" .BaseURL)}}" defer></script>
+    <script src="{{asset (printf "%s/static/vendor/graphiql/react-dom.production.min.js" .BaseURL)}}" defer></script>
+    <script src="{{asset (printf "%s/static/vendor/graphiql/graphiql.umd.js" .BaseURL)}}" defer></script>
+    <script src="{{asset (printf "%s/static/js/docs-graphql.js" .BaseURL)}}" defer></script>
     <script src="{{asset (printf "%s/static/js/app.js" .BaseURL)}}" defer></script>
     {{.ConsentBanner}}
 </body>

@@ -103,6 +103,7 @@ $RECYCLE.BIN/
 # Go build and coverage output
 binaries/
 releases/
+site/
 .coverage/
 coverage.out
 node_modules/

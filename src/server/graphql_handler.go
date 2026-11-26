@@ -18,6 +18,26 @@ type graphQLRequest struct {
 func (s *Server) handleGraphQL(w http.ResponseWriter, r *http.Request) {
 	var request graphQLRequest
 	switch r.Method {
+	case http.MethodGet:
+		query := r.URL.Query()
+		for key, values := range query {
+			if (key != "query" && key != "variables" && key != "operationName") || len(values) != 1 {
+				s.respondError(w, http.StatusBadRequest, "INVALID_GRAPHQL_REQUEST", i18n.Translate(i18n.LangFromRequest(r), "errors.bad_request"))
+				return
+			}
+		}
+		request.Query = query.Get("query")
+		request.OperationName = query.Get("operationName")
+		if len(request.Query) > 1<<20 || len(request.OperationName) > 256 {
+			s.respondError(w, http.StatusRequestEntityTooLarge, "REQUEST_TOO_LARGE", i18n.Translate(i18n.LangFromRequest(r), "errors.bad_request"))
+			return
+		}
+		if rawVariables := query.Get("variables"); rawVariables != "" {
+			if len(rawVariables) > 1<<20 || json.Unmarshal([]byte(rawVariables), &request.Variables) != nil || request.Variables == nil {
+				s.respondError(w, http.StatusBadRequest, "INVALID_GRAPHQL_REQUEST", i18n.Translate(i18n.LangFromRequest(r), "errors.bad_request"))
+				return
+			}
+		}
 	case http.MethodPost:
 		r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 		mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
@@ -56,11 +76,16 @@ func (s *Server) handleGraphQL(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	default:
-		w.Header().Set("Allow", http.MethodPost)
+		w.Header().Set("Allow", http.MethodGet+", "+http.MethodPost)
 		s.respondError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", i18n.Translate(i18n.LangFromRequest(r), "errors.method_not_allowed"))
 		return
 	}
 	if request.Query == "" {
+		if r.Method == http.MethodGet {
+			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+			_, _ = io.WriteString(w, "Provide a GraphQL query with the query parameter.\n")
+			return
+		}
 		s.respondError(w, http.StatusBadRequest, "MISSING_QUERY", i18n.Translate(i18n.LangFromRequest(r), "errors.bad_request"))
 		return
 	}

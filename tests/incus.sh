@@ -83,6 +83,7 @@ api() { echo "http://localhost:$(port)/api/v1/server/healthz"; }
 healthz() { curl -q -LSsf --max-time 10 "$(api)"; }
 healthz_up() { healthz | jq -e '.status' >/dev/null; }
 overlay() { healthz | jq -r ".features.$1.$2"; }
+overlay_healthy() { [ "$(overlay "$1" status)" = "healthy" ]; }
 
 # One set of service helpers per init system; the test steps are identical for both
 if [ "$INIT_MODE" = "systemd" ]; then
@@ -189,7 +190,7 @@ for path in / /search /coordinates /api/v1/ /api/v1/cities?limit=1 \
   /api/healthz /api/swagger \
   /server/preferences /server/preferences/tokens /server/preferences/sync \
   /server/preferences/sync/import \
-  /server/docs/swagger /server/docs/graphql /locales/en.json /static/css/main.css \
+  /server/docs/swagger /server/docs/graphql /locales/en.json /static/css/common.css \
   /manifest.json /sw.js /robots.txt \
   /.well-known/security.txt /.well-known/llms.txt /llms.txt; do
     if curl -q -LSsf --max-time 15 "http://localhost:$(port)$path" >/dev/null 2>&1; then
@@ -205,6 +206,13 @@ for route in /api/graphql /api/v1/server/graphql; do
         pass "POST $route executes a read-only GraphQL query"
     else
         fail "POST $route executes a read-only GraphQL query"
+    fi
+    if curl -q -LSsf --max-time 15 \
+        "http://localhost:$(port)$route?query=%7B%20cities%28limit%3A1%29%20%7Bid%20name%7D%20%7D" \
+        >/dev/null 2>&1; then
+        pass "GET $route executes a read-only GraphQL query"
+    else
+        fail "GET $route executes a read-only GraphQL query"
     fi
 done
 if [ "$(curl -q -LSs -o /dev/null -w '%{http_code}' \
@@ -329,7 +337,7 @@ else
     fail "POST /api/v1/server/mcp rejects missing credentials"
 fi
 if [ "$(curl -q -LSs -o /dev/null -w '%{http_code}' \
-    "http://localhost:$(port)/api/v1/server/preferences/tokens")" = 403 ]; then
+    "http://localhost:$(port)/api/v1/server/preferences/tokens")" = 401 ]; then
     pass "GET /api/v1/server/preferences/tokens rejects missing owner credentials"
 else
     fail "GET /api/v1/server/preferences/tokens rejects missing owner credentials"
@@ -426,7 +434,7 @@ case "$(overlay tor status)" in
     *) fail "features.tor.status is not one of the four contract words" ;;
 esac
 # Bootstrap needs outbound network. REQUIRE_OVERLAY=1 makes a missing network a failure instead of a SKIP.
-sleep "${TOR_WAIT:-300}"
+wait_for "${TOR_WAIT:-300}" overlay_healthy tor || true
 if [ "$(overlay tor status)" = "healthy" ]; then
     if [[ "$(overlay tor hostname)" =~ ^[a-z2-7]{56}\.onion$ ]]; then pass "tor hostname is a v3 onion address"; else fail "tor hostname is not a v3 onion address"; fi
     check "features.tor.running is true" test "$(overlay tor running)" = "true"
@@ -485,7 +493,7 @@ case "$(overlay i2p status)" in
     starting|healthy|unavailable) pass "features.i2p.status is a contract word for an enabled network" ;;
     *) fail "features.i2p.status is not valid for an enabled network" ;;
 esac
-sleep "${I2P_WAIT:-600}"
+wait_for "${I2P_WAIT:-600}" overlay_healthy i2p || true
 if [ "$(overlay i2p status)" = "healthy" ]; then
     if [[ "$(overlay i2p hostname)" =~ ^[a-z2-7]{52}\.b32\.i2p$ ]]; then pass "i2p hostname is a .b32.i2p address"; else fail "i2p hostname is not a .b32.i2p address"; fi
     check "features.i2p.running is true" test "$(overlay i2p running)" = "true"

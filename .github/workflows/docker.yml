@@ -2,18 +2,18 @@ name: Docker Build
 
 on:
   push:
-    # ALL branches
-    branches: ['**']
+    branches: [main]
     tags:
       - 'v*'
       - '*.*.*'
+      - '??????????????-beta'
   schedule:
     - cron: '0 4 * * *'
   workflow_dispatch:
 
 concurrency:
   group: docker-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/devel' || github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/beta' }}
+  cancel-in-progress: ${{ github.ref == 'refs/heads/main' }}
 
 env:
   PROJECT_NAME: citylist
@@ -23,7 +23,7 @@ env:
 jobs:
   build-standard:
     runs-on: ubuntu-26.04
-    if: github.event_name != 'schedule'
+    if: (github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))) || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
     permissions:
       contents: read
       packages: write
@@ -50,8 +50,18 @@ jobs:
           echo "YYMM=$(date +"%y%m")" >> $GITHUB_ENV
           if [[ "${{ github.ref }}" == refs/tags/* ]]; then
             VERSION="${GITHUB_REF#refs/tags/}"
-            echo "VERSION=${VERSION#v}" >> $GITHUB_ENV
-            echo "IS_TAG=true" >> $GITHUB_ENV
+            if [[ "$VERSION" =~ ^[0-9]{14}-beta$ ]]; then
+              echo "VERSION=$VERSION" >> $GITHUB_ENV
+              echo "IS_BETA=true" >> $GITHUB_ENV
+              echo "IS_TAG=false" >> $GITHUB_ENV
+            elif [[ "$VERSION" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "VERSION=${VERSION#v}" >> $GITHUB_ENV
+              echo "IS_BETA=false" >> $GITHUB_ENV
+              echo "IS_TAG=true" >> $GITHUB_ENV
+            else
+              echo "Unsupported Docker release tag: $VERSION" >&2
+              exit 1
+            fi
           else
             echo "VERSION=$(git rev-parse --short=7 HEAD)" >> $GITHUB_ENV
             echo "IS_TAG=false" >> $GITHUB_ENV
@@ -66,14 +76,12 @@ jobs:
         run: |
           TAGS="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.COMMIT_ID }}"
 
-          if [[ "${{ env.IS_TAG }}" == "true" ]]; then
+          if [[ "${{ env.IS_BETA }}" == "true" ]]; then
+            TAGS="$TAGS,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:beta"
+          elif [[ "${{ env.IS_TAG }}" == "true" ]]; then
             TAGS="$TAGS,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.VERSION }}"
             TAGS="$TAGS,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
             TAGS="$TAGS,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.YYMM }}"
-          else
-            if [[ "${{ github.ref }}" == refs/heads/beta ]]; then
-              TAGS="$TAGS,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:beta"
-            fi
           fi
 
           echo "tags=$TAGS" >> $GITHUB_OUTPUT
@@ -122,7 +130,7 @@ jobs:
 
   build-devel:
     runs-on: ubuntu-26.04
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/'))
+    if: github.event_name == 'schedule' || ((github.event_name == 'workflow_dispatch' || github.event_name == 'push') && github.ref == 'refs/heads/main')
     permissions:
       contents: read
       packages: write

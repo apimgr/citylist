@@ -105,21 +105,29 @@ func TestEnableDisableTask(t *testing.T) {
 	s := New()
 	s.AddTask("task1", time.Hour, func() error { return nil })
 
-	s.DisableTask("task1")
+	if err := s.DisableTask("task1"); err != nil {
+		t.Fatal(err)
+	}
 	tasks := s.GetTasks()
 	if tasks[0].Enabled {
 		t.Error("expected task to be disabled")
 	}
 
-	s.EnableTask("task1")
+	if err := s.EnableTask("task1"); err != nil {
+		t.Fatal(err)
+	}
 	tasks = s.GetTasks()
 	if !tasks[0].Enabled {
 		t.Error("expected task to be enabled")
 	}
 
 	// operating on a nonexistent task must not panic
-	s.EnableTask("nonexistent")
-	s.DisableTask("nonexistent")
+	if err := s.EnableTask("nonexistent"); err == nil {
+		t.Error("expected enabling a nonexistent task to fail")
+	}
+	if err := s.DisableTask("nonexistent"); err == nil {
+		t.Error("expected disabling a nonexistent task to fail")
+	}
 }
 
 func TestRunNow(t *testing.T) {
@@ -427,7 +435,9 @@ func TestPersistentSchedulerRestoresAndRecordsTaskState(t *testing.T) {
 		t.Fatalf("persisted result status=%q runs=%d failures=%d history=%d", status, runCount, failCount, historyCount)
 	}
 
-	s.DisableTask("persisted")
+	if err := s.DisableTask("persisted"); err != nil {
+		t.Fatal(err)
+	}
 	restarted, err := NewPersistent(store, time.Hour)
 	if err != nil {
 		t.Fatal(err)

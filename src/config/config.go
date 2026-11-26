@@ -28,10 +28,11 @@ var (
 
 // Config holds the application configuration
 type Config struct {
-	Server       ServerConfig `yaml:"server"`
-	Web          WebConfig    `yaml:"web"`
-	Data         DataConfig   `yaml:"data"`
-	InitialToken string       `yaml:"-"`
+	Server           ServerConfig `yaml:"server"`
+	Web              WebConfig    `yaml:"web"`
+	Data             DataConfig   `yaml:"data"`
+	InitialToken     string       `yaml:"-"`
+	GeneratedSecrets []string     `yaml:"-"`
 }
 
 // DataConfig contains configuration for external security data sources.
@@ -389,8 +390,9 @@ type ServerContactConfig struct {
 
 // ContactRoleConfig contains an email and optional webhook transports.
 type ContactRoleConfig struct {
-	Email    string            `yaml:"email"`
-	Webhooks map[string]string `yaml:"webhooks"`
+	Email          string            `yaml:"email"`
+	Webhooks       map[string]string `yaml:"webhooks"`
+	WebhookSecrets map[string]string `yaml:"-"`
 }
 
 // DPOContactConfig contains the public data-protection contact.
@@ -443,8 +445,17 @@ type ContactAntispamConfig struct {
 
 // ServerNotificationsConfig contains outbound notification settings.
 type ServerNotificationsConfig struct {
-	Email   EmailNotificationConfig   `yaml:"email"`
-	DiskLow DiskLowNotificationConfig `yaml:"disk_low"`
+	Email         EmailNotificationConfig         `yaml:"email"`
+	DiskLow       DiskLowNotificationConfig       `yaml:"disk_low"`
+	DatabaseError DatabaseErrorNotificationConfig `yaml:"database_error"`
+}
+
+// DatabaseErrorNotificationConfig controls scheduled database connectivity alerts.
+type DatabaseErrorNotificationConfig struct {
+	Enabled       bool   `yaml:"enabled"`
+	Failures      int    `yaml:"failures"`
+	CheckInterval string `yaml:"check_interval"`
+	Repeat        string `yaml:"repeat"`
 }
 
 // DiskLowNotificationConfig controls scheduled disk-capacity warnings.
@@ -933,7 +944,7 @@ func DefaultConfig() *Config {
 				},
 			},
 			Branding: BrandingConfig{
-				Title:       "CityList API",
+				Title:       "citylist",
 				Description: "Public reference data for cities around the world and United States ZIP codes.",
 			},
 			SEO: SEOConfig{
@@ -950,21 +961,23 @@ func DefaultConfig() *Config {
 			Scheduler: SchedulerConfig{
 				Timezone: "America/New_York", CatchUpWindow: "1h",
 				Tasks: map[string]SchedulerTask{
-					"ssl_renewal":      {Schedule: "0 3 * * *", Enabled: true},
-					"geoip_update":     {Schedule: "0 3 * * 0", Enabled: true},
-					"blocklist_update": {Schedule: "0 4 * * *", Enabled: true, RetryOnFail: true, RetryDelay: "1h"},
-					"security_cleanup": {Schedule: "30 3 * * *", Enabled: true},
-					"keyserver_retry":  {Schedule: "@every 15m", Enabled: true},
-					"cve_update":       {Schedule: "0 5 * * *", Enabled: true, RetryOnFail: true, RetryDelay: "1h"},
-					"update_check":     {Schedule: "0 6 * * *", Enabled: true},
-					"token_cleanup":    {Schedule: "@every 15m", Enabled: true},
-					"log_rotation":     {Schedule: "0 0 * * *", Enabled: true},
-					"backup_daily":     {Schedule: "0 2 * * *", Enabled: true},
-					"backup_hourly":    {Schedule: "@hourly", Enabled: false},
-					"disk_check":       {Schedule: "@every 5m", Enabled: true},
-					"healthcheck_self": {Schedule: "@every 5m", Enabled: true},
-					"tor_health":       {Schedule: "@every 10m", Enabled: true},
-					"i2p_health":       {Schedule: "@every 10m", Enabled: true},
+					"ssl_renewal":            {Schedule: "0 3 * * *", Enabled: true},
+					"geoip_update":           {Schedule: "0 3 * * 0", Enabled: true},
+					"blocklist_update":       {Schedule: "0 4 * * *", Enabled: true, RetryOnFail: true, RetryDelay: "1h"},
+					"security_cleanup":       {Schedule: "30 3 * * *", Enabled: true},
+					"keyserver_retry":        {Schedule: "@every 15m", Enabled: true},
+					"cve_update":             {Schedule: "0 5 * * *", Enabled: true, RetryOnFail: true, RetryDelay: "1h"},
+					"update_check":           {Schedule: "0 6 * * *", Enabled: true},
+					"token_cleanup":          {Schedule: "@every 15m", Enabled: true},
+					"log_rotation":           {Schedule: "0 0 * * *", Enabled: true},
+					"backup_daily":           {Schedule: "0 2 * * *", Enabled: true},
+					"backup_hourly":          {Schedule: "@hourly", Enabled: false},
+					"disk_check":             {Schedule: "@every 5m", Enabled: true},
+					"healthcheck_self":       {Schedule: "@every 5m", Enabled: true},
+					"database_check":         {Schedule: "@every 1m", Enabled: true},
+					"branding_image_refresh": {Schedule: "0 4 * * *", Enabled: true, RetryOnFail: true, RetryDelay: "1h"},
+					"tor_health":             {Schedule: "@every 10m", Enabled: true},
+					"i2p_health":             {Schedule: "@every 10m", Enabled: true},
 				},
 			},
 			Tor: TorConfig{
@@ -1044,12 +1057,12 @@ Tool tips and input limits:
 - random_city: takes no arguments and returns one embedded city record.
 - dataset_stats: takes no arguments and returns dataset statistics.
 - city_count: takes no arguments and returns the number of city records.`}},
-			Notifications: ServerNotificationsConfig{DiskLow: DiskLowNotificationConfig{Enabled: true, ThresholdPercent: 85, CheckInterval: "5m", Repeat: "24h"}, Email: EmailNotificationConfig{
+			Notifications: ServerNotificationsConfig{DiskLow: DiskLowNotificationConfig{Enabled: true, ThresholdPercent: 85, CheckInterval: "5m", Repeat: "24h"}, DatabaseError: DatabaseErrorNotificationConfig{Enabled: true, Failures: 3, CheckInterval: "1m", Repeat: "24h"}, Email: EmailNotificationConfig{
 				SMTP: SMTPConfig{Port: 587, TLS: "auto"},
 				Events: map[string]bool{
 					"startup": false, "shutdown": false, "backup_complete": false, "backup_failed": true,
 					"ssl_expiring": true, "ssl_renewed": false, "ssl_renewal_failed": true,
-					"security_alert": true, "scheduler_error": true, "update_available": false,
+					"security_alert": true, "scheduler_error": true, "database_error": true, "update_available": false,
 					"update_installed": true, "update_failed": true, "update_staged": true, "disk_low": true,
 				},
 			}},
@@ -1215,6 +1228,7 @@ func Load(path string) (*Config, error) {
 	validateI18n(cfg, path)
 	validateUpdate(cfg, path)
 	validateScheduler(cfg, path)
+	validateDatabaseErrorNotification(cfg, path)
 	validateTokens(cfg, path)
 	validateMetrics(cfg, path)
 	validateSEO(cfg, path)
@@ -1384,6 +1398,7 @@ func LoadBasic(path string) (*Config, error) {
 	validateI18n(cfg, path)
 	validateUpdate(cfg, path)
 	validateScheduler(cfg, path)
+	validateDatabaseErrorNotification(cfg, path)
 	validateTokens(cfg, path)
 	validatePrivacy(cfg, path)
 	if err := ValidateTracking(&cfg.Server.Tracking); err != nil {
@@ -1599,7 +1614,7 @@ func validateScheduler(cfg *Config, path string) {
 	defaults := DefaultConfig().Server.Scheduler
 	nonSkippable := map[string]struct{}{
 		"ssl_renewal": {}, "security_cleanup": {}, "keyserver_retry": {}, "token_cleanup": {},
-		"log_rotation": {}, "healthcheck_self": {},
+		"log_rotation": {}, "healthcheck_self": {}, "branding_image_refresh": {},
 	}
 	schedulerConfig := &cfg.Server.Scheduler
 	if legacyTask, ok := schedulerConfig.Tasks["pgp_publish_retry"]; ok {
@@ -1629,6 +1644,10 @@ func validateScheduler(cfg *Config, path string) {
 			log.Printf("warning: invalid server.scheduler.tasks.%s.schedule in %s; using %s", name, path, defaultTask.Schedule)
 			task.Schedule = defaultTask.Schedule
 		}
+		if name == "branding_image_refresh" && task.Schedule != defaultTask.Schedule {
+			log.Printf("warning: server.scheduler.tasks.%s has a fixed schedule in %s; using %s", name, path, defaultTask.Schedule)
+			task.Schedule = defaultTask.Schedule
+		}
 		if _, required := nonSkippable[name]; required && !task.Enabled {
 			log.Printf("warning: server.scheduler.tasks.%s cannot be disabled in %s; enabling it", name, path)
 			task.Enabled = true
@@ -1644,6 +1663,23 @@ func validateScheduler(cfg *Config, path string) {
 			}
 		}
 		schedulerConfig.Tasks[name] = task
+	}
+}
+
+func validateDatabaseErrorNotification(cfg *Config, path string) {
+	defaults := DefaultConfig().Server.Notifications.DatabaseError
+	settings := &cfg.Server.Notifications.DatabaseError
+	if settings.Failures < 1 || settings.Failures > 100 {
+		log.Printf("warning: invalid server.notifications.database_error.failures in %s; using %d", path, defaults.Failures)
+		settings.Failures = defaults.Failures
+	}
+	if interval, err := time.ParseDuration(settings.CheckInterval); err != nil || interval <= 0 {
+		log.Printf("warning: invalid server.notifications.database_error.check_interval in %s; using %s", path, defaults.CheckInterval)
+		settings.CheckInterval = defaults.CheckInterval
+	}
+	if repeat, err := time.ParseDuration(settings.Repeat); err != nil || repeat <= 0 {
+		log.Printf("warning: invalid server.notifications.database_error.repeat in %s; using %s", path, defaults.Repeat)
+		settings.Repeat = defaults.Repeat
 	}
 }
 

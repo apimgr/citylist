@@ -1299,8 +1299,15 @@ func uninstallWithManager(raw Options, input io.Reader, output io.Writer, manage
 				}
 			}
 			if commandExists(groupCommand) {
-				if err := run(groupCommand, options.Name); err != nil && !strings.Contains(err.Error(), "does not exist") {
-					return err
+				if _, lookupErr := user.LookupGroup(options.Name); lookupErr == nil {
+					if err := run(groupCommand, options.Name); err != nil && !strings.Contains(err.Error(), "does not exist") {
+						return err
+					}
+				} else {
+					var unknownGroup user.UnknownGroupError
+					if !errors.As(lookupErr, &unknownGroup) {
+						return lookupErr
+					}
 				}
 			}
 		case "darwin":

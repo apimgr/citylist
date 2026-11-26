@@ -61,7 +61,11 @@ func TestExecuteSchedulerCommand(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer store.Close()
+	t.Cleanup(func() {
+		if err := store.Close(); err != nil {
+			t.Errorf("close scheduler store: %v", err)
+		}
+	})
 	if err := store.EnsureSchema(context.Background()); err != nil {
 		t.Fatal(err)
 	}
@@ -117,7 +121,11 @@ func TestExecuteSchedulerCommandRejectsUnknownTaskAndCommand(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer store.Close()
+	t.Cleanup(func() {
+		if err := store.Close(); err != nil {
+			t.Errorf("close scheduler store: %v", err)
+		}
+	})
 	if err := store.EnsureSchema(context.Background()); err != nil {
 		t.Fatal(err)
 	}

@@ -7,7 +7,8 @@
   <meta name="robots" content="noindex,nofollow">
   <meta name="referrer" content="no-referrer">
   <title>{{.Title}} - Citylist</title>
-  <link rel="stylesheet" href="{{asset (printf "%s/static/css/main.css" .BaseURL)}}">
+  <link rel="stylesheet" href="{{asset (printf "%s/static/css/common.css" .BaseURL)}}">
+  <link rel="stylesheet" href="{{asset (printf "%s/static/css/components.css" .BaseURL)}}">
   {{if .HasAccent}}<link rel="stylesheet" href="{{asset (printf "%s/static/css/accent.css" .BaseURL)}}">{{end}}
 </head>
 <body>
@@ -16,7 +17,7 @@
   {{.SiteBanners}}
   <input type="checkbox" id="nav-toggle" class="nav-checkbox" aria-label="{{t .Lang "nav.toggle"}}">
   <header class="header">
-    <a href="{{.BaseURL}}/" class="nav-brand">{{.BrandTitle}}</a>
+    <a href="{{.BaseURL}}/" class="nav-brand"><picture><source media="(max-width: 640px)" srcset="{{.LogoURL}}?size=50"><img src="{{.LogoURL}}?size=200" alt="{{.BrandTitle}}"></picture>{{.BrandTitle}}</a>
     <nav id="navigation" class="nav-links" aria-label="{{t .Lang "nav.main"}}">
       <a href="{{.BaseURL}}/" {{if eq .CurrentPath "/"}} class="nav-link active" aria-current="page"{{else}} class="nav-link"{{end}}>{{t .Lang "common.home"}}</a>
       <a href="{{.BaseURL}}/search" {{if eq .CurrentPath "/search"}} class="nav-link active" aria-current="page"{{else}} class="nav-link"{{end}}>{{t .Lang "common.search"}}</a>

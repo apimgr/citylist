@@ -316,7 +316,7 @@ func (s *Server) newSimpleCaptcha(ctx context.Context, lang string) (map[string]
 
 func (s *Server) contactCaptcha(ctx context.Context, r *http.Request) (map[string]any, error) {
 	provider := s.cfg.Server.Pages.Contact.Captcha
-	if contactRequestOnPrivateNetwork(r) {
+	if s.contactRequestOnPrivateNetwork(r) {
 		provider = "simple"
 	}
 	lang := i18n.LangFromRequest(r)
@@ -392,12 +392,8 @@ func (s *Server) verifyProviderCaptcha(ctx context.Context, r *http.Request, res
 	return verification.Success, nil
 }
 
-func contactRequestOnPrivateNetwork(r *http.Request) bool {
-	host := r.Host
-	if parsed, err := url.Parse("//" + host); err == nil {
-		host = parsed.Hostname()
-	}
-	return strings.HasSuffix(strings.ToLower(host), ".onion") || strings.HasSuffix(strings.ToLower(host), ".i2p")
+func (s *Server) contactRequestOnPrivateNetwork(r *http.Request) bool {
+	return s.overlayRequestHost(r) != ""
 }
 
 func (s *Server) contactTypes(security bool, lang string) []contactTypeChoice {
@@ -1023,10 +1019,10 @@ func (s *Server) handleContactConfirm(w http.ResponseWriter, r *http.Request, ap
 			return
 		}
 		acknowledgmentSent := false
+		if err := s.deliverSecurityNotification(r.Context(), r, trackingID, encryptedBody, bodyAlgorithm, values); err != nil {
+			slog.Error("security.report_notification_failed", "tracking_id", trackingID, "error", err)
+		}
 		if strings.TrimSpace(s.cfg.Server.Notifications.Email.SMTP.Host) != "" {
-			if err := s.deliverSecurityNotification(r.Context(), r, trackingID, encryptedBody, bodyAlgorithm); err != nil {
-				slog.Error("security.report_notification_failed", "tracking_id", trackingID, "error", err)
-			}
 			if err := s.sendResearcherAcknowledgment(r.Context(), r, values["email"], trackingID, statusToken, values["researcher_gpg"]); err != nil {
 				slog.Warn("security.report_acknowledgment_failed", "tracking_id", trackingID, "error", err)
 			} else {
@@ -1269,13 +1265,34 @@ func nullableContactText(value string) any {
 	return value
 }
 
-func (s *Server) deliverSecurityNotification(ctx context.Context, r *http.Request, trackingID string, encryptedBody []byte, bodyAlgorithm string) error {
+func (s *Server) deliverSecurityNotification(ctx context.Context, r *http.Request, trackingID string, encryptedBody []byte, bodyAlgorithm string, values contactSubmission) error {
+	var failures []error
 	to := s.resolveContactEmail(r, strings.TrimSpace(s.cfg.Server.Contact.Security.Email))
 	if to == "" {
 		to = strings.TrimSpace(s.cfg.Server.Contact.Admin.Email)
 	}
+	component := strings.TrimSpace(values["component"])
+	if component == "" {
+		component = "unspecified"
+	}
+	webhookBody := fmt.Sprintf("Component: %s\nRead the encrypted report with: citylist --maintenance security <action> %s", sanitizeLogValue(component), trackingID)
+	if err := s.notifyRoleWebhooks(ctx, r, "security", "security.report_received", "Security report received", webhookBody, values["severity"], trackingID); err != nil {
+		failures = append(failures, err)
+	}
+	if strings.TrimSpace(s.cfg.Server.Notifications.Email.SMTP.Host) == "" {
+		if len(failures) > 0 {
+			return errors.Join(failures...)
+		}
+		if len(webhookTargets(s.cfg, "security")) == 0 {
+			return errors.New("security notification recipient is not configured")
+		}
+		return nil
+	}
 	if _, err := mail.ParseAddress(to); err != nil {
-		return errors.New("security notification recipient is not configured")
+		if len(webhookTargets(s.cfg, "security")) == 0 {
+			failures = append(failures, errors.New("security notification recipient is not configured"))
+		}
+		return errors.Join(failures...)
 	}
 	from := s.cfg.Server.Notifications.Email.From
 	fromEmail := strings.TrimSpace(from.Email)
@@ -1296,7 +1313,10 @@ func (s *Server) deliverSecurityNotification(ctx context.Context, r *http.Reques
 		Text:       messageText,
 		Attachment: encryptedBody, AttachmentName: trackingID + ".enc",
 	}
-	return contactMailSender(ctx, s.cfg.Server.Notifications.Email.SMTP, message, requestFQDN(r))
+	if err := contactMailSender(ctx, s.cfg.Server.Notifications.Email.SMTP, message, requestFQDN(r)); err != nil {
+		failures = append(failures, err)
+	}
+	return errors.Join(failures...)
 }
 
 func (s *Server) sendResearcherAcknowledgment(ctx context.Context, r *http.Request, address, trackingID, token, researcherKey string) error {
@@ -1410,7 +1430,7 @@ func (s *Server) verifyContactCaptcha(ctx context.Context, r *http.Request, valu
 		providerResponse = values["h-captcha-response"]
 	}
 	provider := s.cfg.Server.Pages.Contact.Captcha
-	if contactRequestOnPrivateNetwork(r) {
+	if s.contactRequestOnPrivateNetwork(r) {
 		provider = "simple"
 	}
 	if providerResponse != "" && provider != "simple" {
@@ -1554,7 +1574,7 @@ func (s *Server) contactHostAllowed(r *http.Request, host string) bool {
 			allowed[domain] = true
 		}
 	}
-	if contactRequestOnPrivateNetwork(r) {
+	if s.contactRequestOnPrivateNetwork(r) {
 		allowed[strings.ToLower(hostnameOnly(r.Host))] = true
 	}
 	return allowed[host]
@@ -1600,7 +1620,7 @@ func (s *Server) contactRateAllowed(r *http.Request, email string, count bool) (
 		window = time.Hour
 	}
 	ip := contactClientIP(r)
-	private := contactRequestOnPrivateNetwork(r)
+	private := s.contactRequestOnPrivateNetwork(r)
 	now := time.Now()
 	contactState.Lock()
 	defer contactState.Unlock()
@@ -1673,7 +1693,7 @@ func contactPruneLocked(now time.Time) {
 
 func (s *Server) contactStrike(r *http.Request, reason string) {
 	anti := s.cfg.Server.Pages.Contact.Antispam
-	if anti.Strikes <= 0 || contactRequestOnPrivateNetwork(r) {
+	if anti.Strikes <= 0 || s.contactRequestOnPrivateNetwork(r) {
 		return
 	}
 	window, err := time.ParseDuration(anti.Window)
@@ -1758,22 +1778,41 @@ func contactClientIP(r *http.Request) string {
 }
 
 func (s *Server) deliverContact(ctx context.Context, r *http.Request, kind string, values contactSubmission, trackingID string) error {
+	role := "abuse"
 	to := strings.TrimSpace(s.cfg.Server.Contact.Abuse.Email)
 	if kind == "privacy" {
+		role = "general"
 		to = strings.TrimSpace(s.cfg.Server.Contact.DPO.Email)
 	}
 	if kind == "security" {
+		role = "security"
 		to = strings.TrimSpace(s.cfg.Server.Contact.Security.Email)
 	}
-	if to == "" {
+	if to == "" && role != "general" {
 		to = strings.TrimSpace(s.cfg.Server.Contact.General.Email)
 	}
 	if to == "" {
 		to = strings.TrimSpace(s.cfg.Server.Contact.Admin.Email)
 	}
+	subject := contactSubject(kind, values)
+	summary := fmt.Sprintf("A %s report was received. Personal details and report content are not sent by webhook.", kind)
+	webhookErr := s.notifyRoleWebhooks(ctx, r, role, "contact.report_received", subject, summary, "warning", trackingID)
+	webhooksConfigured := len(webhookTargets(s.cfg, role)) > 0
+	if strings.TrimSpace(s.cfg.Server.Notifications.Email.SMTP.Host) == "" {
+		if webhookErr != nil {
+			return webhookErr
+		}
+		if webhooksConfigured {
+			return nil
+		}
+		return errors.New("contact delivery is not configured")
+	}
 	to = s.resolveContactEmail(r, to)
 	if _, err := mail.ParseAddress(to); err != nil {
-		return errors.New("contact recipient is not configured")
+		if webhooksConfigured && webhookErr == nil {
+			return nil
+		}
+		return errors.Join(webhookErr, errors.New("contact recipient is not configured"))
 	}
 	from := s.cfg.Server.Notifications.Email.From
 	fromEmail := strings.TrimSpace(from.Email)
@@ -1789,7 +1828,10 @@ func (s *Server) deliverContact(ctx context.Context, r *http.Request, kind strin
 	lang := i18n.LangFromRequest(r)
 	body := contactEmailBody(lang, kind, values, trackingID)
 	message := contactMailMessage{FromName: from.Name, From: fromEmail, To: to, ReplyTo: strings.TrimSpace(values["email"]), Subject: i18n.TranslateFormat(lang, "email.subjects.contact_submission", map[string]string{"app_name": "Citylist", "subject": contactSubject(kind, values)}), Text: body}
-	return contactMailSender(ctx, s.cfg.Server.Notifications.Email.SMTP, message, requestFQDN(r))
+	if err := contactMailSender(ctx, s.cfg.Server.Notifications.Email.SMTP, message, requestFQDN(r)); err != nil {
+		return errors.Join(webhookErr, err)
+	}
+	return webhookErr
 }
 
 func requestFQDN(r *http.Request) string {

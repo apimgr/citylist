@@ -12,7 +12,6 @@ import (
 	"math"
 	"net"
 	"net/http"
-	"net/http/httptest"
 	"net/netip"
 	"net/url"
 	"path"
@@ -39,7 +38,6 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	graphqlgophers "github.com/graph-gophers/graphql-go"
-	swgui "github.com/swaggest/swgui/v5emb"
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
 )
@@ -69,6 +67,11 @@ type Server struct {
 	port                    string
 	configDir               string
 	dataDir                 string
+	cacheDir                string
+	brandingImageMu         sync.RWMutex
+	brandingImages          map[string]brandingImage
+	brandingVariants        map[string]brandingImage
+	brandingImageWarnings   map[string]struct{}
 	metricsCollector        *metrics.SystemCollector
 	version                 string
 	buildDate               string
@@ -224,6 +227,15 @@ func NewWithDatabase(citySvc *cities.Service, zipSvc *zipcodes.Service, cfg *con
 	metrics.DefaultLogStore.RegisterSecret(cfg.Server.Metrics.Auth.Tokens.Prometheus)
 	metrics.DefaultLogStore.RegisterSecret(cfg.Server.Metrics.Auth.Tokens.Grafana)
 	metrics.DefaultLogStore.RegisterSecret(cfg.Server.Metrics.Auth.Tokens.Loki)
+	for _, role := range []string{"admin", "security", "abuse", "general"} {
+		roleConfig := contactRoleConfig(cfg, role)
+		for _, endpoint := range roleConfig.Webhooks {
+			metrics.DefaultLogStore.RegisterSecret(endpoint)
+		}
+		for _, secret := range roleConfig.WebhookSecrets {
+			metrics.DefaultLogStore.RegisterSecret(secret)
+		}
+	}
 	graphQLByLanguage := make(map[string]*graphqlgophers.Schema, len(i18n.LanguageCodes()))
 	for _, lang := range i18n.LanguageCodes() {
 		graphQLByLanguage[lang] = graphql.NewSchemaForLanguage(lang, citySvc, zipSvc)
@@ -404,6 +416,15 @@ func (s *Server) ApplyConfig(next *config.Config, restartRequired []string, base
 	} {
 		metrics.DefaultLogStore.RegisterSecret(secret)
 	}
+	for _, role := range []string{"admin", "security", "abuse", "general"} {
+		roleConfig := contactRoleConfig(&candidate, role)
+		for _, endpoint := range roleConfig.Webhooks {
+			metrics.DefaultLogStore.RegisterSecret(endpoint)
+		}
+		for _, secret := range roleConfig.WebhookSecrets {
+			metrics.DefaultLogStore.RegisterSecret(secret)
+		}
+	}
 	s.setupRoutes()
 	s.refreshTrustedProxies(true)
 	return nil
@@ -412,6 +433,11 @@ func (s *Server) ApplyConfig(next *config.Config, restartRequired []string, base
 // SetConfigDir sets the resolved configuration directory for disk-backed server features.
 func (s *Server) SetConfigDir(configDir string) {
 	s.configDir = strings.TrimSpace(configDir)
+}
+
+// SetCacheDir sets the private cache directory for derived server assets.
+func (s *Server) SetCacheDir(cacheDir string) {
+	s.cacheDir = strings.TrimSpace(cacheDir)
 }
 
 // SetDataDir configures the disk path sampled by the system metrics collector.
@@ -629,6 +655,8 @@ func (s *Server) setupRoutes() {
 	staticFiles := http.StripPrefix("/static/", http.FileServer(http.FS(staticContent)))
 	r.Get("/static/css/accent.css", s.handleAccentCSS)
 	r.Head("/static/css/accent.css", s.handleAccentCSS)
+	r.Get("/static/css/common.css", s.handleCommonCSS)
+	r.Head("/static/css/common.css", s.handleCommonCSS)
 	r.Handle("/static/*", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		file, err := staticContent.Open(strings.TrimPrefix(r.URL.Path, "/static/"))
 		if err != nil {
@@ -725,6 +753,8 @@ func (s *Server) setupRoutes() {
 	r.Get("/manifest.json", s.handleManifest)
 	r.Get("/favicon.ico", s.handleFavicon)
 	r.Head("/favicon.ico", s.handleFavicon)
+	r.Get("/branding/{name}", s.handleBrandingImage)
+	r.Head("/branding/{name}", s.handleBrandingImage)
 	r.Get("/sw.js", s.handleServiceWorker)
 	r.Get("/robots.txt", s.handleRobots)
 	r.Get("/sitemap.xml", s.handleSitemap)
@@ -744,11 +774,12 @@ func (s *Server) setupRoutes() {
 
 	// OpenAPI/Swagger
 	r.Get("/server/docs/swagger", s.handleOpenAPI)
-	r.Handle("/server/docs/swagger/*", http.HandlerFunc(s.handleSwaggerAssets))
 	r.Get(apiPrefix+"/server/swagger", s.handleOpenAPISpec)
 	r.Get("/api/swagger", s.handleOpenAPISpec)
 	r.Get("/server/docs/graphql", s.handleGraphQLDocs)
+	r.Get(apiPrefix+"/server/graphql", s.handleGraphQL)
 	r.Post(apiPrefix+"/server/graphql", s.handleGraphQL)
+	r.Get("/api/graphql", s.handleGraphQL)
 	r.Post("/api/graphql", s.handleGraphQL)
 	r.Handle(apiPrefix+"/server/mcp", http.HandlerFunc(s.handleMCP))
 	r.Handle("/api/mcp", http.HandlerFunc(s.handleMCP))
@@ -1132,7 +1163,7 @@ func (s *Server) securityHeadersMiddleware(next http.Handler) http.Handler {
 		if s.requestUsesHTTPS(r) {
 			w.Header().Set("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload")
 		}
-		if !strings.HasSuffix(strings.ToLower(r.Host), ".onion") && !strings.HasSuffix(strings.ToLower(r.Host), ".i2p") {
+		if !s.contactRequestOnPrivateNetwork(r) {
 			w.Header().Set("Content-Security-Policy", s.contentSecurityPolicy(r))
 		}
 		next.ServeHTTP(w, r)
@@ -1922,6 +1953,7 @@ func (s *Server) renderPage(w http.ResponseWriter, r *http.Request, name string,
 	data["SEOHead"] = s.seoHead(r, r.URL.Path, pageTitle, pageDescription)
 	data["BaseURL"] = strings.TrimSuffix(s.baseURL, "/")
 	data["BrandTitle"] = s.brandTitle()
+	data["LogoURL"] = s.imageURL("logo", r)
 	data["HasAccent"] = s.cfg.Web.UI.Accent != ""
 	data["CurrentPath"] = r.URL.Path
 	data["APIBase"] = strings.TrimSuffix(s.baseURL, "/") + "/api/" + s.cfg.Server.APIVersion
@@ -1974,7 +2006,13 @@ func (s *Server) renderPage(w http.ResponseWriter, r *http.Request, name string,
 		s.renderError(w, r, http.StatusInternalServerError, "This page is temporarily unavailable.")
 		return
 	}
-	writeHTMLResponse(w, r, http.StatusOK, []byte(rendered.String()))
+	shared, err := s.applySharedPageShell(r, rendered.String(), data)
+	if err != nil {
+		slog.Error("http.page_shell_failed", "template", name, "error", err)
+		s.renderError(w, r, http.StatusInternalServerError, "This page is temporarily unavailable.")
+		return
+	}
+	writeHTMLResponse(w, r, http.StatusOK, []byte(shared))
 }
 
 func (s *Server) renderError(w http.ResponseWriter, r *http.Request, status int, message string) {
@@ -1994,6 +2032,7 @@ func (s *Server) renderError(w http.ResponseWriter, r *http.Request, status int,
 	}
 	data := map[string]interface{}{"StatusCode": status, "StatusText": statusText, "Message": message, "Version": s.version}
 	data["BrandTitle"] = s.brandTitle()
+	data["LogoURL"] = s.imageURL("logo", r)
 	data["CurrentPath"] = r.URL.Path
 	data["HasAccent"] = s.cfg.Web.UI.Accent != ""
 	data["SEOHead"] = s.seoHead(r, r.URL.Path, "Error", message)
@@ -2016,6 +2055,7 @@ func (s *Server) renderError(w http.ResponseWriter, r *http.Request, status int,
 		returnTo := r.URL.RequestURI()
 		data["SiteBanners"] = s.activeAnnouncements(r, csrfToken, returnTo)
 		data["ConsentBanner"] = s.renderCookieConsentBanner(r, csrfToken, returnTo)
+		data["TrackingNoscript"] = s.trackingNoscript(r)
 		page, parseErr := template.New("error.html").Funcs(template.FuncMap{
 			"t": i18n.Translate, "tf": i18n.TranslateFormat, "asset": assetURL,
 			"operatorHTML": func(name string) template.HTML { return s.operatorHTML(r, name) },
@@ -2023,8 +2063,12 @@ func (s *Server) renderError(w http.ResponseWriter, r *http.Request, status int,
 		if parseErr == nil {
 			var rendered strings.Builder
 			if executeErr := page.Execute(&rendered, data); executeErr == nil {
-				writeHTMLResponse(w, r, status, []byte(rendered.String()))
-				return
+				shared, shellErr := s.applySharedPageShell(r, rendered.String(), data)
+				if shellErr == nil {
+					writeHTMLResponse(w, r, status, []byte(shared))
+					return
+				}
+				slog.Error("http.error_page_shell_failed", "status", status, "error", shellErr)
 			}
 		}
 	}
@@ -2095,25 +2139,7 @@ func (s *Server) handleLocale(w http.ResponseWriter, r *http.Request) {
 // PWA/Meta handlers
 
 func (s *Server) handleFavicon(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet && r.Method != http.MethodHead {
-		w.Header().Set("Allow", "GET, HEAD")
-		s.renderError(w, r, http.StatusMethodNotAllowed, i18n.Translate(i18n.LangFromRequest(r), "errors.method_not_allowed"))
-		return
-	}
-	if setAssetCacheHeaders(w, r) {
-		return
-	}
-	icon, err := staticFS.ReadFile("static/images/icon.svg")
-	if err != nil {
-		http.NotFound(w, r)
-		return
-	}
-	w.Header().Set("Content-Type", "image/svg+xml")
-	w.Header().Set("X-Content-Type-Options", "nosniff")
-	if r.Method == http.MethodHead {
-		return
-	}
-	_, _ = w.Write(icon)
+	s.serveBrandingImage(w, r, "favicon")
 }
 
 func (s *Server) handleManifest(w http.ResponseWriter, r *http.Request) {
@@ -2129,7 +2155,8 @@ func (s *Server) handleManifest(w http.ResponseWriter, r *http.Request) {
 		"background_color": "#1a1a1a",
 		"theme_color":      "#0066cc",
 		"icons": []map[string]interface{}{
-			{"src": assetURL(strings.TrimSuffix(s.baseURL, "/") + "/static/images/icon.svg"), "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable"},
+			{"src": assetURL(strings.TrimSuffix(s.baseURL, "/") + "/favicon.ico?size=192"), "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
+			{"src": assetURL(strings.TrimSuffix(s.baseURL, "/") + "/favicon.ico?size=512"), "sizes": "512x512", "type": "image/png", "purpose": "any maskable"},
 		},
 	}
 	s.respondJSON(w, http.StatusOK, manifest)
@@ -2145,11 +2172,12 @@ func (s *Server) handleServiceWorker(w http.ResponseWriter, r *http.Request) {
 const CACHE_VERSION = ` + string(stamp) + `;
 const CACHE_NAME = "citylist-cache-" + CACHE_VERSION;
 const PRECACHE_ASSETS = [
-  BASE + "/static/css/main.css?v=" + encodeURIComponent(CACHE_VERSION),
+  BASE + "/static/css/common.css?v=" + encodeURIComponent(CACHE_VERSION),
   BASE + "/static/js/app.js?v=" + encodeURIComponent(CACHE_VERSION),
   BASE + "/static/images/icon.svg?v=" + encodeURIComponent(CACHE_VERSION),
-  BASE + "/server/docs/swagger/swagger-ui.css?v=" + encodeURIComponent(CACHE_VERSION),
-  BASE + "/server/docs/swagger/swagger-ui-bundle.js?v=" + encodeURIComponent(CACHE_VERSION)
+  BASE + "/static/vendor/swagger-ui/swagger-ui.css?v=" + encodeURIComponent(CACHE_VERSION),
+  BASE + "/static/vendor/swagger-ui/swagger-ui-bundle.js?v=" + encodeURIComponent(CACHE_VERSION),
+  BASE + "/static/vendor/swagger-ui/swagger-ui-standalone-preset.js?v=" + encodeURIComponent(CACHE_VERSION)
 ];
 const NAV_TIMEOUT_MS = 8000;
 self.addEventListener("install", (event) => {
@@ -2186,7 +2214,7 @@ self.addEventListener("fetch", (event) => {
     }).catch(async () => (await caches.match(request)) || offlineFallbackResponse()));
     return;
   }
-  if (url.pathname.startsWith(BASE + "/static/") || url.pathname.startsWith(BASE + "/server/docs/swagger/")) {
+  if (url.pathname.startsWith(BASE + "/static/")) {
     event.respondWith(caches.match(request).then((cached) => cached || fetch(request).then((response) => {
       if (response.ok && !response.redirected) event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.put(request, response.clone())));
       return response;
@@ -2237,27 +2265,6 @@ func (s *Server) handleOpenAPI(w http.ResponseWriter, r *http.Request) {
 	s.renderPage(w, r, "openapi.html", map[string]interface{}{"ReturnTo": r.URL.RequestURI()})
 }
 
-func (s *Server) handleSwaggerAssets(w http.ResponseWriter, r *http.Request) {
-	if strings.TrimSuffix(r.URL.Path, "/") == "/server/docs/swagger" {
-		http.Redirect(w, r, s.BuildURL(r, "/server/docs/swagger"), http.StatusPermanentRedirect)
-		return
-	}
-	apiPrefix := "/api/" + s.cfg.Server.APIVersion
-	assets := swgui.New(s.brandTitle(), s.BuildURL(r, apiPrefix+"/server/swagger"), "/server/docs/swagger/")
-	response := httptest.NewRecorder()
-	assets.ServeHTTP(response, r)
-	for key, values := range response.Header() {
-		for _, value := range values {
-			w.Header().Add(key, value)
-		}
-	}
-	if response.Code >= http.StatusOK && response.Code < http.StatusMultipleChoices && setAssetCacheHeaders(w, r) {
-		return
-	}
-	w.WriteHeader(response.Code)
-	_, _ = w.Write(response.Body.Bytes())
-}
-
 func (s *Server) handleOpenAPISpec(w http.ResponseWriter, r *http.Request) {
 	apiPrefix := "/api/" + s.cfg.Server.APIVersion
 	lang := i18n.LangFromRequest(r)
@@ -2297,7 +2304,7 @@ func (s *Server) handleOpenAPISpec(w http.ResponseWriter, r *http.Request) {
 func openAPIPaths(router *chi.Mux, apiPrefix, lang string) map[string]interface{} {
 	paths := make(map[string]interface{})
 	_ = chi.Walk(router, func(method, route string, _ http.Handler, _ ...func(http.Handler) http.Handler) error {
-		if strings.Contains(route, "*") || !(strings.HasPrefix(route, "/api/") || route == "/server/healthz" || route == "/healthz") {
+		if strings.Contains(route, "*") || !strings.HasPrefix(route, "/api/") && route != "/server/healthz" && route != "/healthz" {
 			return nil
 		}
 		if route == "/api/v1" || strings.HasPrefix(route, "/api/v1/") {
@@ -2395,7 +2402,7 @@ func openAPIEndpointKey(route, apiPrefix string) string {
 		return "random"
 	case path == "/random.txt":
 		return "random_text"
-	case strings.HasSuffix(path, "/server/graphql") || path == "/graphql":
+	case strings.HasSuffix(path, "/server/graphql") || path == "/graphql" || path == "/api/graphql":
 		return "graphql"
 	default:
 		return "generic"
@@ -2425,6 +2432,16 @@ func openAPIParameters(route, methodName, apiPrefix, lang string) []map[string]i
 		"/zipcodes/search":        {"q", "state", "limit"},
 		"/zipcodes/nearby":        {"lat", "lon", "radius", "limit"},
 		"/zipcodes/state/{state}": {"limit"},
+	}
+	if methodName == "get" && (strings.HasSuffix(path, "/server/graphql") || path == "/api/graphql") {
+		for _, name := range []string{"query", "variables", "operationName"} {
+			params = append(params, map[string]interface{}{
+				"in": "query", "name": name, "required": false,
+				"description": "GraphQL query parameter",
+				"schema":      map[string]string{"type": "string"},
+			})
+		}
+		return params
 	}
 	if methodName == "post" && path == "/cities/coordinates" {
 		return params

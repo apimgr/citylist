@@ -216,7 +216,7 @@ func saveLegoAccount(path string, account *legoAccount) error {
 	return nil
 }
 
-func writePrivateAtomic(path string, content []byte) error {
+func writePrivateAtomic(path string, content []byte) (retErr error) {
 	directory := filepath.Dir(path)
 	if err := os.MkdirAll(directory, 0700); err != nil {
 		return err
@@ -229,7 +229,11 @@ func writePrivateAtomic(path string, content []byte) error {
 		return err
 	}
 	temporaryPath := file.Name()
-	defer os.Remove(temporaryPath)
+	defer func() {
+		if cleanupErr := os.Remove(temporaryPath); cleanupErr != nil && !errors.Is(cleanupErr, os.ErrNotExist) {
+			retErr = errors.Join(retErr, fmt.Errorf("remove temporary ACME account file: %w", cleanupErr))
+		}
+	}()
 	if err := file.Chmod(0600); err != nil {
 		_ = file.Close()
 		return err

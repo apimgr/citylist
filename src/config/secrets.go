@@ -15,6 +15,20 @@ import (
 
 const tokenAlphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 
+type contactWebhookRole struct {
+	name   string
+	config *ContactRoleConfig
+}
+
+func webhookRoles(cfg *Config) []contactWebhookRole {
+	return []contactWebhookRole{
+		{name: "admin", config: &cfg.Server.Contact.Admin},
+		{name: "security", config: &cfg.Server.Contact.Security},
+		{name: "abuse", config: &cfg.Server.Contact.Abuse},
+		{name: "general", config: &cfg.Server.Contact.General},
+	}
+}
+
 func loadSecrets(secretsPath, configPath string, cfg *Config, mergedConfig []byte) (string, error) {
 	legacySecrets, err := extractLegacySecrets(mergedConfig)
 	if err != nil {
@@ -56,6 +70,47 @@ func loadSecrets(secretsPath, configPath string, cfg *Config, mergedConfig []byt
 	metricsTokens := nestedMap(metricsAuth, "tokens")
 	secretData := nestedMap(values, "data")
 	cve := nestedMap(secretData, "cve")
+	contact := nestedMap(server, "contact")
+	generatedWebhookSecrets := false
+	for _, role := range webhookRoles(cfg) {
+		roleValues := nestedMap(contact, role.name)
+		webhookValues := nestedMap(roleValues, "webhooks")
+		if role.config.Webhooks == nil {
+			role.config.Webhooks = map[string]string{}
+		}
+		if role.config.WebhookSecrets == nil {
+			role.config.WebhookSecrets = map[string]string{}
+		}
+		for transport, value := range webhookValues {
+			secret := stringValue(value)
+			if strings.HasSuffix(transport, "_secret") {
+				role.config.WebhookSecrets[strings.TrimSuffix(transport, "_secret")] = secret
+			} else if secret != "" {
+				role.config.Webhooks[transport] = secret
+			}
+		}
+		for transport, webhookURL := range role.config.Webhooks {
+			if strings.HasSuffix(transport, "_secret") || strings.TrimSpace(webhookURL) == "" {
+				continue
+			}
+			secretName := transport + "_secret"
+			secret := stringValue(webhookValues[secretName])
+			if secret == "" {
+				generated := make([]byte, 32)
+				if _, err := rand.Read(generated); err != nil {
+					return "", fmt.Errorf("generate server.contact.%s.webhooks.%s_secret: %w", role.name, transport, err)
+				}
+				secret = base64.StdEncoding.EncodeToString(generated)
+				webhookValues[secretName] = secret
+				cfg.GeneratedSecrets = append(cfg.GeneratedSecrets, "server.contact."+role.name+".webhooks."+secretName)
+				generatedWebhookSecrets = true
+			}
+			webhookValues[transport] = webhookURL
+			role.config.WebhookSecrets[transport] = secret
+		}
+		roleValues["webhooks"] = webhookValues
+		contact[role.name] = roleValues
+	}
 	legacyConfigHasSecrets, err := configFilesContainLegacySecrets(configPath)
 	if err != nil {
 		return "", err
@@ -127,6 +182,7 @@ func loadSecrets(secretsPath, configPath string, cfg *Config, mergedConfig []byt
 		{name: "loki", value: &cfg.Server.Metrics.Auth.Tokens.Loki},
 	}
 	generatedMetricsTokens := false
+	generatedMetricNames := make([]string, 0, len(metricsTokenFields))
 	for _, token := range metricsTokenFields {
 		if value := stringValue(metricsTokens[token.name]); value != "" {
 			*token.value = value
@@ -134,6 +190,7 @@ func loadSecrets(secretsPath, configPath string, cfg *Config, mergedConfig []byt
 		} else if *token.value != "" {
 			metricsTokens[token.name] = *token.value
 			generatedMetricsTokens = true
+			generatedMetricNames = append(generatedMetricNames, token.name)
 			continue
 		}
 		generated, err := randomToken("mtr_")
@@ -143,6 +200,7 @@ func loadSecrets(secretsPath, configPath string, cfg *Config, mergedConfig []byt
 		*token.value = generated
 		metricsTokens[token.name] = *token.value
 		generatedMetricsTokens = true
+		generatedMetricNames = append(generatedMetricNames, token.name)
 		continue
 	}
 	for _, token := range metricsTokenFields {
@@ -182,7 +240,18 @@ func loadSecrets(secretsPath, configPath string, cfg *Config, mergedConfig []byt
 		}
 	}
 
-	if generatedToken != "" || generatedKey || generatedMetricsTokens || legacyConfigHasSecrets {
+	if generatedToken != "" {
+		cfg.GeneratedSecrets = append(cfg.GeneratedSecrets, "server.token")
+	}
+	if generatedKey {
+		cfg.GeneratedSecrets = append(cfg.GeneratedSecrets, "server.security.encryption_key")
+	}
+	if generatedMetricsTokens {
+		for _, name := range generatedMetricNames {
+			cfg.GeneratedSecrets = append(cfg.GeneratedSecrets, "server.metrics.auth.tokens."+name)
+		}
+	}
+	if generatedToken != "" || generatedKey || generatedMetricsTokens || generatedWebhookSecrets || legacyConfigHasSecrets {
 		server["database"] = database
 		if cfg.Server.Backup.EncryptionPassword != "" {
 			backup["encryption_password"] = cfg.Server.Backup.EncryptionPassword
@@ -196,6 +265,7 @@ func loadSecrets(secretsPath, configPath string, cfg *Config, mergedConfig []byt
 		contactPage["captcha_secret_key"] = cfg.Server.Pages.Contact.CaptchaSecretKey
 		pages["contact"] = contactPage
 		server["pages"] = pages
+		server["contact"] = contact
 		values["server"] = server
 		metricsAuth["tokens"] = metricsTokens
 		metrics["auth"] = metricsAuth

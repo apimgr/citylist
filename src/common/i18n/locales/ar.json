@@ -136,7 +136,9 @@
     },
     "footer": {
       "brand": "واجهة Citylist - جزء من apimgr",
-      "github": "GitHub"
+      "github": "GitHub",
+      "made_with": "صُنع باستخدام",
+      "last_update": "آخر تحديث"
     },
     "graphql": {
       "title": "مستكشف GraphQL",
@@ -148,6 +150,8 @@
       "loading": "جارٍ تحميل الاستعلام…",
       "failed": "تعذّر إكمال الاستعلام.",
       "openapi": "مواصفات OpenAPI",
+      "nojs": "افتح نقطة GraphQL دون JavaScript",
+      "javascript_required": "يتطلب مستكشف واجهة البرمجة التفاعلي هذا JavaScript.",
       "schema": {
         "types": {
           "Query": "استعلامات للقراءة فقط لبيانات المدن والرموز البريدية المرجعية.",
@@ -899,11 +903,13 @@
         "ssl_expiring": "الشهادة توشك على الانتهاء",
         "ssl_renewed": "تم تجديد الشهادة",
         "ssl_renewal_failed": "فشل تجديد الشهادة",
-        "disk_low": "مساحة القرص منخفضة"
+        "disk_low": "مساحة القرص منخفضة",
+        "database_error": "مشكلة في اتصال قاعدة البيانات"
       },
       "fields": {
         "task_name": "المهمة",
         "error": "الخطأ",
+        "since": "منذ",
         "next_run": "التشغيل التالي",
         "fqdn": "النطاق",
         "expires_in": "الأيام المتبقية حتى الانتهاء",

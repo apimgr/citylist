@@ -231,7 +231,7 @@ func rewriteExternalTLSConfig(files map[string][]byte, manifestFiles []ManifestF
 	return nil
 }
 
-func applyRestorePlan(ctx context.Context, plans []restoreFile, temporaryRoot string) error {
+func applyRestorePlan(ctx context.Context, plans []restoreFile, temporaryRoot string) (retErr error) {
 	if err := os.MkdirAll(temporaryRoot, 0700); err != nil {
 		return err
 	}
@@ -239,7 +239,11 @@ func applyRestorePlan(ctx context.Context, plans []restoreFile, temporaryRoot st
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(stage)
+	defer func() {
+		if cleanupErr := os.RemoveAll(stage); cleanupErr != nil {
+			retErr = errors.Join(retErr, fmt.Errorf("remove restore staging directory: %w", cleanupErr))
+		}
+	}()
 	if err := os.Chmod(stage, 0700); err != nil {
 		return err
 	}
@@ -334,12 +338,12 @@ func rollback(originals []originalFile) error {
 	return errors.Join(failures...)
 }
 
-func copyFile(source, destination string, mode os.FileMode) error {
+func copyFile(source, destination string, mode os.FileMode) (retErr error) {
 	input, err := os.Open(source)
 	if err != nil {
 		return err
 	}
-	defer input.Close()
+	defer func() { retErr = errors.Join(retErr, input.Close()) }()
 	output, err := os.OpenFile(destination, os.O_CREATE|os.O_EXCL|os.O_WRONLY, mode)
 	if err != nil {
 		return err

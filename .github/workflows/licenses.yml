@@ -1,0 +1,40 @@
+name: License Check
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check-licenses:
+    runs-on: ubuntu-26.04
+    container:
+      image: casjaysdev/go:latest
+      options: "--user 0:0"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Check licenses
+        shell: bash
+        run: |
+          set -euo pipefail
+          IGNORE=$(awk 'NF && $1 !~ /^#/ { printf " --ignore %s", $1 }' .github/license-overrides.txt 2>/dev/null || true)
+          licenses=$(go-licenses csv ./src/... $IGNORE)
+          licenses="$licenses"$'\n'"$(awk 'NF && $1 !~ /^#/ { print $1 "," $2 }' .github/license-overrides.txt 2>/dev/null || true)"
+          if grep -iE '(^|,)(GPL|AGPL|LGPL)' <<<"$licenses"; then
+            echo "ERROR: Copyleft license detected!" >&2
+            exit 1
+          fi
+          if grep -iE ',Unknown$' <<<"$licenses"; then
+            echo "ERROR: Unresolved dependency license detected!" >&2
+            exit 1
+          fi
+      - name: Save license report
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}"
+          IGNORE=$(awk 'NF && $1 !~ /^#/ { printf " --ignore %s", $1 }' .github/license-overrides.txt 2>/dev/null || true)
+          go-licenses save ./src/... $IGNORE --save_path="${RUNNER_TEMP}/third_party_licenses"

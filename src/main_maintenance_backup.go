@@ -389,7 +389,7 @@ func authorizeBackupRestore(empty bool, cfg *config.Config) error {
 	return errors.New("restore requires administrator authorization: run as root or as the service user with the operator token")
 }
 
-func databaseEmpty(path string) (bool, error) {
+func databaseEmpty(path string) (empty bool, retErr error) {
 	info, err := os.Stat(path)
 	if errors.Is(err, fs.ErrNotExist) {
 		return true, nil
@@ -404,7 +404,7 @@ func databaseEmpty(path string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	defer db.Close()
+	defer func() { retErr = errors.Join(retErr, db.Close()) }()
 	for _, query := range []string{"SELECT COUNT(*) FROM owners", "SELECT COUNT(*) FROM audit_log"} {
 		var count int
 		if err := db.QueryRow(query).Scan(&count); err != nil {
@@ -569,12 +569,12 @@ func runScheduledBackup(ctx context.Context, kind, configPath, configDir, dataDi
 	return writeAuditEvent("backup.daily_updated", "info", "success", "scheduler", "127.0.0.1", map[string]string{"type": "backup", "id": filepath.Base(path)}, map[string]any{"filename": filepath.Base(path), "snapshot_at": manifest.SnapshotAt})
 }
 
-func copyPrivateFile(sourcePath, destinationPath string) error {
+func copyPrivateFile(sourcePath, destinationPath string) (retErr error) {
 	source, err := os.Open(sourcePath)
 	if err != nil {
 		return err
 	}
-	defer source.Close()
+	defer func() { retErr = errors.Join(retErr, source.Close()) }()
 	destination, err := os.OpenFile(destinationPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
 	if err != nil {
 		return err

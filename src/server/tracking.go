@@ -130,12 +130,7 @@ func (s *Server) trackingAllowed(r *http.Request) bool {
 }
 
 func (s *Server) trackingOverlayRequest(r *http.Request) bool {
-	parsed, err := url.Parse(s.BuildURL(r, "/"))
-	if err != nil {
-		return contactRequestOnPrivateNetwork(r)
-	}
-	host := strings.ToLower(parsed.Hostname())
-	return strings.HasSuffix(host, ".onion") || strings.HasSuffix(host, ".i2p")
+	return s.contactRequestOnPrivateNetwork(r)
 }
 
 func (s *Server) trackingScript(r *http.Request) template.HTML {

@@ -29,7 +29,7 @@ func (s *Server) brandTitle() string {
 	if title := strings.TrimSpace(s.cfg.Server.Branding.Title); title != "" {
 		return title
 	}
-	return "CityList API"
+	return "citylist"
 }
 
 func (s *Server) applyRobotsHeader(w http.ResponseWriter, r *http.Request) {
@@ -67,7 +67,8 @@ func (s *Server) seoHead(r *http.Request, requestPath, pageTitle, pageDescriptio
 	robots := s.robotsDirective(requestPath)
 	var out strings.Builder
 	out.WriteString(`<title>` + html.EscapeString(title) + `</title>` + "\n")
-	out.WriteString(`<link rel="icon" href="` + html.EscapeString(s.baseURL+"favicon.ico") + `" type="image/svg+xml">` + "\n")
+	out.WriteString(`<link rel="icon" href="` + html.EscapeString(s.BuildURL(r, "/favicon.ico?size=32")) + `">` + "\n")
+	out.WriteString(`<link rel="apple-touch-icon" href="` + html.EscapeString(s.BuildURL(r, "/favicon.ico?size=180")) + `">` + "\n")
 	writeMeta := func(attribute, value, content string) {
 		if strings.TrimSpace(content) == "" {
 			return
@@ -90,13 +91,13 @@ func (s *Server) seoHead(r *http.Request, requestPath, pageTitle, pageDescriptio
 		writeMeta("property", "og:type", firstNonEmpty(seo.OpenGraph.Type, "website"))
 		writeMeta("property", "og:url", canonical)
 		writeMeta("property", "og:site_name", firstNonEmpty(seo.OpenGraph.SiteName, branding.Title))
-		writeMeta("property", "og:image", seo.OGImage)
+		writeMeta("property", "og:image", s.BuildURL(r, "/branding/og-image")+"?size=1200x630")
 	}
 	if seo.Twitter.Enabled {
 		writeMeta("name", "twitter:card", firstNonEmpty(seo.Twitter.Card, "summary_large_image"))
 		writeMeta("name", "twitter:title", title)
 		writeMeta("name", "twitter:description", description)
-		writeMeta("name", "twitter:image", seo.OGImage)
+		writeMeta("name", "twitter:image", s.BuildURL(r, "/branding/og-image")+"?size=1200x630")
 		writeMeta("name", "twitter:site", seo.TwitterHandle)
 		writeMeta("name", "twitter:creator", seo.Twitter.Creator)
 	}
