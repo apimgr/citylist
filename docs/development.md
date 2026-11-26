@@ -22,6 +22,8 @@ tests/e2e.sh
 
 The GitHub Actions workflow runs `go vet`, `staticcheck`, the coverage-gated test suite, a build, `govulncheck`, secret scanning, workflow pin checks, and a Trivy image scan.
 
+The interactive API pages use locally served pinned assets: Swagger UI 5.36.0 and GraphiQL 4.1.2 with React and ReactDOM 18.3.1. Their startup code is kept in `src/server/static/js/docs-swagger.js` and `docs-graphql.js`; do not load these libraries from a CDN or merge their startup code into `app.js`.
+
 ## Integration and browser checks
 
 Integration and browser checks are developer-initiated checks, separate from the unit-test commit gate:

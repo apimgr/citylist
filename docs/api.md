@@ -64,6 +64,8 @@ The public server-rendered pages include `/server/about`, `/server/help`, `/serv
 
 GraphQL accepts POST JSON request bodies and form-encoded `query` submissions. GET accepts `query`, optional JSON-encoded `variables`, and optional `operationName`; it only executes the read-only query schema. A GET without `query` returns a short usage message. Request bodies and GET parameter values are capped at 1 MiB. The server-rendered explorer links directly to the GET endpoint for no-JavaScript clients. MCP uses Streamable HTTP revision `2026-07-28`, requires `Authorization: Bearer <token>` on every request, and ignores cookies. Issue an owner token using `POST /api/v1/server/preferences/tokens/primary`, then create a linked token for each MCP client on `/server/preferences/tokens`. Connection instructions are at `/server/help/mcp`.
 
+The `/server/docs/swagger` and `/server/docs/graphql` pages load their pinned Swagger UI and GraphiQL libraries from the server's own static assets. Each page includes a `<noscript>` card linking to the corresponding plain JSON endpoint.
+
 ### Server APIs
 
 The following server routes are JSON APIs under the default `/api/v1` prefix. The versioned prefix follows `server.api_version`; aliases listed here are served directly by the same handler, without a redirect.
