@@ -17,7 +17,7 @@ Citylist is a public, read-only reference API and server-rendered web applicatio
 - Server-rendered lookup, help, legal, contact, and security-report pages, with core forms usable without JavaScript.
 - Guest theme, language, consent, and preference-sync controls, plus browser-based anonymous owner-token management.
 - Operator-configured branding, site announcements, SMTP notices, and role-specific webhook notifications.
-- `citylist-cli` command, terminal, and native graphical interfaces.
+- `citylist-cli` command and terminal interfaces, with optional native GUI release assets for Linux, macOS, and Windows.
 - Anonymous owner tokens for token-gated integrations without visitor accounts or passwords.
 - English, Spanish, French, German, Italian, and Arabic catalogs shared by the server and client; see the [translation guide](docs/translating.md).
 
@@ -69,7 +69,7 @@ See [Installation](docs/installation.md) for service actions and platform detail
 
 ## Client
 
-`citylist-cli` is the companion client for public lookups and token-gated integrations. Download the matching `citylist-cli-<os>-<arch>` asset from [GitHub Releases](https://github.com/apimgr/citylist/releases/latest).
+`citylist-cli` is the companion client for public lookups and token-gated integrations. Download the matching `citylist-cli-<os>-<arch>` asset from [GitHub Releases](https://github.com/apimgr/citylist/releases/latest). This default artifact is static and supports command and terminal modes. Optional `citylist-cli-gui-<os>-<arch>` assets provide the native graphical interface on Linux, macOS, and Windows; they are dynamically linked and desktop-only. The Linux GUI asset requires the runtime loader used by its build toolchain, so it is not portable across every Linux distribution.
 
 ```sh
 citylist-cli --server https://YOUR_SERVER city 2643743

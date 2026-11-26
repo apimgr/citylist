@@ -1,10 +1,10 @@
 # CLI reference
 
-`citylist-cli` sends bounded, read-only HTTP requests to a Citylist server. It provides command mode, a responsive terminal interface, and a native graphical interface when a display is available. The lookup API remains public; a bearer token identifies the owner for token management and is required for MCP.
+`citylist-cli` sends bounded, read-only HTTP requests to a Citylist server. The default static artifact provides command mode and a responsive terminal interface. The native graphical interface is a separate optional artifact for Linux, macOS, and Windows. The lookup API remains public; a bearer token identifies the owner for token management and is required for MCP.
 
 ## Choose a server
 
-The client reads its server from `server.primary` in the CLI profile, then `CITYLIST_SERVER_PRIMARY`, then `--server URL`. On an interactive first run with no server configured, it prompts for the server URL. A command-line or environment override does not replace an already configured primary server.
+The client resolves its server in this order: `--server URL`, `CITYLIST_SERVER_PRIMARY`, then `server.primary` in the CLI profile. A command-line URL is saved only when the profile has no valid primary URL; the environment override is never saved. Citylist does not define a compiled official-site default. On an interactive first run with no server resolved, the client prompts for a URL; non-interactive commands require one to be configured or passed explicitly.
 
 The URL must be an absolute HTTP or HTTPS URL without embedded credentials, a query string, or a fragment. Requests are GET-only, use the configured `server.timeout` (default `30s`), and response bodies are capped at 2 MiB. The client retries eligible failed requests according to `server.retry` (default `3`) and `server.retry_delay` (default `1s`); configuration limits retries to 0–10 and requires a positive timeout.
 
@@ -43,7 +43,11 @@ citylist-cli zip-nearby 40.75 -73.99 10
 citylist-cli London
 ```
 
-When the client is started without a command, display detection selects the native GUI when available, otherwise the interactive terminal interface when attached to a terminal. In non-interactive mode, provide a command.
+When the default client is started without a command, it opens the terminal interface when attached to a terminal. In non-interactive mode, provide a command. The default artifact is built without GUI support, so display detection never changes it into a graphical application.
+
+## Optional native GUI
+
+Download the separate `citylist-cli-gui-<os>-<arch>` release asset for Linux, macOS, or Windows to use the native graphical interface. This desktop-only artifact is built with GUI support and is dynamically linked. On Linux, it requires the runtime loader used by its build toolchain and may not run on distributions with a different loader. The static `citylist-cli-<os>-<arch>` artifact remains the portable command and terminal client; its update flow does not replace the GUI artifact.
 
 ## Output and language
 
