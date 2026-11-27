@@ -112,7 +112,7 @@ The `citylist` server binary provides operator-only maintenance commands separat
 | `citylist --maintenance compliance report` | Print enabled standards, effective retention settings, aggregate counts, recent compliance-event count, and last backup time. |
 | `citylist --maintenance backup [file] [--include-ssl] [--include-data]` | Create and verify a backup. A local SQLite database or enabled libSQL SQLite cache is included; the remote database itself is never archived. |
 | `citylist --maintenance backup test [file]` | Verify the selected or newest backup archive and its integrity. |
-| `citylist --maintenance restore FILE` | Restore configuration and local database state. A restored database seeds a configured remote libSQL database only when that remote database is empty. |
+| `citylist --maintenance restore [FILE]` | Restore configuration and local database state; with no file, restore the newest verified full backup. A restored database seeds a configured remote libSQL database only when that remote database is empty. |
 
 These commands use the configured SQLite or libSQL database. `token revoke` confirms the prefix before changing state; revoking a primary token affects every linked token for that owner. Data export and deletion identify the owner using a prefix shown by `token list`. A remote database is never included in a backup; the local SQLite cache is included when enabled. For all server options, run `citylist --help` or `citylist --maintenance --help`.
 

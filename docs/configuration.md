@@ -196,6 +196,7 @@ The owner-token cookie name is the stable `owner_token` project variable in `IDE
 | `server.i2p.signature_type` | `7` | SAM destination signature type (EdDSA-SHA512-Ed25519). |
 | `server.i2p.bootstrap_timeout` | `300` seconds | Maximum time to wait for I2P tunnel construction. |
 | `server.mode` | `production` | Application mode: `production`, `development`, or `debug`. |
+| `output.emoji` | automatic | Optional terminal emoji setting. An explicit value overrides `NO_COLOR`; `TERM=dumb` always disables emoji output. |
 | `server.api_version` | `v1` | Version segment used for native REST routes, such as `/api/v1/cities`. Invalid values fall back to `v1`. |
 | `server.update.branch` | `stable` | Release channel: `stable`, `beta`, or `devel`. Legacy channel labels `daily`, `rolling`, `dev`, and `development` normalize to `devel`. |
 | `server.update.auto_install` | `false` | Reserved for scheduled updater installation; Citylist currently supports manual update checks and installation only. |
