@@ -14,6 +14,7 @@ Citylist is a public, read-only reference API and server-rendered web applicatio
 - Global city lookup by GeoNames ID, name, country, and coordinates.
 - United States ZIP lookup by postal code, city, state, and nearby coordinates.
 - Read-only REST, GraphQL, OpenAPI, and MCP interfaces.
+- Optional Tor hidden-service and I2P eepsite access, with operator-only Tor lifecycle and key maintenance through the local CLI.
 - Server-rendered lookup, help, legal, contact, and security-report pages, with core forms usable without JavaScript.
 - Guest theme, language, consent, and preference-sync controls, plus browser-based anonymous owner-token management.
 - Operator-configured branding, site announcements, SMTP notices, and role-specific webhook notifications.

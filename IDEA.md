@@ -25,6 +25,7 @@ owner_token: citylist_owner_token_lgqdhqtw
 - US zipcode dataset with city, state, and coordinates
 - Search/filter cities by name and country code
 - Lookup city by GeoNames ID; lookup US zipcode by postal code
+- Optional Tor v3 hidden-service and I2P eepsite access to the same public lookup service; Tor starts when its executable is available, I2P is opt-in on hosts and VMs and enabled by default in application containers, and Tor lifecycle/key maintenance stays operator-only through the local CLI
 - Browser application for city search, coordinate search, and ZIP lookups, with guest theme, language, consent, and conditional CCPA preferences
 - Scheduled site-wide announcements rendered as accessible server-side banners, with optional visitor dismissal
 - Operator-configured logo, favicon, and social-card images from HTTPS URLs, bounded data URIs, or private local assets, with safe fetching, cached scaled variants, and embedded fallbacks
