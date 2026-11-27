@@ -6,7 +6,7 @@
 - Docker with a running daemon; the project uses the `casjaysdev/go:latest` toolchain container for Go builds and tests.
 - A working Go toolchain container image, fetched by Docker when it is not already available.
 
-Go binaries and tests must run inside the configured container. Do not build Go binaries or execute the compiled server/client directly on the host. `make dev` builds binaries into a project-scoped temporary directory; `make build` produces release binaries under the ignored `binaries/` directory.
+Go binaries and tests must run inside the configured container. Do not build Go binaries or execute the compiled server/client directly on the host. `make build` produces debug binaries with symbols under the ignored `binaries/` directory; `make release` produces stripped production artifacts under the ignored `releases/` directory without tagging or publishing.
 
 ## Build and test
 
@@ -18,7 +18,7 @@ tests/incus.sh
 tests/e2e.sh
 ```
 
-`make build` produces the server and CLI binaries for Linux, macOS, Windows, and FreeBSD on amd64 and arm64. `make test` runs `go vet ./...`, `govulncheck ./...`, and `go test ./...` in the Go container, then enforces 60% aggregate statement coverage. Local build metadata and the application version come from the Makefile, `release.txt`, and optional `site.txt`; CI releases derive the version from the pushed tag, while beta and development builds use generated identifiers.
+`make build` produces local and cross-platform debug server and CLI binaries for Linux, macOS, Windows, and FreeBSD on amd64 and arm64. These retain symbols and DWARF, disable optimization and inlining, and do not use `-trimpath`. `make test` runs `go vet ./...`, `staticcheck ./...`, `govulncheck ./...`, ShellCheck, `shfmt`, and all Go tests in the Go container, then enforces at least 60% aggregate coverage and runs `tests/run_tests.sh` for basic binary checks. `make release` builds stripped, optimized production artifacts for all eight targets, plus the source archive and checksums; it never creates tags or publishes. Local build metadata and the application version come from the Makefile, `release.txt`, and optional `site.txt`; CI releases derive the version from the pushed tag, while beta and development builds use generated identifiers.
 
 The GitHub Actions workflow runs `go vet`, `staticcheck`, the coverage-gated test suite, a build, `govulncheck`, secret scanning, workflow pin checks, and a Trivy image scan.
 
@@ -28,7 +28,7 @@ The interactive API pages use locally served pinned assets: Swagger UI 5.36.0 an
 
 Integration and browser checks are developer-initiated checks, separate from the unit-test commit gate:
 
-`tests/run_tests.sh` runs the basic Docker binary checks only. Unit tests use `make test`. The full Incus service lifecycle suite stays explicit through `tests/incus.sh`; it runs Debian/systemd and Alpine/OpenRC sequentially. The Incus and Docker scripts build test binaries in project-scoped OS temporary storage. The Incus runner also accepts prebuilt binaries through `CITYLIST_BIN_DIR`, which is useful when Go builds run in a separate container. The browser check is standalone, requires Docker, and runs the pure-Go chromedp suite in an isolated container. The scripts create temporary data and clean up only resources they created.
+`make test` invokes `tests/run_tests.sh` for the basic Docker binary checks. The full Incus service lifecycle suite stays explicit through `tests/incus.sh`; it runs Debian/systemd and Alpine/OpenRC sequentially. The Incus and Docker scripts build test binaries in project-scoped OS temporary storage. The Incus runner also accepts prebuilt binaries through `CITYLIST_BIN_DIR`, which is useful when Go builds run in a separate container. The browser check is standalone, requires Docker, and runs the pure-Go chromedp suite in an isolated container. The scripts create temporary data and clean up only resources they created.
 
 ## Source layout
 

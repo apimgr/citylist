@@ -128,12 +128,12 @@ For common setup issues, check the service logs and request `/server/healthz`. T
 Go builds and tests run inside the `casjaysdev/go:latest` container through Make:
 
 ```sh
-make dev
+make help
 make build
 make test
 ```
 
-`make build` creates server and client binaries for all eight OS/architecture targets. `make test` runs `go vet`, `govulncheck`, and the Go test suite with the aggregate coverage gate. Browser and container integration checks are documented in the [development guide](docs/development.md).
+`make build` creates unoptimized debug server and CLI binaries with symbols for all eight OS/architecture targets in `binaries/`. `make test` runs `go vet`, `staticcheck`, `govulncheck`, ShellCheck, `shfmt`, Go tests with the aggregate coverage gate, and the basic Docker binary checks. `make release` creates stripped production artifacts, a source archive, and checksums in `releases/`; it does not tag or publish. Browser and full operating-system integration checks are documented in the [development guide](docs/development.md).
 
 ## Disclaimer
 
