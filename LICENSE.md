@@ -39,6 +39,7 @@ Citylist includes global city records and United States postal-code records from
 | [cloud.google.com/go/auth](https://github.com/googleapis/google-cloud-go/blob/dbc26066f70a/auth/LICENSE) | v0.24.1-0.20261001053825-dbc26066f70a | Apache-2.0 | See linked license |
 | [cloud.google.com/go/auth/oauth2adapt](https://github.com/googleapis/google-cloud-go/blob/auth/oauth2adapt/v0.3.1/auth/oauth2adapt/LICENSE) | v0.3.1 | Apache-2.0 | See linked license |
 | [cloud.google.com/go/compute/metadata](https://github.com/googleapis/google-cloud-go/blob/compute/metadata/v0.10.0/compute/metadata/LICENSE) | v0.10.0 | Apache-2.0 | See linked license |
+| [filippo.io/edwards25519](https://github.com/FiloSottile/edwards25519/blob/v1.1.0/LICENSE) | v1.1.0 | BSD-3-Clause | See linked license |
 | [github.com/AdamSLevy/jsonrpc2/v14](https://github.com/AdamSLevy/jsonrpc2/blob/v14.1.0/LICENSE) | v14.1.0 | MIT | See linked license |
 | [github.com/akamai/AkamaiOPEN-edgegrid-golang/v14/pkg](https://github.com/akamai/AkamaiOPEN-edgegrid-golang/blob/v14.1.0/LICENSE) | v14.1.0 | Apache-2.0 | See linked license |
 | [github.com/alibabacloud-go/alibabacloud-gateway-pop/client](https://github.com/alibabacloud-go/alibabacloud-gateway-pop/blob/master/LICENSE) | v0.0.8 | Apache-2.0 | See linked license |

@@ -113,8 +113,18 @@ The `citylist` server binary provides operator-only maintenance commands separat
 | `citylist --maintenance backup [file] [--include-ssl] [--include-data]` | Create and verify a backup. A local SQLite database or enabled libSQL SQLite cache is included; the remote database itself is never archived. |
 | `citylist --maintenance backup test [file]` | Verify the selected or newest backup archive and its integrity. |
 | `citylist --maintenance restore [FILE]` | Restore configuration and local database state; with no file, restore the newest verified full backup. A restored database seeds a configured remote libSQL database only when that remote database is empty. |
+| `citylist --maintenance tor status` | Show the running Tor service and vanity-search progress; when the server is stopped, read the saved onion address from disk. |
+| `citylist --maintenance tor validate` | Validate the configured Tor options without starting a Tor process. When the server is stopped, validation uses the local configuration. |
+| `citylist --maintenance tor restart` | Restart the Tor process owned by the running Citylist server. |
+| `citylist --maintenance tor regenerate [--yes]` | Replace the onion identity. Requires typed confirmation unless `--yes` is provided. |
+| `citylist --maintenance tor vanity start --prefix PREFIX [--workers COUNT]` | Start one background vanity-address search in the running server. Prefixes are 1–6 lowercase base32 characters; workers default to logical CPUs minus one. |
+| `citylist --maintenance tor vanity stop` | Stop the current vanity search while preserving saved candidates. |
+| `citylist --maintenance tor vanity apply [ADDRESS] [--yes]` | Apply a saved candidate; the address may be omitted when exactly one candidate exists. Requires typed confirmation unless `--yes` is provided. |
+| `citylist --maintenance tor import-keys ABSOLUTE_PATH [--yes]` | Import an existing Tor key directory. Requires typed confirmation unless `--yes` is provided. |
 
 These commands use the configured SQLite or libSQL database. `token revoke` confirms the prefix before changing state; revoking a primary token affects every linked token for that owner. Data export and deletion identify the owner using a prefix shown by `token list`. A remote database is never included in a backup; the local SQLite cache is included when enabled. For all server options, run `citylist --help` or `citylist --maintenance --help`.
+
+Tor maintenance commands use loopback-only internal server endpoints and require root or the configured operator token. Read-only status and validation can run with the server stopped; process-changing commands require a running server and report `Error: no running server detected — start the server first` otherwise. The server's `--status` output includes its port, mode, uptime, and enabled Tor and I2P overlay status.
 
 ## Scheduler commands
 
