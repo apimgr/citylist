@@ -38,12 +38,12 @@ If the embedded postal dataset cannot be loaded, ZIP routes return `503` with th
 | `GET /api/v1/stats.txt` | Explicit plain-text statistics endpoint. |
 | `GET /api/v1/count` | City count. |
 | `GET /api/v1/count.txt` | Explicit plain-text city count. |
-| `GET /api/v1/server/healthz` | Public status, build/runtime metadata, and feature state; overlay diagnostics and filesystem paths are not exposed. |
+| `GET /api/v1/server/healthz` | Public status, branding, build/runtime metadata, feature state, ordered component and dataset checks, and aggregate request statistics. |
 | `GET /api/healthz` | Direct health alias. |
 | `GET /healthz` | Optional root alias, disabled unless `server.healthz.root.enabled` is true. |
 | `GET /api/autodiscover` | Public server details, configured `cli_min_version`, and the published CLI version/checksum map. The map is currently empty because the server has no defined CLI asset source. |
 
-`GET /server/healthz` is the browser-facing health page and negotiates HTML, JSON, or text. The response reports Tor and I2P as `disabled`, `starting`, `healthy`, or `unavailable`; an unavailable active overlay marks the overall service `degraded` while the public HTTP service remains available. Health responses do not expose manager error strings, local paths, or credentials.
+`GET /server/healthz` is the browser-facing health page and negotiates HTML, JSON, or text. Health checks are cached and ordered as database, cache, disk, scheduler, enabled overlays, then registered datasets. Tor and I2P report `disabled`, `starting`, `healthy`, or `unavailable`; an unavailable active overlay marks the overall service `degraded`. `healthy`, `degraded`, and `restart_required` return HTTP 200; `unhealthy`, `maintenance`, and `shutting_down` return HTTP 503. Health responses do not expose manager error strings, local paths, or credentials.
 
 ## Informational pages and discovery
 
