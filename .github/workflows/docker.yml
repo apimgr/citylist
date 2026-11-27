@@ -6,7 +6,7 @@ on:
     tags:
       - 'v*'
       - '*.*.*'
-      - '??????????????-beta'
+      - '*-beta'
   schedule:
     - cron: '0 4 * * *'
   workflow_dispatch:

@@ -3,7 +3,7 @@ name: Beta Release
 on:
   push:
     tags:
-      - '??????????????-beta'
+      - '*-beta'
 
 concurrency:
   group: beta-${{ github.ref }}
@@ -26,6 +26,10 @@ jobs:
       - name: Compute version
         id: set
         run: |
+          if [[ ! "${GITHUB_REF_NAME}" =~ ^[0-9]{14}-beta$ ]]; then
+            echo "::error::beta tags must use YYYYMMDDHHMMSS-beta format" >&2
+            exit 1
+          fi
           echo "version=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
 
   build:
