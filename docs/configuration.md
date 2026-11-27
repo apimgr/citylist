@@ -63,7 +63,6 @@ server:
       buttons:
         decline: Decline
         accept: I Agree
-      position: bottom
       show_preferences: true
       preferences_text: Manage Preferences
   cors:
@@ -252,7 +251,6 @@ The same handlers are mounted at `/api/{api_version}/server/metrics[/{service}]`
 | `server.privacy.consent.message`, `message_if_sold` | built-in notices | Main consent text selected according to `server.privacy.data.sold`; unchanged built-in values use the translated locale text. |
 | `server.privacy.consent.policy.text`, `policy.url` | `Privacy Policy`, `/server/privacy` | Label and destination for the banner privacy-policy link. Relative paths are mounted under the configured base URL. |
 | `server.privacy.consent.buttons.decline`, `buttons.accept` | `Decline`, `I Agree` | Consent action labels. |
-| `server.privacy.consent.position` | `bottom` | Banner position; supported values are top and bottom. Invalid values render at the bottom. |
 | `server.privacy.consent.show_preferences`, `preferences_text` | `true`, `Manage Preferences` | Displays the link that opens granular consent controls. |
 | `server.cors.allowed_origins` | `[*]` | Allowed browser origins. A wildcard policy is suitable for public lookup APIs. |
 | `server.cors.allow_credentials` | `true` | Enables credentialed CORS only for matched explicit origins; wildcard responses never include credential permission. |
