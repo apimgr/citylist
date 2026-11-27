@@ -40,6 +40,8 @@ type ConfigWatcher struct {
 	current   *Config
 	signature string
 	restart   map[string]string
+	baseline  map[string]string
+	pending   []string
 }
 
 // NewConfigWatcher creates a watcher using the already-loaded configuration as
@@ -70,6 +72,7 @@ func NewConfigWatcher(configPath string, initial *Config, callback ConfigReloadC
 		current:    initial,
 		signature:  signature,
 		restart:    restartSnapshot,
+		baseline:   cloneStringMap(restartSnapshot),
 	}, nil
 }
 
@@ -150,8 +153,49 @@ func (w *ConfigWatcher) checkForChanges(ctx context.Context) error {
 	w.current = next
 	w.signature = loadedSignature
 	w.restart = nextRestart
+	w.pending = changedSettings(w.baseline, nextRestart)
 	w.mu.Unlock()
 	return nil
+}
+
+// PendingRestart reports whether restart-only settings differ from process start.
+func (w *ConfigWatcher) PendingRestart() bool {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	return len(w.pending) > 0
+}
+
+// RestartSettings returns restart-only settings that differ from process start.
+func (w *ConfigWatcher) RestartSettings() []string {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	return append([]string(nil), w.pending...)
+}
+
+func changedSettings(before, after map[string]string) []string {
+	keys := make(map[string]struct{}, len(before)+len(after))
+	for key := range before {
+		keys[key] = struct{}{}
+	}
+	for key := range after {
+		keys[key] = struct{}{}
+	}
+	changed := make([]string, 0)
+	for key := range keys {
+		if before[key] != after[key] {
+			changed = append(changed, key)
+		}
+	}
+	sort.Strings(changed)
+	return changed
+}
+
+func cloneStringMap(values map[string]string) map[string]string {
+	cloned := make(map[string]string, len(values))
+	for key, value := range values {
+		cloned[key] = value
+	}
+	return cloned
 }
 
 func validateReloadDropins(configPath string) error {

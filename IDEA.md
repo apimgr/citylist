@@ -129,7 +129,7 @@ The following routes are part of Citylist's user-facing product. `{api_version}`
 | GET | `/server/security/report/{trackingID}` | `token` query value, usable once per day | View report status using the emailed link; this is GET-only and has no API mirror. |
 | POST | `/server/consent` | Public, CSRF-protected | Save accepted, declined, or granular preference and analytics consent. |
 | POST | `/server/ccpa` | Public, CSRF-protected; only when `server.privacy.data.sold` is true | Record or clear the CCPA sale opt-out. |
-| GET | `/server/healthz` | Public | Public health/build status page; negotiates HTML, JSON, or text. |
+| GET | `/server/healthz` | Public | Public health/build status page, including maintenance while dependencies recover; negotiates HTML, JSON, or text. |
 | GET, HEAD | `/server/preferences` | Public | Guest preferences form. |
 | POST | `/server/preferences` | Public, CSRF-protected | Save theme, language, consent, conditional CCPA opt-out, or reset; redirects to a safe local path. |
 | GET | `/server/preferences/tokens` | Public page; owner actions credential-gated | Issue/restore primary owner token and manage primary/linked tokens in the browser. |
@@ -168,7 +168,7 @@ The following routes are part of Citylist's user-facing product. `{api_version}`
 | DELETE | `/api/{api_version}/server/preferences/tokens/primary` | Primary owner Bearer token and confirmation of the token's final four characters | Revoke the primary token and delete its owner and linked tokens. |
 | POST, PATCH, DELETE | `/api/{api_version}/server/preferences/tokens/{id}` or `/{id}/{action}` | Primary owner Bearer token | Manage linked tokens; actions include reveal, rotate, update, and revoke. |
 | GET | `/api/{api_version}/server/auth/check` | Bearer token | Validate operator or owner credentials without returning the raw token. |
-| GET | `/api/{api_version}/server/healthz`, `/api/healthz` | Public | Machine-readable public health response. |
+| GET | `/api/{api_version}/server/healthz`, `/api/healthz` | Public | Machine-readable public health response, including maintenance while dependencies recover. |
 | GET | `/api/{api_version}/server/security/policy`, `/api/{api_version}/server/security/thanks` | Public | JSON mirrors of the disclosure policy and researcher acknowledgments. |
 | GET | `/api/{api_version}/server/swagger`, `/api/swagger` | Public | OpenAPI JSON document. |
 | GET | `/manifest.json`, `/sw.js`, `/robots.txt` | Public | PWA manifest, service worker, and crawler policy. |

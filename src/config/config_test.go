@@ -70,6 +70,9 @@ func TestDefaultConfig(t *testing.T) {
 	if cfg.Server.Scheduler.Timezone != "America/New_York" || cfg.Server.Scheduler.CatchUpWindow != "1h" || len(cfg.Server.Scheduler.Tasks) < 14 {
 		t.Errorf("scheduler defaults are incomplete: %+v", cfg.Server.Scheduler)
 	}
+	if task := cfg.Server.Scheduler.Tasks["dataset_health"]; task.Schedule != "@every 60s" || !task.Enabled {
+		t.Errorf("dataset health scheduler default = %+v, want enabled every minute", task)
+	}
 	if cfg.Server.Pages.Help.Content != "" || !strings.Contains(cfg.Server.Pages.Help.MCP, "get_city") || !strings.Contains(cfg.Server.Pages.Help.MCP, "nearby_zipcodes") {
 		t.Errorf("help content defaults are incomplete: %+v", cfg.Server.Pages.Help)
 	}
@@ -165,6 +168,19 @@ func TestValidateDatabaseErrorNotificationRestoresInvalidValues(t *testing.T) {
 	}
 }
 
+func TestValidateMaintenanceRestoresInvalidSettings(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Server.Maintenance.SelfHealing.RetryInterval = "1s"
+	cfg.Server.Maintenance.SelfHealing.MaxAttempts = -1
+	cfg.Server.Maintenance.Cleanup.DiskThreshold = 100
+	cfg.Server.Maintenance.Cleanup.LogRetentionDays = 0
+	validateMaintenance(cfg, "maintenance-test.yml")
+	want := DefaultConfig().Server.Maintenance
+	if got := cfg.Server.Maintenance; got != want {
+		t.Fatalf("maintenance settings = %+v, want defaults %+v", got, want)
+	}
+}
+
 func TestLoadNodeCacheTLSAndSecurityDataSettings(t *testing.T) {
 	directory := t.TempDir()
 	path := filepath.Join(directory, "server.yml")
@@ -219,6 +235,21 @@ func TestLoadValidatesSEOValues(t *testing.T) {
 	if cfg.Server.Branding.Title != defaults.Server.Branding.Title || cfg.Server.SEO.TitleSeparator != defaults.Server.SEO.TitleSeparator ||
 		len(cfg.Server.SEO.MetaTags) != 0 || cfg.Server.SEO.Twitter.Card != defaults.Server.SEO.Twitter.Card {
 		t.Fatalf("invalid SEO settings were not reset to defaults: branding=%+v seo=%+v", cfg.Server.Branding, cfg.Server.SEO)
+	}
+}
+
+func TestLoadReplacesInvalidTrackingConfigWithDefaults(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "server.yml")
+	if err := os.WriteFile(path, []byte("server:\n  tracking:\n    type: google\n    id: invalid\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+	if got, want := cfg.Server.Tracking, DefaultConfig().Server.Tracking; got != want {
+		t.Fatalf("invalid tracking config = %+v, want defaults %+v", got, want)
 	}
 }
 

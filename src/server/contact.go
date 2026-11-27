@@ -1392,7 +1392,7 @@ func (s *Server) handleSecurityReportStatus(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	lang := i18n.LangFromRequest(r)
-	s.renderPage(w, r, "security-report.html", map[string]interface{}{
+	s.renderPage(w, r, "security-report.tmpl", map[string]interface{}{
 		"Title":      i18n.Translate(lang, "security_report.status_title"),
 		"TrackingID": trackingID, "Status": securityStatusLabel(lang, status),
 		"Severity": i18n.Translate(lang, "pages.security.severity_"+strings.ToLower(severity)), "Component": component, "Comment": comment, "Disclosure": disclosure,

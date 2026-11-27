@@ -11,7 +11,7 @@ var databaseObjects = map[string]struct{}{
 	"scheduler_tasks": {}, "scheduler_history": {}, "idx_scheduler_history_task": {}, "idx_scheduler_history_started": {},
 	"backups": {}, "idx_backups_created": {},
 	"owners": {}, "api_tokens": {}, "api_tokens_legacy": {}, "idx_api_tokens_primary": {}, "idx_api_tokens_hash": {}, "idx_api_tokens_prefix": {}, "idx_api_tokens_owner": {}, "idx_api_tokens_active": {},
-	"app_secrets": {}, "captcha_challenges": {}, "idx_captcha_challenges_expires": {},
+	"app_secrets": {}, "health_write_probe": {}, "captcha_challenges": {}, "idx_captcha_challenges_expires": {},
 	"security_reports": {}, "idx_security_reports_status": {}, "security_thanks": {}, "project_pgp_key": {},
 }
 

@@ -145,12 +145,14 @@ func TestUpdateBlocklistsUsesLocalSourcesAndWritesStatus(t *testing.T) {
 			t.Errorf("%s = %q, %v; want %q", name, got, err, want)
 		}
 	}
-	marker, err := os.ReadFile(filepath.Join(directory, ".last_updated"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := time.Parse(time.RFC3339, strings.TrimSpace(string(marker))); err != nil {
-		t.Fatalf("blocklist update marker %q is not RFC3339: %v", marker, err)
+	for _, id := range []string{"firehol_level1", "custom_domains"} {
+		marker, err := os.ReadFile(filepath.Join(directory, id+".last_updated"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := time.Parse(time.RFC3339, strings.TrimSpace(string(marker))); err != nil {
+			t.Fatalf("blocklist update marker %q is not RFC3339: %v", marker, err)
+		}
 	}
 	mode, err := os.Stat(filepath.Join(directory, "custom_domains.txt"))
 	if err != nil || mode.Mode().Perm() != 0640 {

@@ -82,7 +82,7 @@ func containsServerShell(shell string) bool {
 }
 
 func serverCompletion(binary, shell string) string {
-	commands := "--help --version --status --shell --mode --config --data --cache --log --backup --pid --address --port --baseurl --service --maintenance --update --i2p --daemon --debug --color --lang scheduler"
+	commands := "--help --version --status --shell --mode --config --data --cache --log --backup --pid --address --port --baseurl --service --maintenance --update --i2p --daemon --debug --color --lang"
 	switch shell {
 	case "fish":
 		return fmt.Sprintf("complete -c %s -f -a '%s'\n", binary, commands)

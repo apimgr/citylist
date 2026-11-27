@@ -164,7 +164,7 @@ func (s *Server) handleSecurityPage(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
-	s.renderPage(w, r, "security.html", map[string]interface{}{
+	s.renderPage(w, r, "security.tmpl", map[string]interface{}{
 		"Title": i18n.Translate(i18n.LangFromRequest(r), "pages.security.title"), "Contacts": contacts, "Expires": s.securityExpires(), "PGPAvailable": available,
 		"PGPURL": pgpURL, "PGPFingerprint": func() string {
 			if available {
@@ -199,7 +199,7 @@ func (s *Server) handleSecurityPolicy(w http.ResponseWriter, r *http.Request) {
 	if strings.TrimSpace(s.cfg.Web.Security.Policy) != "" {
 		pageData["PolicyHTML"] = template.HTML(renderSecurityPolicyMarkdown(policy))
 	}
-	s.renderPage(w, r, "security-policy.html", pageData)
+	s.renderPage(w, r, "security-policy.tmpl", pageData)
 }
 
 func renderSecurityPolicyMarkdown(markdown string) string {
@@ -267,7 +267,7 @@ func (s *Server) handleSecurityThanks(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
-	s.renderPage(w, r, "security-thanks.html", map[string]interface{}{
+	s.renderPage(w, r, "security-thanks.tmpl", map[string]interface{}{
 		"Title": i18n.Translate(i18n.LangFromRequest(r), "pages.security.thanks_title"), "Entries": entries, "Version": s.version,
 		"NextTheme": nextTheme(themePreference(r)),
 	})

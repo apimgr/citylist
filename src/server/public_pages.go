@@ -134,110 +134,10 @@ func helpHubPages(lang string) []hubPage {
 	return registeredHubPages(lang, "help")
 }
 
-var publicPageTemplate = template.Must(template.New("public-page").Funcs(template.FuncMap{
+var publicPageTemplate = mustParseEmbeddedTemplate("template/page/public-page.tmpl", template.FuncMap{
 	"t":     i18n.Translate,
 	"asset": assetURL,
-}).Parse(`<!doctype html>
-<html lang="{{.Lang}}" dir="{{.Dir}}" class="theme-{{.Theme}}">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="base-url" content="{{.BaseURL}}">
-  <meta name="theme-color" content="#1a1a1a">
-  {{.SEOHead}}
-  {{.TrackingScript}}
-  <link rel="stylesheet" href="{{asset (printf "%s/static/css/common.css" .BaseURL)}}">
-  <link rel="stylesheet" href="{{asset (printf "%s/static/css/components.css" .BaseURL)}}">
-  {{if .HasAccent}}<link rel="stylesheet" href="{{asset (printf "%s/static/css/accent.css" .BaseURL)}}">{{end}}
-</head>
-<body>
-  {{.TrackingNoscript}}
-  <a class="skip-link" href="#main-content">{{t .Lang "common.skip_main"}}</a>
-  <a class="skip-link" href="#navigation">{{t .Lang "common.skip_navigation"}}</a>
-  {{.SiteBanners}}
-  <input type="checkbox" id="nav-toggle" class="nav-checkbox" aria-label="{{t .Lang "nav.toggle"}}">
-  <header class="header">
-    <a href="{{.BaseURL}}/" class="nav-brand">{{.BrandTitle}}</a>
-    <nav id="navigation" class="nav-links" aria-label="{{t .Lang "nav.main"}}">
-      <a href="{{.BaseURL}}/" {{if eq .CurrentPath "/"}}class="nav-link active" aria-current="page"{{else}}class="nav-link"{{end}}>{{t .Lang "common.home"}}</a>
-      <a href="{{.BaseURL}}/search" {{if eq .CurrentPath "/search"}}class="nav-link active" aria-current="page"{{else}}class="nav-link"{{end}}>{{t .Lang "common.search"}}</a>
-      <a href="{{.BaseURL}}/coordinates" {{if eq .CurrentPath "/coordinates"}}class="nav-link active" aria-current="page"{{else}}class="nav-link"{{end}}>{{t .Lang "coordinates.title"}}</a>
-    </nav>
-    <label for="nav-toggle" class="nav-toggle" aria-hidden="true">☰</label>
-    <div class="header-actions">
-      <a class="nav-link" href="{{.BaseURL}}/server/preferences">{{t .Lang "common.preferences"}}</a>
-      <form class="theme-toggle-form" action="{{.BaseURL}}/server/preferences" method="post">
-        <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
-        <input type="hidden" name="redirect" value="{{.ReturnTo}}">
-        <input type="hidden" name="theme" value="{{.NextTheme}}">
-        <button class="btn btn-ghost" type="submit" aria-label="{{t .Lang "common.theme_toggle"}}">{{t .Lang "common.theme_toggle"}}</button>
-      </form>
-    </div>
-    {{.OperatorHeader}}
-  </header>
-  <main id="main-content" class="container container-md page-shell">
-    <article>
-      <header class="page-header"><h1 class="page-title">{{if .AboutPage}}{{.BrandTitle}}{{else}}{{.Title}}{{end}}</h1><p class="page-lead">{{.Lead}}</p></header>
-      {{if and .PrivacyPage .GPCNotice}}<div class="site-banner" role="status"><p class="site-banner-text">{{if eq .PrivacySignal "dnt"}}{{t .Lang "pages.privacy.dnt_notice"}}{{else}}{{t .Lang "pages.privacy.gpc_notice"}}{{end}}</p></div>{{end}}
-      {{if .HelpPage}}
-      <section class="section-card" aria-labelledby="help-getting-started"><h2 id="help-getting-started">{{t .Lang "pages.help.getting_started_title"}}</h2><p>{{t .Lang "pages.help.getting_started"}}</p>{{range .HelpExamples}}<h3>{{.Title}}</h3><div class="code-block"><code class="code-content">{{.Command}}</code><button type="button" class="copy-btn" data-copy="{{.Command}}" aria-label="{{t $.Lang "common.copy"}}"><span class="copy-icon" aria-hidden="true">📋</span><span class="copy-text" aria-live="polite">{{t $.Lang "common.copy"}}</span></button></div>{{end}}</section>
-      <section class="section-card" aria-labelledby="help-features"><h2 id="help-features">{{t .Lang "pages.help.features_title"}}</h2><ul><li>{{t .Lang "pages.about.feature_search"}}</li><li>{{t .Lang "pages.about.feature_lookup"}}</li><li>{{t .Lang "pages.about.feature_browser"}}</li><li>{{t .Lang "pages.about.feature_apis"}}</li><li>{{t .Lang "pages.about.feature_cli"}}</li><li>{{t .Lang "pages.about.feature_tokens"}}</li></ul></section>
-      <section class="section-card" aria-labelledby="help-api-docs"><h2 id="help-api-docs">{{t .Lang "pages.help.api_docs_title"}}</h2><ul><li><a href="{{.BaseURL}}/server/docs/swagger">{{t .Lang "pages.help.swagger_link"}}</a></li><li><a href="{{.BaseURL}}/server/docs/graphql">{{t .Lang "pages.help.graphql_link"}}</a></li><li><a href="{{.BaseURL}}/server/help/mcp">{{t .Lang "pages.help.mcp_link"}}</a></li></ul></section>
-      {{if .TorAddress}}<section class="section-card" id="tor-access" aria-labelledby="help-tor"><h2 id="help-tor">{{t .Lang "pages.help.tor_title"}}</h2><p>{{t .Lang "pages.help.tor_intro"}}</p><h3>{{t .Lang "pages.help.tor_address"}}</h3><div class="code-block"><code class="code-content">{{.TorAddress}}</code><button type="button" class="copy-btn" data-copy="{{.TorAddress}}" aria-label="{{t .Lang "common.copy"}}"><span class="copy-icon" aria-hidden="true">📋</span><span class="copy-text" aria-live="polite">{{t .Lang "common.copy"}}</span></button></div><h3>{{t .Lang "pages.help.how_to_connect"}}</h3><ol><li>{{t .Lang "pages.help.tor_step_download"}} <a href="https://www.torproject.org/download/" target="_blank" rel="noopener noreferrer">{{t .Lang "pages.help.tor_download_link"}}</a></li><li>{{t .Lang "pages.help.tor_step_open"}}</li><li>{{t .Lang "pages.help.tor_step_paste"}}</li></ol><p>{{t .Lang "pages.help.tor_privacy"}}</p></section>{{end}}
-      {{if .I2PAddress}}<section class="section-card" id="i2p-access" aria-labelledby="help-i2p"><h2 id="help-i2p">{{t .Lang "pages.help.i2p_title"}}</h2><p>{{t .Lang "pages.help.i2p_intro"}}</p><h3>{{t .Lang "pages.help.i2p_address"}}</h3><div class="code-block"><code class="code-content">{{.I2PAddress}}</code><button type="button" class="copy-btn" data-copy="{{.I2PAddress}}" aria-label="{{t .Lang "common.copy"}}"><span class="copy-icon" aria-hidden="true">📋</span><span class="copy-text" aria-live="polite">{{t .Lang "common.copy"}}</span></button></div><h3>{{t .Lang "pages.help.how_to_connect"}}</h3><ol><li>{{t .Lang "pages.help.i2p_step_install"}} <a href="https://geti2p.net/en/download" target="_blank" rel="noopener noreferrer">I2P</a> {{t .Lang "pages.help.or"}} <a href="https://i2pd.website/" target="_blank" rel="noopener noreferrer">i2pd</a></li><li>{{t .Lang "pages.help.i2p_step_proxy"}}</li><li>{{t .Lang "pages.help.i2p_step_paste"}}</li></ol><p>{{t .Lang "pages.help.i2p_privacy"}}</p></section>{{end}}
-      <section class="section-card" aria-labelledby="help-faq"><h2 id="help-faq">{{t .Lang "pages.help.faq_title"}}</h2><h3>{{t .Lang "pages.help.faq_auth_question"}}</h3><p>{{t .Lang "pages.help.faq_auth_answer"}}</p><h3>{{t .Lang "pages.help.faq_write_question"}}</h3><p>{{t .Lang "pages.help.faq_write_answer"}}</p><h3>{{t .Lang "pages.help.faq_data_question"}}</h3><p>{{t .Lang "pages.help.faq_data_answer"}}</p></section>
-      <section class="section-card" aria-labelledby="help-troubleshooting"><h2 id="help-troubleshooting">{{t .Lang "pages.help.troubleshooting_title"}}</h2><h3>{{t .Lang "pages.help.trouble_rate_title"}}</h3><p>{{t .Lang "pages.help.trouble_rate"}}</p><h3>{{t .Lang "pages.help.trouble_invalid_title"}}</h3><p>{{t .Lang "pages.help.trouble_invalid"}}</p><h3>{{t .Lang "pages.help.trouble_zip_title"}}</h3><p>{{t .Lang "pages.help.trouble_zip"}}</p></section>
-      {{if .OperatorHTML}}<section class="section-card" aria-labelledby="help-custom-content"><h2 id="help-custom-content">{{t .Lang "pages.help.custom_content_title"}}</h2>{{.OperatorHTML}}</section>{{end}}
-      {{else if .TermsPage}}
-      {{if .OperatorHTML}}{{.OperatorHTML}}{{else}}{{range $index, $paragraph := .Body}}<section class="section-card" aria-labelledby="page-section-{{$index}}"><h2 id="page-section-{{$index}}">{{index $.SectionTitles $index}}</h2><p>{{$paragraph}}</p></section>{{end}}{{end}}
-      {{else if .AboutPage}}
-      {{range $index, $paragraph := .Body}}<section class="section-card" aria-labelledby="page-section-{{$index}}"><h2 id="page-section-{{$index}}">{{index $.SectionTitles $index}}</h2><p>{{$paragraph}}</p></section>{{end}}
-      <section class="section-card" aria-labelledby="about-features-title"><h2 id="about-features-title">{{t .Lang "pages.about.features_title"}}</h2><ul>{{range .AboutFeatures}}<li>{{.}}</li>{{end}}</ul></section>
-      <section class="section-card" aria-labelledby="about-version-title"><h2 id="about-version-title">{{t .Lang "pages.about.version_title"}}</h2><p>{{.Version}} ({{.BuildDate}})</p></section>
-      <section class="section-card" aria-labelledby="about-links-title"><h2 id="about-links-title">{{t .Lang "pages.about.links_title"}}</h2><ul>{{range .AboutLinks}}<li><a href="{{.Path}}">{{.Title}}</a></li>{{end}}</ul></section>
-      <section class="section-card" aria-labelledby="about-attribution-title"><h2 id="about-attribution-title">{{t .Lang "pages.about.attribution_title"}}</h2><p>{{.AttributionHTML}}</p></section>
-      {{.OperatorHTML}}
-      {{else if .PrivacyPage}}
-      <p class="last-updated">{{t .Lang "pages.privacy.last_updated"}}: {{.BuildDate}}</p>
-      {{range $index, $section := .PrivacySections}}<section class="section-card" aria-labelledby="privacy-section-{{$index}}"><h2 id="privacy-section-{{$index}}">{{$section.Title}}</h2>{{range $section.Body}}<p>{{.}}</p>{{end}}{{if $section.Services}}<ul>{{range $section.Services}}<li><strong>{{.Name}}</strong> — {{.Purpose}} — {{.DataSent}}{{if .PolicyURL}} (<a href="{{.PolicyURL}}" target="_blank" rel="noopener noreferrer">{{t $.Lang "pages.privacy.view_policy"}}</a>){{end}}</li>{{end}}</ul>{{end}}</section>{{end}}
-      {{else}}
-      {{range $index, $paragraph := .Body}}<section class="section-card" aria-labelledby="page-section-{{$index}}"><h2 id="page-section-{{$index}}">{{index $.SectionTitles $index}}</h2><p>{{$paragraph}}</p></section>{{end}}
-      {{end}}
-      {{if .PrivacyPage}}<section class="section-card" aria-labelledby="privacy-controls"><h2 id="privacy-controls">{{t .Lang "preferences.privacy"}}</h2>
-        {{if .ShowConsentPrefs}}<p><a class="btn btn-secondary" href="{{.BaseURL}}/server/preferences" data-action="cookie-preferences">{{t .Lang "consent.manage_preferences"}}</a></p>{{end}}
-        {{if .DataSold}}<form method="post" action="{{.BaseURL}}/server/ccpa" class="ccpa-consent-form" data-ccpa-form><input type="hidden" name="csrf_token" value="{{.CSRFToken}}"><input type="hidden" name="redirect" value="{{.ReturnTo}}"><div class="form-group"><label for="ccpa-opt-out">{{t .Lang "preferences.ccpa_opt_out"}}</label><input id="ccpa-opt-out" type="checkbox" name="choice" value="opt-out"{{if .CCPAOptOut}} checked{{end}}></div><button class="btn btn-primary" type="submit">{{t .Lang "common.save"}}</button></form>{{end}}
-      </section>{{end}}
-      {{if .PrivacyPage}}{{.OperatorHTML}}<section class="section-card" aria-labelledby="privacy-contact-title"><h2 id="privacy-contact-title">{{t .Lang "pages.privacy.contact_title"}}</h2><p>{{if .PrivacyContactURL}}<a href="{{.PrivacyContactURL}}">{{.PrivacyContact}}</a>{{else}}{{.PrivacyContact}}{{end}}</p></section>{{end}}
-      {{if .SecurityReportURL}}<section class="section-card" aria-labelledby="reporting"><h2 id="reporting">{{t .Lang "pages.security.reporting"}}</h2><p><a href="{{.SecurityReportURL}}">{{t .Lang "pages.security.report_link"}}</a></p></section>{{end}}
-      {{if .HubPages}}<section class="section-card" aria-labelledby="more-pages"><h2 id="more-pages">{{if eq .TitleKey "pages.help.title"}}{{t .Lang "help.more_title"}}{{else}}{{t .Lang "preferences.more_title"}}{{end}}</h2><ul class="hub-list">{{range .HubPages}}<li class="hub-item"><a class="hub-link" href="{{$.BaseURL}}{{.Path}}"><span class="hub-title">{{.Title}}</span><span class="hub-desc">{{.Desc}}</span></a></li>{{end}}</ul></section>{{end}}
-    </article>
-  </main>
-  <nav class="nav-panel" id="nav-panel" aria-label="{{t .Lang "nav.main"}}">
-    <label for="nav-toggle" class="nav-close" role="button" tabindex="0" aria-label="{{t .Lang "nav.close"}}">✕</label>
-    <a href="{{.BaseURL}}/" {{if eq .CurrentPath "/"}}class="nav-link active" aria-current="page"{{else}}class="nav-link"{{end}}>{{t .Lang "common.home"}}</a>
-    <a href="{{.BaseURL}}/search" {{if eq .CurrentPath "/search"}}class="nav-link active" aria-current="page"{{else}}class="nav-link"{{end}}>{{t .Lang "common.search"}}</a>
-    <a href="{{.BaseURL}}/coordinates" {{if eq .CurrentPath "/coordinates"}}class="nav-link active" aria-current="page"{{else}}class="nav-link"{{end}}>{{t .Lang "coordinates.title"}}</a>
-  </nav>
-  <label for="nav-toggle" class="nav-overlay" aria-hidden="true"></label>
-  {{.OperatorFooter}}
-  <footer class="footer">
-    <nav class="footer-links" aria-label="{{t .Lang "nav.footer"}}">
-      <a href="{{.BaseURL}}/server/about">{{t .Lang "nav.about"}}</a>
-      <a href="{{.BaseURL}}/server/help">{{t .Lang "nav.help"}}</a>
-      <a href="{{.BaseURL}}/server/docs/swagger">{{t .Lang "common.api_docs"}}</a>
-      <a href="{{.BaseURL}}/server/docs/graphql">GraphQL</a>
-      {{if .TorAddress}}<a href="{{.BaseURL}}/server/help#tor-access">{{t .Lang "pages.help.tor_title"}}</a>{{end}}
-      {{if .I2PAddress}}<a href="{{.BaseURL}}/server/help#i2p-access">{{t .Lang "pages.help.i2p_title"}}</a>{{end}}
-      <a href="{{.BaseURL}}/server/privacy">{{t .Lang "nav.privacy"}}</a>
-      <a href="{{.BaseURL}}/server/terms">{{t .Lang "nav.terms"}}</a>
-      <a href="{{.BaseURL}}/server/preferences#language" lang="{{.Lang}}">{{.LanguageName}}</a>
-    </nav>
-    <small>{{.BrandTitle}} {{.Version}}</small>
-  </footer>
-  <script src="{{asset (printf "%s/static/js/app.js" .BaseURL)}}" defer></script>
-  {{.ConsentBanner}}
-</body>
-</html>`))
+})
 
 func (s *Server) handleAboutPage(w http.ResponseWriter, r *http.Request) {
 	s.publicPage(w, r, "pages.about.title", "pages.about.lead", []string{
@@ -774,7 +674,7 @@ func (s *Server) handlePreferencesPage(w http.ResponseWriter, r *http.Request) {
 	if cookie, err := r.Cookie("ccpa_opt_out"); err == nil {
 		ccpaOptOut = strings.EqualFold(cookie.Value, "true")
 	}
-	s.renderPage(w, r, "preferences.html", map[string]interface{}{
+	s.renderPage(w, r, "preferences.tmpl", map[string]interface{}{
 		"Title":              i18n.Translate(language, "preferences.title"),
 		"LanguageName":       languageName,
 		"HubPages":           preferenceHubPages(language),
@@ -861,7 +761,7 @@ func (s *Server) renderDPOPage(w http.ResponseWriter, r *http.Request, view dpoP
 			break
 		}
 	}
-	s.renderPage(w, r, "dpo.html", map[string]interface{}{
+	s.renderPage(w, r, "dpo.tmpl", map[string]interface{}{
 		"Title": i18n.Translate(lang, "pages.dpo.title"), "DPO": view, "LanguageName": languageName,
 	})
 }
@@ -897,7 +797,7 @@ func (s *Server) renderContactPage(w http.ResponseWriter, r *http.Request, view 
 	if view.SecurityURL == "" {
 		view.SecurityURL = strings.TrimSuffix(s.baseURL, "/") + "/server/security"
 	}
-	s.renderPage(w, r, "contact.html", map[string]interface{}{
+	s.renderPage(w, r, "contact.tmpl", map[string]interface{}{
 		"Title":        i18n.Translate(lang, "pages.contact.title"),
 		"LanguageName": languageName,
 		"Contact":      view,
@@ -964,7 +864,7 @@ func (s *Server) renderTokensPage(w http.ResponseWriter, r *http.Request, view t
 		w.WriteHeader(http.StatusOK)
 		return
 	}
-	s.renderPage(w, r, "preferences-tokens.html", map[string]interface{}{
+	s.renderPage(w, r, "preferences-tokens.tmpl", map[string]interface{}{
 		"Title": i18n.Translate(lang, "preferences.tokens_title"), "LanguageName": languageName,
 		"TokenPage": view, "CurrentPath": r.URL.RequestURI(), "NextTheme": nextTheme(themePreference(r)),
 	})
@@ -1005,7 +905,7 @@ func (s *Server) renderPreferencesSyncPage(w http.ResponseWriter, r *http.Reques
 			break
 		}
 	}
-	s.renderPage(w, r, "preferences-sync.html", map[string]interface{}{
+	s.renderPage(w, r, "preferences-sync.tmpl", map[string]interface{}{
 		"Title":        i18n.Translate(language, "preferences.sync_title"),
 		"LanguageName": languageName,
 		"ExportURL":    view.ExportURL,

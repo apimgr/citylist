@@ -102,3 +102,11 @@ func writeLastUpdated(directory string, updated time.Time) error {
 	value := []byte(updated.UTC().Format(time.RFC3339) + "\n")
 	return writeAtomically(directory, ".last_updated", value, 0640)
 }
+
+func writeSourceLastUpdated(directory, id string, updated time.Time) error {
+	if !blocklistIDPattern.MatchString(id) {
+		return fmt.Errorf("invalid blocklist source id")
+	}
+	value := []byte(updated.UTC().Format(time.RFC3339) + "\n")
+	return writeAtomically(directory, id+".last_updated", value, 0640)
+}

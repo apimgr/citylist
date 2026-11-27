@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="{{.Lang}}" dir="{{.Dir}}">
+<head><title>{{.Title}}</title></head>
+<body>
+  <main class="container container-lg health-page">
+    <header class="page-header">
+      <h1>{{.ProjectName}}</h1>
+      <p class="tagline">{{.ProjectTagline}}</p>
+      <p>{{.ProjectDescription}}</p>
+    </header>
+
+    <div class="status-banner {{.StatusClass}}" role="status">
+      <span aria-hidden="true">{{.StatusIcon}}</span>
+      <strong>{{.Status}}</strong>
+    </div>
+
+    {{if .Health.PendingRestart}}
+    <section class="section-card" aria-labelledby="health-restart-title">
+      <h2 id="health-restart-title">{{t .Lang "health.pending_restart"}}</h2>
+      <ul>{{range .Health.RestartReason}}<li><code>{{.}}</code></li>{{end}}</ul>
+    </section>
+    {{end}}
+
+    {{if .Health.Maintenance}}
+    <section class="section-card" aria-labelledby="health-maintenance-title">
+      <h2 id="health-maintenance-title">{{t .Lang "health.maintenance"}}</h2>
+      <p>{{.Health.Maintenance.Message}}</p>
+      <p>{{t .Lang "health.maintenance_reason"}}: <code>{{.Health.Maintenance.Reason}}</code></p>
+      <p>{{t .Lang "health.maintenance_since"}}: <time>{{.Health.Maintenance.Since}}</time></p>
+      <p>{{t .Lang "health.self_healing_attempts"}}: {{.Health.Maintenance.SelfHealing.Attempts}}</p>
+    </section>
+    {{end}}
+
+    <section class="section-card" aria-labelledby="health-build-title">
+      <h2 id="health-build-title">{{t .Lang "health.build_runtime"}}</h2>
+      <dl class="info-list">
+        <dt>{{t .Lang "health.version"}}</dt><dd><code>{{.Version}}</code></dd>
+        <dt>{{t .Lang "health.go_version"}}</dt><dd><code>{{.GoVersion}}</code></dd>
+        <dt>{{t .Lang "health.build"}}</dt><dd><code>{{.BuildCommit}}</code> <time>{{.BuildDate}}</time></dd>
+        <dt>{{t .Lang "health.uptime"}}</dt><dd>{{.Uptime}}</dd>
+        <dt>{{t .Lang "health.mode"}}</dt><dd><span class="badge badge-{{.Health.Mode}}">{{.Mode}}</span></dd>
+        <dt>{{t .Lang "health.checked"}}</dt><dd><time datetime="{{.Timestamp.Format "2006-01-02T15:04:05Z07:00"}}">{{.TimestampText}}</time></dd>
+      </dl>
+    </section>
+
+    <section class="section-card" aria-labelledby="health-features-title">
+      <h2 id="health-features-title">{{t .Lang "health.features"}}</h2>
+      <ul class="feature-list">
+        {{range .Features}}<li><strong>{{.Label}}</strong>: <span class="{{.Class}}">{{.Value}}</span></li>{{end}}
+      </ul>
+    </section>
+
+    <section class="section-card" aria-labelledby="health-checks-title">
+      <h2 id="health-checks-title">{{t .Lang "health.checks"}}</h2>
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead><tr><th scope="col">{{t .Lang "health.component"}}</th><th scope="col">{{t .Lang "health.status"}}</th></tr></thead>
+          <tbody>{{range .Checks}}<tr><th scope="row">{{.Label}}</th><td><span class="status {{.Class}}">{{.Value}}</span></td></tr>{{end}}</tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="section-card" aria-labelledby="health-statistics-title">
+      <h2 id="health-statistics-title">{{t .Lang "health.statistics"}}</h2>
+      <dl class="info-list stats-grid">{{range .Statistics}}<dt>{{.Label}}</dt><dd>{{.Value}}</dd>{{end}}</dl>
+    </section>
+  </main>
+</body>
+</html>

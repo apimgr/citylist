@@ -84,7 +84,9 @@ func (s *Store) StartCacheSync(ctx context.Context) error {
 		return nil
 	}
 	initialCtx, cancelInitial := context.WithTimeout(ctx, cacheSyncTimeout)
+	s.dbMu.RLock()
 	initialErr := s.cache.sync(initialCtx, s)
+	s.dbMu.RUnlock()
 	cancelInitial()
 	if initialErr != nil {
 		if !s.cache.offlineMode || !s.cache.hasSnapshot() {
@@ -115,6 +117,7 @@ func (s *Store) StartCacheSync(ctx context.Context) error {
 				return
 			case <-ticker.C:
 				syncCtx, stop := context.WithTimeout(workerCtx, cacheSyncTimeout)
+				s.dbMu.RLock()
 				if err := s.cache.sync(syncCtx, s); err != nil {
 					slog.Warn("background database cache sync failed", "error", err)
 					if s.cache.offlineMode && isRemoteUnavailable(err) && s.cache.hasSnapshot() {
@@ -127,6 +130,7 @@ func (s *Store) StartCacheSync(ctx context.Context) error {
 					s.cache.offline = false
 					s.cache.mu.Unlock()
 				}
+				s.dbMu.RUnlock()
 				stop()
 			}
 		}
@@ -139,7 +143,37 @@ func (s *Store) SyncCache(ctx context.Context) error {
 	if s == nil || s.cache == nil {
 		return nil
 	}
+	s.dbMu.RLock()
+	defer s.dbMu.RUnlock()
 	return s.cache.sync(ctx, s)
+}
+
+// RetryRemote reruns schema setup and replica synchronization after an offline start.
+func (s *Store) RetryRemote(ctx context.Context) error {
+	if s == nil || s.cache == nil || !s.remote {
+		return errors.New("remote database cache is not configured")
+	}
+	cache := s.cache
+	cache.mu.Lock()
+	wasOffline := cache.offline
+	cache.offline = false
+	cache.mu.Unlock()
+	if err := s.EnsureSchema(ctx); err != nil {
+		cache.mu.Lock()
+		cache.offline = wasOffline
+		cache.mu.Unlock()
+		return err
+	}
+	if err := cache.sync(ctx, s); err != nil {
+		cache.mu.Lock()
+		cache.offline = wasOffline
+		cache.mu.Unlock()
+		return err
+	}
+	cache.mu.Lock()
+	cache.offline = false
+	cache.mu.Unlock()
+	return nil
 }
 
 // IsEmpty reports whether every application table in the remote database has no rows.
@@ -248,12 +282,27 @@ func (c *localCache) hasSnapshot() bool {
 
 // UsingOfflineCache reports whether startup accepted an existing cache while libSQL was unavailable.
 func (s *Store) UsingOfflineCache() bool {
-	if s == nil || s.cache == nil {
+	if s == nil {
+		return false
+	}
+	s.dbMu.RLock()
+	defer s.dbMu.RUnlock()
+	if s.cache == nil {
 		return false
 	}
 	s.cache.mu.RLock()
 	defer s.cache.mu.RUnlock()
 	return s.cache.offline && !s.cache.lastSync.IsZero() && !s.cache.dirty
+}
+
+// HasLocalCache reports whether this store owns a configured SQLite replica.
+func (s *Store) HasLocalCache() bool {
+	if s == nil {
+		return false
+	}
+	s.dbMu.RLock()
+	defer s.dbMu.RUnlock()
+	return s.cache != nil
 }
 
 func (c *localCache) setDirty(dirty bool) {

@@ -77,9 +77,9 @@ func UpdateBlocklists(ctx context.Context, directory string, blocklists config.S
 		if err := writeAtomically(directory, source.id+".txt", content, 0640); err != nil {
 			return fmt.Errorf("publish blocklist %s: %w", source.id, err)
 		}
-	}
-	if err := writeLastUpdated(directory, time.Now()); err != nil {
-		return fmt.Errorf("record blocklist update time: %w", err)
+		if err := writeSourceLastUpdated(directory, source.id, time.Now()); err != nil {
+			return fmt.Errorf("record blocklist update time: %w", err)
+		}
 	}
 	return nil
 }

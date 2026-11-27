@@ -9,6 +9,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/apimgr/citylist/src/health"
 )
 
 // Record is a public US postal-code record from the embedded GeoNames dataset.
@@ -100,6 +102,12 @@ func NewService(archive []byte) (*Service, error) {
 			return service.byState[state][i].ZIP < service.byState[state][j].ZIP
 		})
 	}
+	health.Register("data_zipcodes", true, func() (string, error) {
+		if len(service.records) == 0 {
+			return "error", fmt.Errorf("postal-code dataset is empty")
+		}
+		return "ok", nil
+	})
 	return service, nil
 }
 

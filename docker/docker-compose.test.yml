@@ -9,9 +9,11 @@ x-logging: &default-logging
 services:
   citylist:
     image: ${CITYLIST_TEST_IMAGE:-ghcr.io/apimgr/citylist:devel}
-    container_name: citylist-app
     hostname: citylist
     restart: "no"
+    mem_limit: 2g
+    cpus: 2
+    stop_grace_period: 60s
     logging: *default-logging
     environment:
       PORT: 80
@@ -39,8 +41,9 @@ services:
   citylist-cache:
     image: valkey/valkey:alpine
     pull_policy: always
-    container_name: citylist-cache
     restart: "no"
+    mem_limit: 512m
+    cpus: 1
     logging: *default-logging
     tmpfs:
       - /data

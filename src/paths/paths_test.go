@@ -21,7 +21,7 @@ func TestGetDataDirEnvOverride(t *testing.T) {
 }
 
 func TestGetLogsDirEnvOverride(t *testing.T) {
-	t.Setenv("LOGS_DIR", "/custom/logs")
+	t.Setenv("LOG_DIR", "/custom/logs")
 	if got := GetLogsDir("citylist"); got != "/custom/logs" {
 		t.Errorf("GetLogsDir() = %q, want /custom/logs", got)
 	}
@@ -75,7 +75,7 @@ func TestGetDataDirNoEnv(t *testing.T) {
 }
 
 func TestGetLogsDirNoEnv(t *testing.T) {
-	t.Setenv("LOGS_DIR", "")
+	t.Setenv("LOG_DIR", "")
 	got := GetLogsDir("citylist")
 	if got == "" {
 		t.Error("GetLogsDir() returned empty string")
@@ -93,7 +93,7 @@ func TestGetBackupDirNoEnv(t *testing.T) {
 func TestGetDefaultDirs(t *testing.T) {
 	t.Setenv("CONFIG_DIR", "/c")
 	t.Setenv("DATA_DIR", "/d")
-	t.Setenv("LOGS_DIR", "/l")
+	t.Setenv("LOG_DIR", "/l")
 
 	configDir, dataDir, logsDir := GetDefaultDirs("citylist")
 	if configDir != "/c" {

@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="{{.Lang}}" dir="{{.Dir}}" class="theme-{{.Theme}}">
+<head>{{.Head}}</head>
+<body>
+  <a class="skip-link" href="#main-content">{{t .Lang "common.skip_main"}}</a>
+  <a class="skip-link" href="#navigation">{{t .Lang "common.skip_navigation"}}</a>
+  {{.TrackingNoscript}}
+  {{.SiteBanners}}
+  {{template "public-header" .}}
+  <nav class="nav-panel" id="nav-panel" aria-label="{{t .Lang "nav.main"}}">
+    <a href="{{.BaseURL}}/" {{if eq .CurrentPath "/"}}class="nav-link active" aria-current="page"{{else}}class="nav-link"{{end}}>{{t .Lang "common.home"}}</a>
+    <a href="{{.BaseURL}}/search" {{if eq .CurrentPath "/search"}}class="nav-link active" aria-current="page"{{else}}class="nav-link"{{end}}>{{t .Lang "common.search"}}</a>
+    <a href="{{.BaseURL}}/coordinates" {{if eq .CurrentPath "/coordinates"}}class="nav-link active" aria-current="page"{{else}}class="nav-link"{{end}}>{{t .Lang "coordinates.title"}}</a>
+  </nav>
+  <label for="nav-toggle" class="nav-overlay" aria-hidden="true"></label>
+  <main id="main-content" class="{{.MainClass}}">{{.MainContent}}</main>
+  {{template "public-footer" .}}
+  {{.ConsentBanner}}
+  <script src="{{asset (printf "%s/static/js/app.js" .BaseURL)}}" defer></script>
+  {{.PageScripts}}
+</body>
+</html>

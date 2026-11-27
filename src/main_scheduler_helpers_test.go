@@ -185,9 +185,13 @@ func TestInitializeSecurityDataSchedulesMissingEnabledSources(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	initializeSecurityData(instance, cfg, root, false)
+	if len(ran) != 0 {
+		t.Fatal("security updates ran before the database was ready")
+	}
 	instance.Start()
 	defer instance.Stop()
-	initializeSecurityData(instance, cfg, root)
+	initializeSecurityData(instance, cfg, root, true)
 	completed := make(map[string]bool, 3)
 	for range 3 {
 		select {

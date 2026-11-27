@@ -210,9 +210,10 @@ func TestScheduledSchedulerRegistersRequiredTasksAndOnlyEnabledOverlayHealth(t *
 	cfg := config.DefaultConfig()
 	brandingRefreshCalled := false
 	scheduler, err := newApplicationScheduler(cfg, root, filepath.Join(root, "data"), filepath.Join(root, "logs"), filepath.Join(root, "backup"), store, context.Background(), map[string]func() error{
-		"tor_health": func() error { return nil },
-		"i2p_health": func() error { return nil },
-		"unexpected": func() error { return nil },
+		"tor_health":         func() error { return nil },
+		"i2p_health":         func() error { return nil },
+		"maintenance_health": func() error { return nil },
+		"unexpected":         func() error { return nil },
 	}, func(context.Context) error { brandingRefreshCalled = true; return nil })
 	if err != nil {
 		t.Fatalf("newApplicationScheduler() error: %v", err)
@@ -221,7 +222,7 @@ func TestScheduledSchedulerRegistersRequiredTasksAndOnlyEnabledOverlayHealth(t *
 	for _, task := range scheduler.GetTasks() {
 		registered[task.Name] = true
 	}
-	for _, name := range []string{"ssl_renewal", "geoip_update", "blocklist_update", "security_cleanup", "keyserver_retry", "cve_update", "update_check", "token_cleanup", "log_rotation", "backup_daily", "backup_hourly", "disk_check", "database_check", "healthcheck_self", "tor_health", "i2p_health", "branding_image_refresh"} {
+	for _, name := range []string{"ssl_renewal", "geoip_update", "blocklist_update", "security_cleanup", "keyserver_retry", "cve_update", "update_check", "token_cleanup", "log_rotation", "backup_daily", "backup_hourly", "disk_check", "database_check", "healthcheck_self", "tor_health", "i2p_health", "maintenance_health", "branding_image_refresh"} {
 		if !registered[name] {
 			t.Errorf("required task %q was not registered", name)
 		}

@@ -6,6 +6,8 @@ import (
 	"math"
 	"sort"
 	"strings"
+
+	"github.com/apimgr/citylist/src/health"
 )
 
 // City represents a city record
@@ -55,6 +57,12 @@ func NewService(jsonData []byte) (*Service, error) {
 		countryCode := strings.ToUpper(city.Country)
 		s.byCountry[countryCode] = append(s.byCountry[countryCode], city)
 	}
+	health.Register("data_cities", true, func() (string, error) {
+		if len(s.cities) == 0 {
+			return "error", fmt.Errorf("city dataset is empty")
+		}
+		return "ok", nil
+	})
 
 	return s, nil
 }

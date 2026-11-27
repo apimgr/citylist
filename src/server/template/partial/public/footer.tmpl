@@ -1,0 +1,19 @@
+{{define "public-footer"}}
+  <footer class="footer">
+    {{operatorHTML "footer"}}
+    {{if .TorAddress}}<p class="footer-onion"><a href="{{.BaseURL}}/server/help#tor-access" aria-label="{{t .Lang "pages.help.tor_title"}}">🧅</a> <code class="onion-address">{{.TorAddress}}</code> <button type="button" class="copy-btn" data-copy="{{.TorAddress}}" aria-label="{{t .Lang "common.copy"}}">{{t .Lang "common.copy"}}</button></p>{{end}}
+    {{if .I2PAddress}}<p class="footer-i2p"><a href="{{.BaseURL}}/server/help#i2p-access" aria-label="{{t .Lang "pages.help.i2p_title"}}">🔗</a> <code class="i2p-address">{{.I2PAddress}}</code> <button type="button" class="copy-btn" data-copy="{{.I2PAddress}}" aria-label="{{t .Lang "common.copy"}}">{{t .Lang "common.copy"}}</button></p>{{end}}
+    <nav class="footer-links" aria-label="{{t .Lang "nav.footer"}}">
+      <a href="{{.BaseURL}}/server/about">{{t .Lang "nav.about"}}</a>
+      <a href="{{.BaseURL}}/server/privacy">{{t .Lang "nav.privacy"}}</a>
+      <a href="{{.BaseURL}}/server/help">{{t .Lang "nav.help"}}</a>
+      <a href="{{.BaseURL}}/server/preferences">{{t .Lang "common.preferences"}}</a>
+      <a href="{{.BaseURL}}/server/preferences#language" lang="{{.Lang}}">{{.LanguageName}}</a>
+      <a href="{{.BaseURL}}/server/docs/swagger">{{t .Lang "common.api_docs"}}</a>
+      <a href="{{.BaseURL}}/server/docs/graphql">{{t .Lang "graphql.title"}}</a>
+      <a href="{{.BaseURL}}/server/terms">{{t .Lang "nav.terms"}}</a>
+    </nav>
+    <p><a href="https://github.com/apimgr/citylist">{{t .Lang "footer.made_with"}}</a> ❤️ · {{.Version}}</p>
+    <p><a href="{{.BaseURL}}/server/healthz">{{t .Lang "footer.last_update"}}: {{.BuildDate}}</a></p>
+  </footer>
+{{end}}

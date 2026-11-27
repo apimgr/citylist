@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/x509"
 	"database/sql"
+	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -21,11 +22,13 @@ import (
 
 	"github.com/apimgr/citylist/src/config"
 	"github.com/apimgr/citylist/src/database"
+	"github.com/apimgr/citylist/src/health"
 	"github.com/apimgr/citylist/src/scheduler"
 	"github.com/apimgr/citylist/src/securitydata"
 	"github.com/apimgr/citylist/src/server"
 	sslmanager "github.com/apimgr/citylist/src/ssl"
 	"github.com/apimgr/citylist/src/updater"
+	"github.com/oschwald/maxminddb-golang"
 )
 
 var scheduledUpdateRestart = make(chan struct{}, 1)
@@ -104,6 +107,10 @@ func sanitizeDatabaseError(err error, cfg *config.Config) string {
 var databaseCredentialPattern = regexp.MustCompile(`(?i)(password|token|secret|authorization)([=: ]+)[^\s,&;]+`)
 
 func newApplicationScheduler(cfg *config.Config, configDir, dataDir, logsDir, backupDir string, store *database.Store, appContext context.Context, healthTasks map[string]func() error, refreshBrandingImages func(context.Context) error, notifiers ...operatorEventNotifier) (*scheduler.Scheduler, error) {
+	return newApplicationSchedulerWithMode(cfg, configDir, dataDir, logsDir, backupDir, store, appContext, healthTasks, refreshBrandingImages, false, notifiers...)
+}
+
+func newApplicationSchedulerWithMode(cfg *config.Config, configDir, dataDir, logsDir, backupDir string, store *database.Store, appContext context.Context, healthTasks map[string]func() error, refreshBrandingImages func(context.Context) error, maintenanceOnly bool, notifiers ...operatorEventNotifier) (*scheduler.Scheduler, error) {
 	if cfg == nil || store == nil {
 		return nil, errors.New("scheduler requires configuration and database")
 	}
@@ -111,8 +118,8 @@ func newApplicationScheduler(cfg *config.Config, configDir, dataDir, logsDir, ba
 	if len(notifiers) > 0 {
 		notify = notifiers[0]
 	}
-	if store.UsingOfflineCache() {
-		slog.Warn("scheduled tasks are disabled while the database is in offline read-only cache mode")
+	if maintenanceOnly || store.UsingOfflineCache() {
+		slog.Warn("scheduled tasks are disabled while the database is unavailable")
 		instance := scheduler.New()
 		settings := cfg.Server.Notifications.DatabaseError
 		if settings.Enabled {
@@ -126,6 +133,15 @@ func newApplicationScheduler(cfg *config.Config, configDir, dataDir, logsDir, ba
 				return nil
 			}
 			if err := instance.AddScheduledTask("database_check", "@every "+settings.CheckInterval, true, location, run); err != nil {
+				return nil, err
+			}
+		}
+		if run, ok := healthTasks["maintenance_health"]; ok {
+			offlineLocation, err := time.LoadLocation(cfg.Server.Scheduler.Timezone)
+			if err != nil {
+				return nil, fmt.Errorf("load scheduler timezone: %w", err)
+			}
+			if err := instance.AddScheduledTask("maintenance_health", "@every 10s", true, offlineLocation, run); err != nil {
 				return nil, err
 			}
 		}
@@ -237,7 +253,7 @@ func newApplicationScheduler(cfg *config.Config, configDir, dataDir, logsDir, ba
 		}
 	}
 	for name, run := range healthTasks {
-		if name == "tor_health" || name == "i2p_health" {
+		if name == "tor_health" || name == "i2p_health" || name == "dataset_health" || name == "maintenance_health" {
 			registered[name] = run
 		}
 	}
@@ -530,11 +546,12 @@ func writePrivateState(path string, content []byte) error {
 	return os.Rename(temporaryPath, path)
 }
 
-func initializeSecurityData(sched *scheduler.Scheduler, cfg *config.Config, dataDir string) {
+func initializeSecurityData(sched *scheduler.Scheduler, cfg *config.Config, dataDir string, scheduleMissing bool) {
 	securityDir := strings.ReplaceAll(cfg.Data.SecurityDir, "{data_dir}", dataDir)
 	if !filepath.IsAbs(securityDir) {
 		securityDir = filepath.Join(dataDir, securityDir)
 	}
+	registerSecurityDataChecks(cfg, securityDir)
 	blocklistPaths := []string{filepath.Join(securityDir, "blocklists", "firehol_level1.txt")}
 	for _, source := range cfg.Server.Security.Blocklists.ExtraSources {
 		if source.Enabled != nil && !*source.Enabled || !validBlocklistFileID(source.ID) {
@@ -570,7 +587,7 @@ func initializeSecurityData(sched *scheduler.Scheduler, cfg *config.Config, data
 				break
 			}
 		}
-		if missing && check.task != "cve_update" {
+		if missing && check.task != "cve_update" && scheduleMissing {
 			if err := sched.RunNowAsync(check.task); err != nil {
 				slog.Warn("securitydata.initial_update_failed", "dataset", check.task, "error", err)
 			}
@@ -585,11 +602,103 @@ func initializeSecurityData(sched *scheduler.Scheduler, cfg *config.Config, data
 			needsCVE = true
 		}
 	}
-	if needsCVE {
+	if needsCVE && scheduleMissing {
 		if err := sched.RunNowAsync("cve_update"); err != nil {
 			slog.Warn("securitydata.initial_update_failed", "dataset", "cve", "error", err)
 		}
 	}
+}
+
+func registerSecurityDataChecks(cfg *config.Config, securityDir string) {
+	if cfg.Server.GeoIP.Enabled {
+		geoDir := filepath.Join(securityDir, "geoip")
+		for _, database := range []struct{ id, file string }{
+			{"asn", "iptoasn-asn.mmdb"},
+			{"country", "iptoasn-country.mmdb"},
+			{"city_ipv4", "dbip-city-ipv4.mmdb"},
+			{"city_ipv6", "dbip-city-ipv6.mmdb"},
+		} {
+			file := filepath.Join(geoDir, database.file)
+			health.Register("geoip_"+database.id, false, func() (string, error) {
+				return datasetFileStatus(file, filepath.Join(geoDir, ".last_updated"), 21*24*time.Hour, func(path string) error {
+					reader, err := maxminddb.Open(path)
+					if err != nil {
+						return errors.New("dataset could not be parsed")
+					}
+					return reader.Close()
+				})
+			})
+		}
+	}
+	if cfg.Server.Security.Blocklists.Enabled {
+		blocklistDir := filepath.Join(securityDir, "blocklists")
+		ids := []string{"firehol_level1"}
+		for _, source := range cfg.Server.Security.Blocklists.ExtraSources {
+			if source.Enabled == nil || *source.Enabled {
+				if validBlocklistFileID(source.ID) {
+					ids = append(ids, source.ID)
+				}
+			}
+		}
+		for _, id := range ids {
+			file := filepath.Join(blocklistDir, id+".txt")
+			marker := filepath.Join(blocklistDir, id+".last_updated")
+			health.Register("blocklist_"+id, false, func() (string, error) {
+				return datasetFileStatus(file, marker, 72*time.Hour, nil)
+			})
+		}
+	}
+	cveDir := filepath.Join(securityDir, "cve")
+	health.Register("data_cve", false, func() (string, error) {
+		return datasetFileStatus(filepath.Join(cveDir, "nvd.json"), filepath.Join(cveDir, ".last_updated"), 48*time.Hour, func(path string) error {
+			content, err := os.ReadFile(path)
+			if err != nil {
+				return errors.New("dataset could not be read")
+			}
+			var records []json.RawMessage
+			if err := json.Unmarshal(content, &records); err != nil || len(records) == 0 {
+				return errors.New("dataset could not be parsed")
+			}
+			return nil
+		})
+	})
+	if cfg.Data.Trivy.Enabled {
+		trivyDir := filepath.Join(securityDir, "trivy")
+		health.Register("data_trivy", false, func() (string, error) {
+			return datasetFileStatus(filepath.Join(trivyDir, "trivy.db"), filepath.Join(trivyDir, ".last_updated"), 48*time.Hour, func(path string) error {
+				info, err := os.Stat(path)
+				if err != nil || info.Size() == 0 {
+					return errors.New("dataset could not be read")
+				}
+				metadata, err := os.ReadFile(filepath.Join(trivyDir, "metadata.json"))
+				if err != nil || !json.Valid(metadata) {
+					return errors.New("dataset metadata could not be parsed")
+				}
+				return nil
+			})
+		})
+	}
+}
+
+func datasetFileStatus(file, marker string, maxAge time.Duration, validate func(string) error) (string, error) {
+	info, err := os.Stat(file)
+	if err != nil || !info.Mode().IsRegular() || info.Size() == 0 {
+		return "error", errors.New("dataset is missing or empty")
+	}
+	if validate != nil {
+		if err := validate(file); err != nil {
+			return "error", errors.New("dataset is invalid")
+		}
+	}
+	updatedAt, err := os.ReadFile(marker)
+	if err != nil {
+		return "degraded", nil
+	}
+	updated, err := time.Parse(time.RFC3339, strings.TrimSpace(string(updatedAt)))
+	if err != nil || time.Since(updated) > maxAge || updated.After(time.Now().Add(time.Minute)) {
+		return "degraded", nil
+	}
+	return "ok", nil
 }
 
 func validBlocklistFileID(value string) bool {
@@ -611,10 +720,7 @@ func checkDatabaseHealth(store *database.Store) error {
 func probeDatabaseConnections(store *database.Store) error {
 	writeCtx, cancelWrite := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancelWrite()
-	if err := store.Write(writeCtx, func(tx *sql.Tx) error {
-		var result int
-		return tx.QueryRowContext(writeCtx, `SELECT 1`).Scan(&result)
-	}); err != nil {
+	if err := store.ProbeWrite(writeCtx); err != nil {
 		return fmt.Errorf("write handle: %w", err)
 	}
 	readCtx, cancelRead := context.WithTimeout(context.Background(), 5*time.Second)

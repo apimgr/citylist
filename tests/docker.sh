@@ -43,7 +43,7 @@ trap cleanup EXIT INT TERM
 
 cd "$PROJECT_ROOT"
 echo '=== Building server and client into project-scoped temp storage ==='
-make build BINDIR="$BIN_DIR"
+make build BINDIR="$BIN_DIR" RELDIR="$TEST_DIR/releases"
 
 echo '=== Building and starting the application container ==='
 docker build --tag "$TEST_IMAGE" --file docker/Dockerfile .
@@ -54,6 +54,7 @@ docker run --rm --name "citylist-$(tr -dc 'a-z0-9' </dev/urandom | head -c8)" \
   --network "$TEST_NETWORK" --memory=4g --cpus=2 --user 0:0 \
   -v "$BIN_DIR:/app:ro" -v "$VOLUME_DIR/config:/config:ro" -v "$ARTIFACT_DIR:/artifacts" \
   -e CITYLIST_BASE_URL="http://citylist" -e CITYLIST_PORT="$PORT" \
+  -e PROJECT_ORG="$PROJECT_ORG" -e INTERNAL_NAME="$INTERNAL_NAME" \
   -e TOR_WAIT="${TOR_WAIT:-300}" -e I2P_WAIT="${I2P_WAIT:-600}" -e REQUIRE_OVERLAY="${REQUIRE_OVERLAY:-0}" \
   alpine:latest sh -ec '
     apk add --no-cache curl bash file jq tor i2pd tzdata ca-certificates >/dev/null
@@ -61,6 +62,11 @@ docker run --rm --name "citylist-$(tr -dc 'a-z0-9' </dev/urandom | head -c8)" \
     fail() { echo "FAIL: $*"; FAILURES=$((FAILURES + 1)); }
     pass() { echo "PASS: $*"; }
     status() { curl -q -LSs -o /dev/null -w "%{http_code}" "$1"; }
+    mkdir -p "${TMPDIR:-/tmp}/$PROJECT_ORG"
+    TEST_TMP=$(mktemp -d "${TMPDIR:-/tmp}/$PROJECT_ORG/$INTERNAL_NAME-XXXXXX")
+    chmod 700 "$TEST_TMP"
+    cleanup_test_tmp() { rm -rf -- "$TEST_TMP"; }
+    trap cleanup_test_tmp EXIT
     BASE="$CITYLIST_BASE_URL"
     READY=false
     for _ in $(seq 1 90); do
@@ -73,12 +79,12 @@ docker run --rm --name "citylist-$(tr -dc 'a-z0-9' </dev/urandom | head -c8)" \
     /app/citylist --version
     /app/citylist --help
     file /app/citylist
-    cp /app/citylist /tmp/renamed-server && chmod +x /tmp/renamed-server
-    /tmp/renamed-server --help 2>&1 | grep -q renamed-server || fail "server binary rename"
+    cp /app/citylist "$TEST_TMP/renamed-server" && chmod +x "$TEST_TMP/renamed-server"
+    "$TEST_TMP/renamed-server" --help 2>&1 | grep -q renamed-server || fail "server binary rename"
     /app/citylist-cli --version
     /app/citylist-cli --help
-    cp /app/citylist-cli /tmp/renamed-cli && chmod +x /tmp/renamed-cli
-    /tmp/renamed-cli --help 2>&1 | grep -q renamed-cli || fail "CLI binary rename"
+    cp /app/citylist-cli "$TEST_TMP/renamed-cli" && chmod +x "$TEST_TMP/renamed-cli"
+    "$TEST_TMP/renamed-cli" --help 2>&1 | grep -q renamed-cli || fail "CLI binary rename"
 
     echo "=== Public API and content negotiation ==="
     for path in / /search /coordinates /server/about /server/help /server/help/mcp /server/contact \
@@ -191,3 +197,5 @@ docker run --rm --name "citylist-$(tr -dc 'a-z0-9' </dev/urandom | head -c8)" \
     [ "$FAILURES" -eq 0 ] || exit 1
     echo "Docker integration checks passed."
   '
+
+TOR_BOOTSTRAP_TIMEOUT=${TOR_BOOTSTRAP_TIMEOUT:-180} "$PROJECT_ROOT/tests/check-image.sh" "$TEST_IMAGE"

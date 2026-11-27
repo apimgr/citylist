@@ -28,7 +28,7 @@ type schedulerHistoryEntry struct {
 
 func runSchedulerCommand(args []string, stdout io.Writer) error {
 	if len(args) == 0 || args[0] == "--help" || args[0] == "help" {
-		if _, err := fmt.Fprintln(stdout, schedulerFormat("scheduler_help", "Usage: {binary} scheduler {list|show <id>|run <id>|enable <id>|disable <id>|history <id>}", map[string]string{"binary": filepath.Base(os.Args[0])})); err != nil {
+		if _, err := fmt.Fprintln(stdout, schedulerFormat("scheduler_help", "Usage: {binary} --maintenance scheduler {list|show <id>|run <id>|enable <id>|disable <id>|history <id>}", map[string]string{"binary": filepath.Base(os.Args[0])})); err != nil {
 			return err
 		}
 		return nil
@@ -40,7 +40,7 @@ func runSchedulerCommand(args []string, stdout io.Writer) error {
 	if envData := os.Getenv("DATA_DIR"); envData != "" {
 		dataDir = envData
 	}
-	if envLogs := os.Getenv("LOGS_DIR"); envLogs != "" {
+	if envLogs := os.Getenv("LOG_DIR"); envLogs != "" {
 		logsDir = envLogs
 	}
 	for _, directory := range []string{configDir, dataDir, logsDir} {
@@ -86,14 +86,14 @@ func executeSchedulerCommand(args []string, stdout io.Writer, appScheduler *sche
 	}
 	action := args[0]
 	if action == "--help" || action == "help" {
-		if _, err := fmt.Fprintln(stdout, schedulerFormat("scheduler_help", "Usage: {binary} scheduler {list|show <id>|run <id>|enable <id>|disable <id>|history <id>}", map[string]string{"binary": filepath.Base(os.Args[0])})); err != nil {
+		if _, err := fmt.Fprintln(stdout, schedulerFormat("scheduler_help", "Usage: {binary} --maintenance scheduler {list|show <id>|run <id>|enable <id>|disable <id>|history <id>}", map[string]string{"binary": filepath.Base(os.Args[0])})); err != nil {
 			return err
 		}
 		return nil
 	}
 	if action == "list" {
 		if len(args) != 1 {
-			return errors.New(schedulerMessage("scheduler_list_usage", "usage: citylist scheduler list"))
+			return errors.New(schedulerMessage("scheduler_list_usage", "usage: citylist --maintenance scheduler list"))
 		}
 		return printSchedulerList(stdout, appScheduler.GetTasks())
 	}

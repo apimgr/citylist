@@ -89,6 +89,11 @@ var schemaStatements = []string{
 		value TEXT NOT NULL,
 		updated_at TEXT NOT NULL
 	)`,
+	`CREATE TABLE IF NOT EXISTS health_write_probe (
+		id INTEGER PRIMARY KEY CHECK (id = 1),
+		checked_at INTEGER NOT NULL
+	)`,
+	`INSERT OR IGNORE INTO health_write_probe (id, checked_at) VALUES (1, 0)`,
 	`CREATE TABLE IF NOT EXISTS captcha_challenges (
 		id VARCHAR(32) PRIMARY KEY,
 		answer_hash VARCHAR(64) NOT NULL,

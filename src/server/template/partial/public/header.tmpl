@@ -1,0 +1,17 @@
+{{define "public-header"}}
+<input type="checkbox" id="nav-toggle" class="nav-checkbox" aria-label="{{t .Lang "nav.toggle"}}">
+  <header class="header">
+    <a class="nav-brand" href="{{.BaseURL}}/">{{if .LogoURL}}<img src="{{.LogoURL}}?size=200" alt="{{.BrandTitle}}">{{end}}{{.BrandTitle}}</a>
+    <nav id="navigation" class="nav-links" aria-label="{{t .Lang "nav.main"}}">
+      <a href="{{.BaseURL}}/" {{if eq .CurrentPath "/"}}class="nav-link active" aria-current="page"{{else}}class="nav-link"{{end}}>{{t .Lang "common.home"}}</a>
+      <a href="{{.BaseURL}}/search" {{if eq .CurrentPath "/search"}}class="nav-link active" aria-current="page"{{else}}class="nav-link"{{end}}>{{t .Lang "common.search"}}</a>
+      <a href="{{.BaseURL}}/coordinates" {{if eq .CurrentPath "/coordinates"}}class="nav-link active" aria-current="page"{{else}}class="nav-link"{{end}}>{{t .Lang "coordinates.title"}}</a>
+    </nav>
+    <label for="nav-toggle" class="nav-toggle" aria-hidden="true">☰</label>
+    <div class="header-actions">
+      <a class="nav-link" href="{{.BaseURL}}/server/preferences">{{t .Lang "common.preferences"}}</a>
+      <form class="theme-toggle-form" action="{{.BaseURL}}/server/preferences" method="post"><input type="hidden" name="csrf_token" value="{{.CSRFToken}}"><input type="hidden" name="redirect" value="{{.ReturnTo}}"><input type="hidden" name="theme" value="{{.NextTheme}}"><button class="btn btn-ghost" type="submit" aria-label="{{t .Lang (printf "common.%s" .NextTheme)}}">{{t .Lang (printf "common.%s" .NextTheme)}}</button></form>
+    </div>
+    {{operatorHTML "header"}}
+  </header>
+{{end}}

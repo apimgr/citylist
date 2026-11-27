@@ -22,6 +22,9 @@ func TestOpenSQLiteEnsuresPrivateFileAndSchema(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if store.memory {
+		t.Fatal("file-backed SQLite store was marked as an in-memory fallback")
+	}
 	t.Cleanup(func() {
 		if err := store.Close(); err != nil {
 			t.Errorf("close store: %v", err)
@@ -83,6 +86,69 @@ func TestOpenSQLiteEnsuresPrivateFileAndSchema(t *testing.T) {
 		return nil
 	}); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestProbeWriteUpdatesHealthMetadata(t *testing.T) {
+	store, err := OpenSQLite(filepath.Join(projectTempDir(t), "probe.db"), DefaultPoolConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+	ctx := context.Background()
+	if err := store.EnsureSchema(ctx); err != nil {
+		t.Fatal(err)
+	}
+	var before int64
+	if err := store.Read(ctx, func(ctx context.Context, reader Reader) error {
+		return reader.QueryRowContext(ctx, `SELECT checked_at FROM health_write_probe WHERE id = 1`).Scan(&before)
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.ProbeWrite(ctx); err != nil {
+		t.Fatalf("ProbeWrite() error: %v", err)
+	}
+	var after int64
+	if err := store.Read(ctx, func(ctx context.Context, reader Reader) error {
+		return reader.QueryRowContext(ctx, `SELECT checked_at FROM health_write_probe WHERE id = 1`).Scan(&after)
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if after <= before {
+		t.Fatalf("health probe timestamp did not advance: before=%d after=%d", before, after)
+	}
+}
+
+func TestMemoryStoreCanBeReplacedAfterDatabaseRecovery(t *testing.T) {
+	ctx := context.Background()
+	store, err := OpenSQLiteMemory(DefaultPoolConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !store.memory {
+		t.Fatal("in-memory fallback store was not marked as such")
+	}
+	t.Cleanup(func() { _ = store.Close() })
+	if err := store.EnsureSchema(ctx); err != nil {
+		t.Fatalf("memory EnsureSchema() error: %v", err)
+	}
+	recovered, err := OpenSQLite(filepath.Join(projectTempDir(t), "recovered.db"), DefaultPoolConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := recovered.EnsureSchema(ctx); err != nil {
+		_ = recovered.Close()
+		t.Fatal(err)
+	}
+	if err := store.ReplaceWith(recovered); err != nil {
+		_ = recovered.Close()
+		t.Fatalf("ReplaceWith() error: %v", err)
+	}
+	if err := store.ProbeWrite(ctx); err != nil {
+		t.Fatalf("recovered store ProbeWrite() error: %v", err)
+	}
+	if err := recovered.Close(); err != nil {
+		t.Fatalf("close transferred store: %v", err)
 	}
 }
 

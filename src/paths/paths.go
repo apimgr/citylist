@@ -26,29 +26,31 @@ func GetConfigDir(appName string) string {
 		return filepath.Join(".", "config")
 	}
 
-	isRoot := current.Uid == "0"
+	isRoot := current.Uid == "0" || (runtime.GOOS == "windows" && isWindowsAdmin())
 
 	switch runtime.GOOS {
-	case "linux", "freebsd", "openbsd", "netbsd":
+	case "linux":
 		if isRoot {
 			return filepath.Join("/etc/apimgr", appName)
 		}
 		return filepath.Join(current.HomeDir, ".config/apimgr", appName)
+	case "freebsd", "openbsd", "netbsd":
+		if isRoot {
+			return filepath.Join("/usr/local/etc/apimgr", appName)
+		}
+		return filepath.Join(current.HomeDir, ".config/apimgr", appName)
 
 	case "darwin":
-		appNamePascal := toPascalCase(appName)
 		if isRoot {
-			return filepath.Join("/Library/Application Support/apimgr", appNamePascal)
+			return filepath.Join("/Library/Application Support/apimgr", appName)
 		}
-		return filepath.Join(current.HomeDir, "Library/Application Support/apimgr", appNamePascal)
+		return filepath.Join(current.HomeDir, "Library/Application Support/apimgr", appName)
 
 	case "windows":
-		appNamePascal := toPascalCase(appName)
-		programData := os.Getenv("ProgramData")
-		if programData == "" {
-			programData = "C:\\ProgramData"
+		if isRoot {
+			return filepath.Join(windowsProgramData(), "apimgr", appName)
 		}
-		return filepath.Join(programData, "apimgr", appNamePascal)
+		return filepath.Join(windowsAppData(current.HomeDir), "apimgr", appName)
 
 	default:
 		return filepath.Join(".", "config")
@@ -72,29 +74,31 @@ func GetDataDir(appName string) string {
 		return filepath.Join(".", "data")
 	}
 
-	isRoot := current.Uid == "0"
+	isRoot := current.Uid == "0" || (runtime.GOOS == "windows" && isWindowsAdmin())
 
 	switch runtime.GOOS {
-	case "linux", "freebsd", "openbsd", "netbsd":
+	case "linux":
 		if isRoot {
 			return filepath.Join("/var/lib/apimgr", appName)
 		}
 		return filepath.Join(current.HomeDir, ".local/share/apimgr", appName)
+	case "freebsd", "openbsd", "netbsd":
+		if isRoot {
+			return filepath.Join("/var/db/apimgr", appName)
+		}
+		return filepath.Join(current.HomeDir, ".local/share/apimgr", appName)
 
 	case "darwin":
-		appNamePascal := toPascalCase(appName)
 		if isRoot {
-			return filepath.Join("/Library/Application Support/apimgr", appNamePascal, "data")
+			return filepath.Join("/Library/Application Support/apimgr", appName, "data")
 		}
-		return filepath.Join(current.HomeDir, "Library/Application Support/apimgr", appNamePascal, "data")
+		return filepath.Join(current.HomeDir, "Library/Application Support/apimgr", appName)
 
 	case "windows":
-		appNamePascal := toPascalCase(appName)
-		programData := os.Getenv("ProgramData")
-		if programData == "" {
-			programData = "C:\\ProgramData"
+		if isRoot {
+			return filepath.Join(windowsProgramData(), "apimgr", appName, "data")
 		}
-		return filepath.Join(programData, "apimgr", appNamePascal, "data")
+		return filepath.Join(windowsLocalAppData(current.HomeDir), "apimgr", appName)
 
 	default:
 		return filepath.Join(".", "data")
@@ -104,7 +108,7 @@ func GetDataDir(appName string) string {
 // GetLogsDir returns the OS-specific logs directory
 func GetLogsDir(appName string) string {
 	// Check environment variable first
-	if dir := os.Getenv("LOGS_DIR"); dir != "" {
+	if dir := os.Getenv("LOG_DIR"); dir != "" {
 		return dir
 	}
 
@@ -118,29 +122,31 @@ func GetLogsDir(appName string) string {
 		return filepath.Join(".", "logs")
 	}
 
-	isRoot := current.Uid == "0"
+	isRoot := current.Uid == "0" || (runtime.GOOS == "windows" && isWindowsAdmin())
 
 	switch runtime.GOOS {
-	case "linux", "freebsd", "openbsd", "netbsd":
+	case "linux":
 		if isRoot {
 			return filepath.Join("/var/log/apimgr", appName)
 		}
-		return filepath.Join(current.HomeDir, ".local/state/apimgr", appName)
+		return filepath.Join(current.HomeDir, ".local/log/apimgr", appName)
+	case "freebsd", "openbsd", "netbsd":
+		if isRoot {
+			return filepath.Join("/var/log/apimgr", appName)
+		}
+		return filepath.Join(current.HomeDir, ".local/log/apimgr", appName)
 
 	case "darwin":
-		appNamePascal := toPascalCase(appName)
 		if isRoot {
-			return filepath.Join("/Library/Logs/apimgr", appNamePascal)
+			return filepath.Join("/Library/Logs/apimgr", appName)
 		}
-		return filepath.Join(current.HomeDir, "Library/Logs/apimgr", appNamePascal)
+		return filepath.Join(current.HomeDir, "Library/Logs/apimgr", appName)
 
 	case "windows":
-		appNamePascal := toPascalCase(appName)
-		programData := os.Getenv("ProgramData")
-		if programData == "" {
-			programData = "C:\\ProgramData"
+		if isRoot {
+			return filepath.Join(windowsProgramData(), "apimgr", appName, "logs")
 		}
-		return filepath.Join(programData, "apimgr", appNamePascal, "logs")
+		return filepath.Join(windowsLocalAppData(current.HomeDir), "apimgr", appName, "logs")
 
 	default:
 		return filepath.Join(".", "logs")
@@ -159,16 +165,12 @@ func GetCacheDir(appName string) string {
 	if err != nil {
 		return filepath.Join(".", "cache")
 	}
-	if current.Uid == "0" {
+	if current.Uid == "0" || (runtime.GOOS == "windows" && isWindowsAdmin()) {
 		switch runtime.GOOS {
 		case "darwin":
 			return filepath.Join("/Library/Caches/apimgr", appName)
 		case "windows":
-			programData := os.Getenv("ProgramData")
-			if programData == "" {
-				programData = `C:\\ProgramData`
-			}
-			return filepath.Join(programData, "apimgr", appName, "cache")
+			return filepath.Join(windowsProgramData(), "apimgr", appName, "cache")
 		default:
 			return filepath.Join("/var/cache/apimgr", appName)
 		}
@@ -256,7 +258,7 @@ func GetBackupDirFor(appName, dataDir, flagValue string) string {
 		return filepath.Join(".", "backups")
 	}
 
-	isRoot := current.Uid == "0"
+	isRoot := current.Uid == "0" || (runtime.GOOS == "windows" && isWindowsAdmin())
 	if isDocker() {
 		return filepath.Join("/data", "backups", appName)
 	}
@@ -282,12 +284,7 @@ func systemBackupDir(appName string) string {
 		return filepath.Join("/Library/Backups", "apimgr", appName)
 
 	case "windows":
-		appNamePascal := toPascalCase(appName)
-		programData := os.Getenv("ProgramData")
-		if programData == "" {
-			programData = "C:\\ProgramData"
-		}
-		return filepath.Join(programData, "Backups", "apimgr", appNamePascal)
+		return filepath.Join(windowsProgramData(), "Backups", "apimgr", appName)
 
 	default:
 		return filepath.Join(".", "backups")

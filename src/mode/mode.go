@@ -19,11 +19,14 @@ const (
 	Production Mode = "production"
 	// Development mode - optimized for debugging and rapid iteration
 	Development Mode = "development"
+	// Debug mode adds diagnostic detail without disabling security checks.
+	Debug Mode = "debug"
 )
 
 var (
 	// currentMode holds the current application mode
-	currentMode Mode = Production
+	currentMode  Mode = Production
+	debugEnabled bool
 	// mu protects currentMode from concurrent access
 	mu sync.RWMutex
 )
@@ -34,8 +37,10 @@ var (
 func ParseMode(s string) Mode {
 	s = strings.ToLower(strings.TrimSpace(s))
 	switch s {
-	case "dev", "development":
+	case "dev", "devel", "development":
 		return Development
+	case "debug":
+		return Debug
 	case "prod", "production":
 		return Production
 	default:
@@ -62,6 +67,23 @@ func IsDevelopment() bool {
 	return Get() == Development
 }
 
+// IsDebugMode reports whether debug operating mode is selected.
+func IsDebugMode() bool { return Get() == Debug }
+
+// IsDebugEnabled reports whether diagnostic endpoints and verbose logging are enabled.
+func IsDebugEnabled() bool {
+	mu.RLock()
+	defer mu.RUnlock()
+	return debugEnabled
+}
+
+// SetDebugEnabled controls diagnostics independently of operating mode.
+func SetDebugEnabled(enabled bool) {
+	mu.Lock()
+	debugEnabled = enabled
+	mu.Unlock()
+}
+
 // IsProduction returns true if the current mode is production
 func IsProduction() bool {
 	return Get() == Production
@@ -75,7 +97,7 @@ func GetErrorDetail(err error) string {
 		return ""
 	}
 
-	if IsDevelopment() {
+	if IsDevelopment() || IsDebugMode() {
 		// Development mode: return full error details
 		return fmt.Sprintf("%+v", err)
 	}
@@ -87,14 +109,14 @@ func GetErrorDetail(err error) string {
 // ShouldShowDebugEndpoints returns true if debug endpoints should be enabled
 // Debug endpoints include /debug/pprof/*, /debug/vars
 func ShouldShowDebugEndpoints() bool {
-	return IsDevelopment()
+	return IsDebugEnabled()
 }
 
 // GetCacheHeaders returns appropriate cache headers for static files based on mode.
 // Development: no-cache headers to ensure fresh content
 // Production: appropriate cache headers for performance
 func GetCacheHeaders() map[string]string {
-	if IsDevelopment() {
+	if IsDevelopment() || IsDebugMode() {
 		// Development: disable caching
 		return map[string]string{
 			"Cache-Control": "no-cache, no-store, must-revalidate",
@@ -126,24 +148,41 @@ func ApplyCacheHeaders(w http.ResponseWriter) {
 // The mode from CLI flag should be passed as the parameter.
 // If cliMode is empty, it will check the MODE environment variable.
 func Initialize(cliMode string) {
+	InitializeWithSettings(cliMode, "", false, false)
+}
+
+// InitializeWithSettings resolves mode and debug state using CLI, environment,
+// config, and default precedence.
+func InitializeWithSettings(cliMode, configMode string, debugFlagSet, debugFlag bool) {
 	mu.Lock()
 	defer mu.Unlock()
 
-	// Priority 1: CLI flag (if provided)
 	if cliMode != "" {
 		currentMode = ParseMode(cliMode)
-		return
-	}
-
-	// Priority 2: MODE environment variable
-	envMode := os.Getenv("MODE")
-	if envMode != "" {
+	} else if envMode := os.Getenv("MODE"); envMode != "" {
 		currentMode = ParseMode(envMode)
-		return
+	} else if configMode != "" {
+		currentMode = ParseMode(configMode)
+	} else {
+		currentMode = Production
 	}
 
-	// Priority 3: Default to production
-	currentMode = Production
+	if debugFlagSet {
+		debugEnabled = debugFlag
+	} else if envDebug, ok := os.LookupEnv("DEBUG"); ok && strings.TrimSpace(envDebug) != "" {
+		debugEnabled = truthy(envDebug)
+	} else {
+		debugEnabled = currentMode == Debug
+	}
+}
+
+func truthy(value string) bool {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
 }
 
 // String returns the string representation of the mode
@@ -153,7 +192,7 @@ func (m Mode) String() string {
 
 // GetLogLevel returns the appropriate log level for the current mode
 func GetLogLevel() string {
-	if IsDevelopment() {
+	if IsDevelopment() || IsDebugMode() {
 		return "debug"
 	}
 	return "info"
@@ -161,22 +200,22 @@ func GetLogLevel() string {
 
 // ShouldCacheTemplates returns true if templates should be cached
 func ShouldCacheTemplates() bool {
-	return IsProduction()
+	return IsProduction() && !IsDebugMode()
 }
 
 // ShouldEnableAutoReload returns true if auto-reload should be enabled
 func ShouldEnableAutoReload() bool {
-	return IsDevelopment()
+	return IsDevelopment() || IsDebugMode()
 }
 
 // ShouldEnableProfiling returns true if profiling endpoints should be available
 func ShouldEnableProfiling() bool {
-	return IsDevelopment()
+	return IsDebugEnabled()
 }
 
 // GetPanicRecoveryBehavior returns a description of how panics should be handled
 func GetPanicRecoveryBehavior() string {
-	if IsDevelopment() {
+	if IsDevelopment() || IsDebugMode() {
 		return "verbose" // Full stack trace in response
 	}
 	return "graceful" // Log error, return 500, continue serving
@@ -184,17 +223,13 @@ func GetPanicRecoveryBehavior() string {
 
 // GetStartupMessage returns the appropriate startup message for the current mode
 func GetStartupMessage(version, address string) string {
-	if IsDevelopment() {
-		return fmt.Sprintf(`🔧 %s v%s [DEVELOPMENT MODE]
-   ⚠️  Debug endpoints enabled
-   ⚠️  Verbose error messages enabled
-   ⚠️  Template caching disabled
-   Mode: development
-   Listening on: %s
-   Debug: %s/debug/pprof/`, appName, version, address, address)
+	icon := "🔒"
+	if IsDevelopment() || IsDebugMode() {
+		icon = "🔧"
 	}
-
-	return fmt.Sprintf(`🚀 %s v%s
-   Mode: production
-   Listening on: %s`, appName, version, address)
+	debugSuffix := ""
+	if IsDebugEnabled() {
+		debugSuffix = " [debugging]"
+	}
+	return fmt.Sprintf("%s Running in mode: %s%s\n%s v%s\nListening on: %s", icon, Get(), debugSuffix, appName, version, address)
 }

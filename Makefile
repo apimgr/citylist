@@ -65,10 +65,11 @@ local: clean
 # Development binaries are written only into an organization-scoped temp directory.
 dev:
 	@mkdir -p "$${TMPDIR:-/tmp}/$(PROJECT_ORG)" "$(GO_CACHE)" "$(GO_BUILD)"
-	@BUILD_DIR=$$(mktemp -d "$${TMPDIR:-/tmp}/$(PROJECT_ORG)/$(INTERNAL_NAME)-XXXXXX") && \
+	@set -eu; BUILD_DIR=$$(mktemp -d "$${TMPDIR:-/tmp}/$(PROJECT_ORG)/$(INTERNAL_NAME)-XXXXXX"); \
+		echo "Development build directory: $$BUILD_DIR"; \
 		$(GO_DOCKER_RUN) -v "$$BUILD_DIR:/build" casjaysdev/go:latest sh -c 'set -eu; go mod download; \
 			go build -buildvcs=false -o /build/$(PROJECT_NAME) ./src; \
-			go build -buildvcs=false -o /build/$(PROJECT_NAME)-cli ./src/client' && \
+			go build -buildvcs=false -o /build/$(PROJECT_NAME)-cli ./src/client'; \
 		echo "Development binaries: $$BUILD_DIR/"
 
 test:
@@ -116,6 +117,8 @@ docker:
 		--annotation "org.opencontainers.image.created=$(BUILD_DATE)" \
 		--annotation "org.opencontainers.image.licenses=MIT" \
 		-t $(REGISTRY):$(VERSION) -t $(REGISTRY):latest .
+	@docker pull $(REGISTRY):$(VERSION)
+	@tests/check-image.sh $(REGISTRY):$(VERSION)
 
 clean:
 	@rm -rf $(BINDIR) $(RELDIR)

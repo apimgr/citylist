@@ -12,10 +12,10 @@ import (
 
 func TestCacheTablesIncludeEveryApplicationTable(t *testing.T) {
 	got := cacheTables()
-	if len(got) != 12 {
-		t.Fatalf("cache table count = %d, want 12: %v", len(got), got)
+	if len(got) != 13 {
+		t.Fatalf("cache table count = %d, want 13: %v", len(got), got)
 	}
-	for _, required := range []string{"owners", "api_tokens", "app_secrets", "security_reports", "project_pgp_key"} {
+	for _, required := range []string{"owners", "api_tokens", "app_secrets", "health_write_probe", "security_reports", "project_pgp_key"} {
 		found := false
 		for _, name := range got {
 			if name == required {

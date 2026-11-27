@@ -207,7 +207,11 @@ func TestContactFormTokenValidationAndSingleUseNonce(t *testing.T) {
 	if !s.consumeContactNonce("test-form:"+nonce, expiry) || s.consumeContactNonce("test-form:"+nonce, expiry) {
 		t.Fatal("contact form nonce was not single-use")
 	}
-	forged := token[:len(token)-1] + "0"
+	replacement := byte('0')
+	if token[len(token)-1] == replacement {
+		replacement = '1'
+	}
+	forged := token[:len(token)-1] + string(replacement)
 	if valid, _, _ := s.verifyContactFormToken(ctx, forged); valid {
 		t.Fatal("forged form token was accepted")
 	}

@@ -10,10 +10,12 @@ func resetMode(t *testing.T) {
 	t.Helper()
 	mu.Lock()
 	currentMode = Production
+	debugEnabled = false
 	mu.Unlock()
 	t.Cleanup(func() {
 		mu.Lock()
 		currentMode = Production
+		debugEnabled = false
 		mu.Unlock()
 	})
 }
@@ -24,11 +26,13 @@ func TestParseMode(t *testing.T) {
 		want Mode
 	}{
 		{"dev", Development},
+		{"devel", Development},
 		{"development", Development},
 		{"DEVELOPMENT", Development},
 		{"  dev  ", Development},
 		{"prod", Production},
 		{"production", Production},
+		{"debug", Debug},
 		{"", Production},
 		{"garbage", Production},
 	}
@@ -98,13 +102,43 @@ func TestShouldShowDebugEndpoints(t *testing.T) {
 	resetMode(t)
 
 	Set("development")
+	if ShouldShowDebugEndpoints() {
+		t.Error("debug endpoints must remain disabled in development mode by default")
+	}
+	SetDebugEnabled(true)
 	if !ShouldShowDebugEndpoints() {
-		t.Error("expected true in development mode")
+		t.Error("expected debug endpoints when diagnostics are enabled")
 	}
 
 	Set("production")
+	SetDebugEnabled(false)
 	if ShouldShowDebugEndpoints() {
 		t.Error("expected false in production mode")
+	}
+}
+
+func TestInitializeModeAndDebugPrecedence(t *testing.T) {
+	resetMode(t)
+	t.Setenv("MODE", "")
+	t.Setenv("DEBUG", "")
+	InitializeWithSettings("", "development", false, false)
+	if Get() != Development || IsDebugEnabled() {
+		t.Fatalf("config mode initialization = (%q, %t), want (development, false)", Get(), IsDebugEnabled())
+	}
+	t.Setenv("MODE", "debug")
+	InitializeWithSettings("", "production", false, false)
+	if Get() != Debug || !IsDebugEnabled() {
+		t.Fatalf("MODE=debug initialization = (%q, %t), want (debug, true)", Get(), IsDebugEnabled())
+	}
+	t.Setenv("DEBUG", "false")
+	InitializeWithSettings("", "production", false, false)
+	if !IsDebugMode() || IsDebugEnabled() {
+		t.Fatalf("DEBUG=false override = (%q, %t), want (debug, false)", Get(), IsDebugEnabled())
+	}
+	t.Setenv("DEBUG", "true")
+	InitializeWithSettings("production", "development", true, false)
+	if Get() != Production || IsDebugEnabled() {
+		t.Fatalf("CLI precedence = (%q, %t), want (production, false)", Get(), IsDebugEnabled())
 	}
 }
 
@@ -138,6 +172,7 @@ func TestApplyCacheHeaders(t *testing.T) {
 
 func TestInitialize(t *testing.T) {
 	resetMode(t)
+	t.Setenv("DEBUG", "")
 
 	t.Run("cli flag takes priority", func(t *testing.T) {
 		t.Setenv("MODE", "production")
@@ -222,13 +257,17 @@ func TestShouldEnableProfiling(t *testing.T) {
 	resetMode(t)
 
 	Set("development")
+	if ShouldEnableProfiling() {
+		t.Error("profiling should be disabled in development unless the debug flag is enabled")
+	}
+	SetDebugEnabled(true)
 	if !ShouldEnableProfiling() {
-		t.Error("expected true in development")
+		t.Error("profiling should be enabled when the debug flag is enabled")
 	}
 
 	Set("production")
-	if ShouldEnableProfiling() {
-		t.Error("expected false in production")
+	if !ShouldEnableProfiling() {
+		t.Error("debug diagnostics should work in production when explicitly enabled")
 	}
 }
 

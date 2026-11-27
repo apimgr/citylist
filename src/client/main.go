@@ -374,7 +374,7 @@ func runWithEnvironment(args []string, output, errorOutput io.Writer, input io.R
 			return 2
 		}
 		if mode == "tui" && !cfg.TUI.Enabled {
-			_, _ = fmt.Fprintln(errorOutput, "TUI is disabled by config")
+			_, _ = fmt.Fprintln(errorOutput, clientText(lang, "error_tui_disabled", "The TUI is disabled in the client configuration."))
 			return 2
 		}
 		if mode == "gui" && !env.HasDisplay {
@@ -429,7 +429,7 @@ func runWithEnvironment(args []string, output, errorOutput io.Writer, input io.R
 		return 0
 	}
 	if len(remaining) == 0 && !cfg.TUI.Enabled {
-		_, _ = fmt.Fprintln(errorOutput, "TUI is disabled by config; provide a command")
+		_, _ = fmt.Fprintln(errorOutput, clientText(lang, "error_tui_disabled_command", "The TUI is disabled in the client configuration; provide a command."))
 		return 2
 	}
 	if !isCLICommand(remaining[0]) {

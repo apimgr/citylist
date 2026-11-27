@@ -36,13 +36,17 @@ import (
 	"github.com/apimgr/citylist/src/common/i18n"
 	"github.com/apimgr/citylist/src/config"
 	"github.com/apimgr/citylist/src/database"
+	"github.com/apimgr/citylist/src/health"
+	"github.com/apimgr/citylist/src/mode"
 	"github.com/apimgr/citylist/src/overlay/i2p"
 	"github.com/apimgr/citylist/src/overlay/tor"
 	"github.com/apimgr/citylist/src/paths"
+	"github.com/apimgr/citylist/src/scheduler"
 	"github.com/apimgr/citylist/src/server"
 	servicepkg "github.com/apimgr/citylist/src/service"
 	"github.com/apimgr/citylist/src/updater"
 	"github.com/apimgr/citylist/src/zipcodes"
+	"github.com/shirou/gopsutil/v3/disk"
 	"golang.org/x/term"
 )
 
@@ -80,13 +84,6 @@ func main() {
 
 func runServer(args []string) {
 	setInitialServerOutputLanguage(args)
-	if len(args) > 0 && args[0] == "scheduler" {
-		if err := runSchedulerCommand(args[1:], os.Stdout); err != nil {
-			fmt.Fprintln(os.Stderr, serverOutputFormat("error_scheduler_command", "Scheduler command failed: {error}", map[string]string{"error": err.Error()}))
-			os.Exit(2)
-		}
-		return
-	}
 	if _, ok := commandHelp(args, "shell"); ok {
 		printShellHelp()
 		return
@@ -151,6 +148,7 @@ func runServer(args []string) {
 	updateRequested := false
 	i2pFlagSet := false
 	baseURLFlagSet := false
+	debugFlagSet := false
 	flag.Visit(func(item *flag.Flag) {
 		if item.Name == "update" {
 			updateRequested = true
@@ -160,6 +158,9 @@ func runServer(args []string) {
 		}
 		if item.Name == "baseurl" {
 			baseURLFlagSet = true
+		}
+		if item.Name == "debug" {
+			debugFlagSet = true
 		}
 	})
 
@@ -217,7 +218,7 @@ func runServer(args []string) {
 	if envData := os.Getenv("DATA_DIR"); envData != "" && *dataDirFlag == "" {
 		dataDir = envData
 	}
-	if envLogs := os.Getenv("LOGS_DIR"); envLogs != "" && *logsDirFlag == "" {
+	if envLogs := os.Getenv("LOG_DIR"); envLogs != "" && *logsDirFlag == "" {
 		logsDir = envLogs
 	}
 	cacheDir := paths.GetCacheDir(projectName)
@@ -442,6 +443,7 @@ func runServer(args []string) {
 	if strings.TrimSpace(cfg.Server.FQDN) == "" {
 		cfg.Server.FQDN = server.GetFQDN(projectName)
 	}
+	mode.InitializeWithSettings(*modeFlag, cfg.Server.Mode, debugFlagSet, *debug)
 	if *port != "" || os.Getenv("PORT") != "" || cfg.Server.Port == "" {
 		cfg.Server.Port = serverPort
 	}
@@ -449,7 +451,13 @@ func runServer(args []string) {
 		cfg.Server.Address = serverAddress
 	}
 	cfg.Server.Logs.Audit.Keep = effectiveAuditRetention(cfg.Server.Compliance, cfg.Server.Logs.Audit.Keep)
-	if err := configureLogs(logsDir, cfg.Server.Mode, cfg.Server.Logs); err != nil {
+	logMode := mode.Get().String()
+	effectiveLogs := cfg.Server.Logs
+	if mode.IsDebugEnabled() || mode.IsDebugMode() {
+		logMode = "debug"
+		effectiveLogs.Level = "debug"
+	}
+	if err := configureLogs(logsDir, logMode, effectiveLogs); err != nil {
 		log.Fatal(serverOutputFormat("error_configure_logging", "Failed to configure logging: {error}", map[string]string{"error": err.Error()}))
 	}
 	for _, key := range cfg.GeneratedSecrets {
@@ -488,12 +496,6 @@ func runServer(args []string) {
 		}
 	}
 
-	// Handle mode flag
-	if *modeFlag != "" {
-		setApplicationMode(*modeFlag, configPath)
-		return
-	}
-
 	// Handle maintenance commands
 	if *maintenanceCmd != "" {
 		handleMaintenanceCommand(*maintenanceCmd, configDir, dataDir, logsDir, backupDir, configPath, cfg, *includeSSL, *includeData)
@@ -518,32 +520,63 @@ func runServer(args []string) {
 	}
 	if !systemMode && cfg.Server.Database.Driver == "sqlite" {
 		if err := paths.EnsurePrivateDir(databaseDir); err != nil {
-			log.Fatal(serverOutputFormat("error_database_directory", "Failed to secure database directory {path}: {error}", map[string]string{"path": databaseDir, "error": err.Error()}))
+			log.Printf("database directory preparation failed; database startup will retry: %v", err)
 		}
 	}
+	var databaseUnavailable atomic.Bool
 	store, err := openConfiguredDatabase(cfg, dataDir)
 	if err != nil {
-		log.Fatal(serverOutputFormat("error_open_database", "Failed to open database: {error}", map[string]string{"error": err.Error()}))
-	}
-	if err := store.EnsureSchema(context.Background()); err != nil {
-		_ = store.StartCacheSync(context.Background())
-		if !store.UsingOfflineCache() {
-			_ = store.Close()
-			log.Fatal(serverOutputFormat("error_initialize_database_schema", "Failed to initialize database schema: {error}", map[string]string{"error": err.Error()}))
+		databaseUnavailable.Store(true)
+		log.Printf("database open failed; starting in maintenance mode and retrying: %v", err)
+		store, err = database.OpenSQLiteMemory(database.DefaultPoolConfig())
+		if err != nil {
+			log.Fatal("unable to create database fallback for startup")
 		}
-		log.Print("Remote database unavailable; starting with the existing read-only SQLite cache")
-	} else if err := store.StartCacheSync(context.Background()); err != nil {
-		_ = store.Close()
-		log.Fatal(serverOutputFormat("error_initialize_database_schema", "Failed to initialize database schema: {error}", map[string]string{"error": err.Error()}))
 	}
-	if err := server.InitializeInstallationSecret(context.Background(), store); err != nil && !store.UsingOfflineCache() {
+	if schemaErr := store.EnsureSchema(context.Background()); schemaErr != nil {
+		databaseUnavailable.Store(true)
+		log.Printf("database schema initialization failed; starting in maintenance mode and retrying: %v", schemaErr)
+		_ = store.StartCacheSync(context.Background())
+		if !store.UsingOfflineCache() && !store.HasLocalCache() {
+			fallback, fallbackErr := database.OpenSQLiteMemory(database.DefaultPoolConfig())
+			if fallbackErr != nil {
+				log.Fatal("unable to create database fallback for startup")
+			}
+			if fallbackErr = fallback.EnsureSchema(context.Background()); fallbackErr != nil {
+				_ = fallback.Close()
+				log.Fatal("unable to initialize database fallback for startup")
+			}
+			if replaceErr := store.ReplaceWith(fallback); replaceErr != nil {
+				_ = fallback.Close()
+				log.Fatal("unable to activate database fallback for startup")
+			}
+		}
+	} else if cacheErr := store.StartCacheSync(context.Background()); cacheErr != nil {
+		databaseUnavailable.Store(true)
+		log.Printf("database cache initialization failed; starting in maintenance mode and retrying: %v", cacheErr)
+		if !store.HasLocalCache() {
+			fallback, fallbackErr := database.OpenSQLiteMemory(database.DefaultPoolConfig())
+			if fallbackErr != nil {
+				log.Fatal("unable to create database fallback for startup")
+			}
+			if fallbackErr = fallback.EnsureSchema(context.Background()); fallbackErr != nil {
+				_ = fallback.Close()
+				log.Fatal("unable to initialize database fallback for startup")
+			}
+			if replaceErr := store.ReplaceWith(fallback); replaceErr != nil {
+				_ = fallback.Close()
+				log.Fatal("unable to activate database fallback for startup")
+			}
+		}
+	}
+	if err := server.InitializeInstallationSecret(context.Background(), store); err != nil && !store.UsingOfflineCache() && !databaseUnavailable.Load() {
 		_ = store.Close()
 		log.Fatal(serverOutputFormat("error_initialize_installation_secret", "Failed to initialize installation secret: {error}", map[string]string{"error": err.Error()}))
 	}
 	rotationCtx, rotationCancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	if err := server.ResumeSecretRotationsWithAudit(rotationCtx, configPath, configDir, cfg, store, func(event string) error {
 		return writeAuditEvent(event, "warn", "success", "scheduler", "127.0.0.1", map[string]string{"type": "configuration", "id": event}, map[string]any{"reason": "completed interrupted secret rotation"})
-	}); err != nil && !store.UsingOfflineCache() {
+	}); err != nil && !store.UsingOfflineCache() && !databaseUnavailable.Load() {
 		rotationCancel()
 		_ = store.Close()
 		log.Fatal(serverOutputFormat("error_resume_secret_rotation", "Failed to resume secret rotation: {error}", map[string]string{"error": err.Error()}))
@@ -573,6 +606,9 @@ func runServer(args []string) {
 		log.Fatal(serverOutputFormat("error_zip_service_init", "Failed to initialize US postal service: {error}", map[string]string{"error": err.Error()}))
 	}
 	log.Print(serverOutputFormat("startup_zipcodes_loaded", "Loaded {count} US postal codes", map[string]string{"count": strconv.Itoa(postalService.Count())}))
+	if err := health.Refresh(); err != nil {
+		log.Printf("initial dataset health refresh failed: %v", err)
+	}
 
 	// Set build info for server
 	server.Version = Version
@@ -581,7 +617,7 @@ func runServer(args []string) {
 
 	// Create and start server
 	srv := server.NewWithDatabase(citiesService, postalService, cfg, serverAddress, serverPort, Version, BuildDate, Commit, store)
-	if err := srv.MigrateOwnerTokenLast4(context.Background()); err != nil && !store.UsingOfflineCache() {
+	if err := srv.MigrateOwnerTokenLast4(context.Background()); err != nil && !store.UsingOfflineCache() && !databaseUnavailable.Load() {
 		_ = store.Close()
 		log.Fatal(serverOutputFormat("error_migrate_owner_token_suffix", "Failed to migrate owner-token metadata: {error}", map[string]string{"error": err.Error()}))
 	}
@@ -659,7 +695,109 @@ func runServer(args []string) {
 	operatorNotify := operatorEventNotifier(func(notifyContext context.Context, event string, details map[string]string) error {
 		return server.NotifyOperatorWithVersion(notifyContext, cfg, event, details, Version)
 	})
-	healthTasks := map[string]func() error{}
+	var appScheduler *scheduler.Scheduler
+	var appSchedulerMu sync.RWMutex
+	var recoverDatabase func(context.Context) error
+	healthTasks := map[string]func() error{
+		"dataset_health": health.Refresh,
+		"maintenance_health": func() error {
+			if !srv.MaintenanceActive() {
+				if usage, err := disk.Usage(dataDir); err == nil && usage.UsedPercent >= float64(cfg.Server.Maintenance.Cleanup.DiskThreshold) {
+					if err := cleanupDiskPressure(ctx, logsDir, backupDir, dataDir, cfg); err != nil {
+						log.Printf("maintenance cleanup failed: %v", err)
+					}
+				}
+				if err := health.Refresh(); err != nil {
+					return err
+				}
+				transition := srv.RefreshMaintenance()
+				return notifyMaintenanceTransition(ctx, cfg, operatorNotify, transition)
+			}
+			attempt := srv.BeginMaintenanceAttempt()
+			if attempt.Exhausted {
+				return notifyMaintenanceTransition(ctx, cfg, operatorNotify, attempt)
+			}
+			if attempt.State != nil && !attempt.Attempted {
+				return nil
+			}
+			if databaseUnavailable.Load() && attempt.Attempted {
+				recoveryContext, cancel := context.WithTimeout(ctx, 30*time.Second)
+				recoveryErr := recoverDatabase(recoveryContext)
+				cancel()
+				if recoveryErr != nil {
+					log.Printf("database self-healing attempt failed: %v", recoveryErr)
+				}
+			}
+			if attempt.State != nil && attempt.State.Reason == "disk_full" {
+				if err := cleanupDiskPressure(ctx, logsDir, backupDir, dataDir, cfg); err != nil {
+					log.Printf("maintenance cleanup failed: %v", err)
+				}
+			}
+			if err := health.Refresh(); err != nil {
+				log.Printf("maintenance health refresh failed: %v", err)
+			}
+			transition := srv.RefreshMaintenance()
+			if transition.Entered {
+				return notifyMaintenanceTransition(ctx, cfg, operatorNotify, transition)
+			}
+			if transition.Recovered {
+				return notifyMaintenanceTransition(ctx, cfg, operatorNotify, transition)
+			}
+			if cfg.Server.Maintenance.SelfHealing.MaxAttempts > 0 && attempt.State != nil && attempt.State.SelfHealing.Attempts >= cfg.Server.Maintenance.SelfHealing.MaxAttempts {
+				transition = srv.BeginMaintenanceAttempt()
+				return notifyMaintenanceTransition(ctx, cfg, operatorNotify, transition)
+			}
+			return nil
+		},
+	}
+	recoverDatabase = func(recoveryContext context.Context) error {
+		if store.HasLocalCache() {
+			if err := store.RetryRemote(recoveryContext); err != nil {
+				return err
+			}
+		} else {
+			candidate, openErr := openConfiguredDatabase(cfg, dataDir)
+			if openErr != nil {
+				return openErr
+			}
+			if err := candidate.EnsureSchema(recoveryContext); err != nil {
+				_ = candidate.Close()
+				return err
+			}
+			if err := store.ReplaceWith(candidate); err != nil {
+				_ = candidate.Close()
+				return err
+			}
+			if err := store.StartCacheSync(recoveryContext); err != nil {
+				return err
+			}
+			if store.UsingOfflineCache() {
+				return errors.New("remote database remains unavailable")
+			}
+		}
+		if err := server.InitializeInstallationSecret(recoveryContext, store); err != nil {
+			return err
+		}
+		if err := srv.MigrateOwnerTokenLast4(recoveryContext); err != nil {
+			return err
+		}
+		fullScheduler, err := newApplicationScheduler(cfg, configDir, dataDir, logsDir, backupDir, store, ctx, healthTasks, srv.RefreshBrandingImages, operatorNotify)
+		if err != nil {
+			return fmt.Errorf("restore scheduled tasks after database recovery: %w", err)
+		}
+		appSchedulerMu.Lock()
+		previousScheduler := appScheduler
+		appScheduler = fullScheduler
+		srv.SetScheduler(fullScheduler)
+		appSchedulerMu.Unlock()
+		fullScheduler.Start()
+		initializeSecurityData(fullScheduler, cfg, dataDir, true)
+		databaseUnavailable.Store(false)
+		if previousScheduler != nil {
+			go previousScheduler.Stop()
+		}
+		return nil
+	}
 	if torManager != nil && torManager.Snapshot().Enabled {
 		healthTasks["tor_health"] = func() error {
 			if status := torManager.Snapshot().Status; status == "unavailable" {
@@ -679,12 +817,69 @@ func runServer(args []string) {
 			return nil
 		}
 	}
-	appScheduler, err := newApplicationScheduler(cfg, configDir, dataDir, logsDir, backupDir, store, ctx, healthTasks, srv.RefreshBrandingImages, operatorNotify)
+	appScheduler, err = newApplicationSchedulerWithMode(cfg, configDir, dataDir, logsDir, backupDir, store, ctx, healthTasks, srv.RefreshBrandingImages, databaseUnavailable.Load(), operatorNotify)
 	if err != nil {
 		_ = store.Close()
 		log.Fatal(serverOutputFormat("error_scheduler_init", "Failed to initialize scheduler: {error}", map[string]string{"error": err.Error()}))
 	}
-	appScheduler.Start()
+	appSchedulerMu.Lock()
+	srv.SetScheduler(appScheduler)
+	appSchedulerMu.Unlock()
+	health.Register("database", true, func() (string, error) {
+		if databaseUnavailable.Load() {
+			return "error", errors.New("database startup recovery is still in progress")
+		}
+		checkContext, cancel := context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
+		err := store.ProbeWrite(checkContext)
+		if err != nil {
+			databaseUnavailable.Store(true)
+			return "error", err
+		}
+		return "ok", nil
+	})
+	health.Register("cache", false, func() (string, error) {
+		if store.UsingOfflineCache() {
+			return "degraded", nil
+		}
+		return "ok", nil
+	})
+	health.Register("disk", true, func() (string, error) {
+		if err := probeDataDirectoryWrite(dataDir); err != nil {
+			return "error", err
+		}
+		usage, usageErr := disk.Usage(dataDir)
+		if usageErr != nil {
+			return "error", usageErr
+		}
+		if usage.UsedPercent >= 95 {
+			return "error", errors.New("data filesystem is full")
+		}
+		if usage.UsedPercent >= 90 {
+			return "degraded", nil
+		}
+		return "ok", nil
+	})
+	health.Register("scheduler", false, func() (string, error) {
+		appSchedulerMu.RLock()
+		currentScheduler := appScheduler
+		appSchedulerMu.RUnlock()
+		if currentScheduler == nil {
+			return "error", errors.New("scheduler is unavailable")
+		}
+		return "ok", nil
+	})
+	if err := health.Refresh(); err != nil {
+		log.Printf("initial health refresh failed: %v", err)
+	}
+	transition := srv.RefreshMaintenance()
+	if transition.Entered {
+		_ = notifyMaintenanceTransition(ctx, cfg, operatorNotify, transition)
+	}
+	appSchedulerMu.RLock()
+	initialScheduler := appScheduler
+	appSchedulerMu.RUnlock()
+	initialScheduler.Start()
 	go func() {
 		refreshContext, cancel := context.WithTimeout(ctx, 2*time.Minute)
 		defer cancel()
@@ -692,7 +887,10 @@ func runServer(args []string) {
 			log.Printf("branding.image_initial_refresh_failed error=%v", refreshErr)
 		}
 	}()
-	initializeSecurityData(appScheduler, cfg, dataDir)
+	initializeSecurityData(initialScheduler, cfg, dataDir, !databaseUnavailable.Load())
+	if err := health.Refresh(); err != nil {
+		log.Printf("security dataset health refresh failed: %v", err)
+	}
 
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
@@ -729,7 +927,13 @@ func runServer(args []string) {
 		if baseURLFlagSet {
 			next.Server.BaseURL = *baseURL
 		}
-		if err := configureLogs(logsDir, next.Server.Mode, next.Server.Logs); err != nil {
+		effectiveLogs := next.Server.Logs
+		modeName := mode.Get().String()
+		if mode.IsDebugEnabled() || mode.IsDebugMode() {
+			modeName = "debug"
+			effectiveLogs.Level = "debug"
+		}
+		if err := configureLogs(logsDir, modeName, effectiveLogs); err != nil {
 			return fmt.Errorf("configure reloaded logs: %w", err)
 		}
 		if err := server.ConfigureAccessLog(logsDir, next.Server.Logs); err != nil {
@@ -756,21 +960,29 @@ func runServer(args []string) {
 	if err != nil {
 		log.Print(serverOutputFormat("error_config_watcher", "Unable to start configuration watcher: {error}", map[string]string{"error": err.Error()}))
 	} else {
+		srv.SetConfigWatcher(watcher)
 		go watcher.Run(ctx)
 	}
 
 	addr := net.JoinHostPort(strings.Trim(serverAddress, "[]"), strings.Split(serverPort, ",")[0])
+	log.Print(mode.GetStartupMessage(Version, addr))
 	log.Print(serverOutputFormat("startup_listening", "Starting citylist server on {address}", map[string]string{"address": addr}))
 
 	if torManager != nil && torManager.Listener() != nil {
 		privilegedListeners = append(privilegedListeners, torManager.Listener())
 	}
 	if err := srv.RunListeners(ctx, addr, privilegedListeners); err != nil {
-		appScheduler.Stop()
+		appSchedulerMu.RLock()
+		currentScheduler := appScheduler
+		appSchedulerMu.RUnlock()
+		currentScheduler.Stop()
 		_ = store.Close()
 		log.Fatal(serverOutputFormat("error_server", "Server error: {error}", map[string]string{"error": err.Error()}))
 	}
-	appScheduler.Stop()
+	appSchedulerMu.RLock()
+	currentScheduler := appScheduler
+	appSchedulerMu.RUnlock()
+	currentScheduler.Stop()
 	if err := store.Close(); err != nil {
 		log.Fatal(serverOutputFormat("error_close_database", "Failed to close database: {error}", map[string]string{"error": err.Error()}))
 	}
@@ -998,7 +1210,7 @@ Run '{binary} <flag> --help' (for example '{binary} --service --help') for comma
 	message = strings.ReplaceAll(message, "{binary}", binaryName)
 	message = strings.ReplaceAll(message, "{version}", Version)
 	fmt.Println(message)
-	fmt.Printf("\n%s:\n  %s\n", schedulerMessage("scheduler_heading", "Scheduler"), schedulerMessage("scheduler_help_short", "scheduler {list|show|run|enable|disable|history}"))
+	fmt.Printf("\n%s:\n  %s\n", schedulerMessage("scheduler_heading", "Scheduler"), schedulerMessage("scheduler_help_short", "--maintenance scheduler {list|show|run|enable|disable|history}"))
 }
 
 func maintenanceHelpRequested(args []string) bool {
@@ -1145,6 +1357,11 @@ func handleMaintenanceCommand(cmd, configDir, dataDir, logsDir, backupDir, confi
 		}
 		if err := runBackupCommand(configPath, configDir, dataDir, backupDir, backupFile, cfg, includeSSL, includeData); err != nil {
 			log.Fatal(serverOutputFormat("error_backup", "Backup failed: {error}", map[string]string{"error": err.Error()}))
+		}
+	case "scheduler":
+		if err := runSchedulerCommand(args, os.Stdout); err != nil {
+			fmt.Fprintln(os.Stderr, serverOutputFormat("error_scheduler_command", "Scheduler command failed: {error}", map[string]string{"error": err.Error()}))
+			os.Exit(2)
 		}
 	case "restore":
 		if len(args) == 0 {

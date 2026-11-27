@@ -371,7 +371,7 @@ func renderComplianceSummary(output io.Writer, cfg *config.Config, owners, token
 	if auditKeep == "" {
 		auditKeep = "none"
 	}
-	if _, err := fmt.Fprintf(output, "Retention: audit logs %s; security reports %d days; startup log cleanup %d days; backups keep %d\n", auditKeep, cfg.Server.Security.Reports.RetentionDays, cfg.Server.Maintenance.Cleanup.LogRetentionDays, cfg.Server.Maintenance.Cleanup.BackupKeepCount); err != nil {
+	if _, err := fmt.Fprintf(output, "Retention: audit logs %s; security reports %d days; logs %d days; backups keep %d; disk cleanup at %d%%\n", auditKeep, cfg.Server.Security.Reports.RetentionDays, cfg.Server.Maintenance.Cleanup.LogRetentionDays, cfg.Server.Backup.Retention.MaxBackups, cfg.Server.Maintenance.Cleanup.DiskThreshold); err != nil {
 		return err
 	}
 	if _, err := fmt.Fprintf(output, "Owners: %d\nResources: 0\nActive tokens: %d\nOpen security reports: %d\nCompliance events (30 days): %d\n", owners, tokens, reports, events); err != nil {

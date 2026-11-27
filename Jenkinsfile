@@ -699,6 +699,7 @@ pipeline {
                             --push \
                             .
                     """
+                    sh "docker pull ${REGISTRY}:${COMMIT_ID} && tests/check-image.sh ${REGISTRY}:${COMMIT_ID}"
                 }
             }
         }
@@ -754,6 +755,7 @@ pipeline {
                             --push \
                             .
                     """
+                    sh "docker pull ${REGISTRY}:devel && tests/check-image.sh ${REGISTRY}:devel"
                 }
             }
         }

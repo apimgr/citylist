@@ -718,6 +718,8 @@ docker:build:
         $TAGS \
         --push \
         .
+    - docker pull "$CI_REGISTRY_IMAGE:${CI_COMMIT_SHA:0:7}"
+    - tests/check-image.sh "$CI_REGISTRY_IMAGE:${CI_COMMIT_SHA:0:7}"
   rules:
     - if: $CI_COMMIT_TAG =~ /^v?\d+\.\d+\.\d+$/
     - if: $CI_COMMIT_BRANCH == "main"
@@ -780,6 +782,8 @@ docker:devel:
         -t $CI_REGISTRY_IMAGE:devel \
         --push \
         .
+    - docker pull "$CI_REGISTRY_IMAGE:devel"
+    - tests/check-image.sh "$CI_REGISTRY_IMAGE:devel"
   rules:
     - if: $CI_COMMIT_TAG
       when: never

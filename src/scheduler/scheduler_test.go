@@ -333,7 +333,7 @@ func TestParseInterval(t *testing.T) {
 func TestValidateSchedule(t *testing.T) {
 	valid := []string{
 		"0 2 * * *", "0 3 * * 0", "*/15 * * * *", "1-5/2 0,12 * jan-dec mon-fri",
-		"@hourly", "@daily", "@weekly", "@monthly", "@every 15m", "@every 2h",
+		"@hourly", "@daily", "@weekly", "@monthly", "@every 15m", "@every 2h", "@every 30s", "@every 60s",
 	}
 	for _, expression := range valid {
 		if err := ValidateSchedule(expression); err != nil {
@@ -385,6 +385,12 @@ func TestNextOccurrence(t *testing.T) {
 			expression: "@every 15m",
 			after:      time.Date(2025, time.January, 2, 2, 59, 0, 0, location),
 			want:       time.Date(2025, time.January, 2, 3, 14, 0, 0, location),
+		},
+		{
+			name:       "seconds interval",
+			expression: "@every 30s",
+			after:      time.Date(2025, time.January, 2, 2, 59, 0, 0, location),
+			want:       time.Date(2025, time.January, 2, 2, 59, 30, 0, location),
 		},
 	}
 	for _, test := range tests {

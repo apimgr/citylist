@@ -2283,3 +2283,105 @@ body:has(#nav-toggle:checked) {
         color: var(--color-on-error);
     }
 }
+
+.health-page .page-header {
+    margin-block-end: var(--space-6);
+}
+
+.health-page .page-header > :last-child {
+    color: var(--color-text-secondary);
+}
+
+.status-banner {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    margin-block: var(--space-4);
+    padding: var(--space-4) var(--space-5);
+    border: 1px solid currentColor;
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-xl);
+}
+
+.status-ok {
+    color: var(--color-success);
+}
+
+.status-warning {
+    color: var(--color-warning);
+}
+
+.status-error {
+    color: var(--color-error);
+}
+
+.status-muted {
+    color: var(--color-muted);
+}
+
+.health-page .badge {
+    display: inline-block;
+    padding: 0.15em 0.6em;
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
+}
+
+.health-page .info-list {
+    display: grid;
+    grid-template-columns: minmax(10rem, 1fr) 2fr;
+    gap: var(--space-2) var(--space-4);
+}
+
+.health-page .info-list dt {
+    color: var(--color-text-secondary);
+}
+
+.health-page .info-list dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+.health-page .feature-list {
+    display: grid;
+    gap: var(--space-3);
+    margin: 0;
+    padding-inline-start: var(--space-5);
+}
+
+.health-page .table-wrapper {
+    overflow-x: auto;
+}
+
+.health-page .data-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.health-page .data-table th,
+.health-page .data-table td {
+    padding: var(--space-3);
+    border-block-end: 1px solid var(--color-border);
+    text-align: start;
+}
+
+.health-page .data-table tbody th {
+    font-weight: 500;
+}
+
+.health-page .stats-grid dd {
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+}
+
+@media (max-width: 40rem) {
+    .health-page .info-list {
+        grid-template-columns: 1fr;
+        gap: var(--space-1);
+    }
+
+    .health-page .info-list dd + dt {
+        margin-block-start: var(--space-3);
+    }
+}

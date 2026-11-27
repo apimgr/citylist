@@ -33,12 +33,16 @@ func ValidateSchedule(expression string) error {
 	}
 	if strings.HasPrefix(expression, "@every ") {
 		interval := strings.TrimSpace(strings.TrimPrefix(expression, "@every "))
-		if len(interval) < 2 || (interval[len(interval)-1] != 'm' && interval[len(interval)-1] != 'h') {
-			return fmt.Errorf("interval must use minutes or hours")
+		if len(interval) < 2 || (interval[len(interval)-1] != 's' && interval[len(interval)-1] != 'm' && interval[len(interval)-1] != 'h') {
+			return fmt.Errorf("interval must use seconds, minutes, or hours")
 		}
 		amount, err := strconv.Atoi(interval[:len(interval)-1])
-		if err != nil || amount <= 0 {
-			return fmt.Errorf("interval must be a positive number of minutes or hours")
+		minimum := 1
+		if interval[len(interval)-1] == 's' {
+			minimum = 10
+		}
+		if err != nil || amount < minimum {
+			return fmt.Errorf("interval must be at least %d %s", minimum, map[byte]string{'s': "seconds", 'm': "minutes", 'h': "hours"}[interval[len(interval)-1]])
 		}
 		return nil
 	}
@@ -66,7 +70,10 @@ func NextOccurrence(expression string, after time.Time, location *time.Location)
 		interval := strings.TrimSpace(strings.TrimPrefix(expression, "@every "))
 		amount, _ := strconv.Atoi(interval[:len(interval)-1])
 		unit := time.Minute
-		if interval[len(interval)-1] == 'h' {
+		switch interval[len(interval)-1] {
+		case 's':
+			unit = time.Second
+		case 'h':
 			unit = time.Hour
 		}
 		return after.In(location).Add(time.Duration(amount) * unit), nil
@@ -225,6 +232,9 @@ type Task struct {
 	FailCount   uint64
 	running     bool
 }
+
+// IsRunning reports whether the scheduler is currently executing this task.
+func (t Task) IsRunning() bool { return t.running }
 
 // SetRetryPolicy configures bounded exponential retries for a registered task.
 func (s *Scheduler) SetRetryPolicy(name string, enabled bool, delay time.Duration) error {

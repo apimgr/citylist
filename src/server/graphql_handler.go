@@ -100,5 +100,5 @@ func (s *Server) handleGraphQL(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleGraphQLDocs(w http.ResponseWriter, r *http.Request) {
-	s.renderPage(w, r, "graphql.html", nil)
+	s.renderPage(w, r, "graphql.tmpl", nil)
 }

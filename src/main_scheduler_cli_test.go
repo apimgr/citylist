@@ -19,7 +19,7 @@ func TestRunSchedulerCommandUsesConfiguredRuntimeDirectories(t *testing.T) {
 	configDir := filepath.Join(root, "config")
 	dataDir := filepath.Join(root, "data")
 	logsDir := filepath.Join(root, "logs")
-	for key, value := range map[string]string{"CONFIG_DIR": configDir, "DATA_DIR": dataDir, "LOGS_DIR": logsDir} {
+	for key, value := range map[string]string{"CONFIG_DIR": configDir, "DATA_DIR": dataDir, "LOG_DIR": logsDir} {
 		t.Setenv(key, value)
 	}
 	t.Setenv("DATABASE_DIR", filepath.Join(dataDir, "db"))
@@ -48,7 +48,7 @@ func TestRunSchedulerCommandHelpAndMissingConfiguration(t *testing.T) {
 		t.Fatalf("scheduler help = %q, %v", output.String(), err)
 	}
 	root := mainProjectTempDir(t)
-	for key, value := range map[string]string{"CONFIG_DIR": filepath.Join(root, "config"), "DATA_DIR": filepath.Join(root, "data"), "LOGS_DIR": filepath.Join(root, "logs")} {
+	for key, value := range map[string]string{"CONFIG_DIR": filepath.Join(root, "config"), "DATA_DIR": filepath.Join(root, "data"), "LOG_DIR": filepath.Join(root, "logs")} {
 		t.Setenv(key, value)
 	}
 	if err := runSchedulerCommand([]string{"list"}, &output); err == nil || !strings.Contains(strings.ToLower(err.Error()), "configuration file not found") {

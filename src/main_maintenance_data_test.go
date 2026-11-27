@@ -125,6 +125,7 @@ func TestRenderComplianceSummaryIncludesEffectiveRetentionAndCounts(t *testing.T
 	cfg.Server.Compliance.GDPR = true
 	cfg.Server.Compliance.HIPAA = true
 	cfg.Server.Logs.Audit.Keep = "none"
+	cfg.Server.Backup.Retention.MaxBackups = 5
 	var out bytes.Buffer
 	backup := sql.NullInt64{Int64: time.Now().Unix(), Valid: true}
 	if err := renderComplianceSummary(&out, cfg, 2, 3, 4, 5, backup); err != nil {

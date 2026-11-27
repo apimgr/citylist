@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -25,9 +26,11 @@ const (
 
 // Store owns the read-only and single-writer SQLite pools for one database.
 type Store struct {
+	dbMu    sync.RWMutex
 	writeDB *sql.DB
 	readDB  *sql.DB
 	remote  bool
+	memory  bool
 	cache   *localCache
 }
 
@@ -138,6 +141,61 @@ func OpenSQLite(path string, pool PoolConfig) (*Store, error) {
 	return store, nil
 }
 
+// OpenSQLiteMemory creates a private in-process database for read-only startup fallback.
+func OpenSQLiteMemory(pool PoolConfig) (*Store, error) {
+	if pool.MaxOpen < 1 {
+		pool.MaxOpen = 25
+	}
+	if pool.MaxIdle < 0 {
+		return nil, errors.New("database pool max_idle must not be negative")
+	}
+	maxLifetime, err := parseDuration(pool.MaxLifetime, 5*time.Minute)
+	if err != nil {
+		return nil, fmt.Errorf("invalid database pool max_lifetime: %w", err)
+	}
+	maxIdleTime, err := parseDuration(pool.MaxIdleTime, time.Minute)
+	if err != nil {
+		return nil, fmt.Errorf("invalid database pool max_idle_time: %w", err)
+	}
+	name := "citylist-fallback-" + uuid.NewString()
+	writeDB, err := sql.Open("sqlite", sqliteMemoryDSN(name, false))
+	if err != nil {
+		return nil, fmt.Errorf("open fallback SQLite writer: %w", err)
+	}
+	writeDB.SetMaxOpenConns(1)
+	writeDB.SetMaxIdleConns(1)
+	readDB, err := sql.Open("sqlite", sqliteMemoryDSN(name, true))
+	if err != nil {
+		_ = writeDB.Close()
+		return nil, fmt.Errorf("open fallback SQLite reader: %w", err)
+	}
+	readDB.SetMaxOpenConns(pool.MaxOpen)
+	readDB.SetMaxIdleConns(min(pool.MaxOpen, pool.MaxIdle))
+	readDB.SetConnMaxLifetime(maxLifetime)
+	readDB.SetConnMaxIdleTime(maxIdleTime)
+	store := &Store{writeDB: writeDB, readDB: readDB, memory: true}
+	if err := store.ping(); err != nil {
+		_ = readDB.Close()
+		_ = writeDB.Close()
+		return nil, err
+	}
+	return store, nil
+}
+
+func sqliteMemoryDSN(name string, readOnly bool) string {
+	query := url.Values{}
+	query.Set("mode", "memory")
+	query.Set("cache", "shared")
+	query.Add("_pragma", "busy_timeout(10000)")
+	query.Add("_pragma", "foreign_keys(1)")
+	if readOnly {
+		query.Add("_pragma", "query_only(1)")
+	} else {
+		query.Set("_txlock", "immediate")
+	}
+	return "file:" + name + "?" + query.Encode()
+}
+
 func parseDuration(value string, fallback time.Duration) (time.Duration, error) {
 	if strings.TrimSpace(value) == "" {
 		return fallback, nil
@@ -228,6 +286,8 @@ func (s *Store) Read(ctx context.Context, fn func(context.Context, Reader) error
 	if fn == nil {
 		return errors.New("database read callback is required")
 	}
+	s.dbMu.RLock()
+	defer s.dbMu.RUnlock()
 	ctx, cancel := context.WithTimeout(ctx, defaultReadTimeout)
 	defer cancel()
 	if err := ctx.Err(); err != nil {
@@ -253,7 +313,10 @@ func (s *Store) HasColumn(ctx context.Context, table, column string) (bool, erro
 	if !simpleIdentifier(table) || !simpleIdentifier(column) {
 		return false, errors.New("database table and column names must be simple identifiers")
 	}
-	if s.remote {
+	s.dbMu.RLock()
+	remote := s.remote
+	s.dbMu.RUnlock()
+	if remote {
 		table = DatabaseObjectName(table, "libsql")
 	}
 	found := false
@@ -296,6 +359,8 @@ func (s *Store) Write(ctx context.Context, fn func(*sql.Tx) error) error {
 	if fn == nil {
 		return errors.New("database write callback is required")
 	}
+	s.dbMu.RLock()
+	defer s.dbMu.RUnlock()
 	if s.cache != nil {
 		s.cache.mu.RLock()
 		offline := s.cache.offline
@@ -355,12 +420,59 @@ func (s *Store) Write(ctx context.Context, fn func(*sql.Tx) error) error {
 	return err
 }
 
+// ProbeWrite updates the dedicated health metadata row to verify writes work.
+func (s *Store) ProbeWrite(ctx context.Context) error {
+	return s.Write(ctx, func(tx *sql.Tx) error {
+		result, err := tx.ExecContext(ctx, `UPDATE health_write_probe SET checked_at = ? WHERE id = 1`, time.Now().UnixNano())
+		if err != nil {
+			return err
+		}
+		changed, err := result.RowsAffected()
+		if err != nil {
+			return err
+		}
+		if changed != 1 {
+			return errors.New("health write probe row is missing")
+		}
+		return nil
+	})
+}
+
+// ReplaceWith atomically switches this store to a recovered database connection.
+func (s *Store) ReplaceWith(replacement *Store) error {
+	if s == nil || replacement == nil || s == replacement {
+		return errors.New("database replacement requires two distinct stores")
+	}
+	s.dbMu.Lock()
+	replacement.dbMu.Lock()
+	if s.cache != nil {
+		replacement.dbMu.Unlock()
+		s.dbMu.Unlock()
+		return errors.New("cannot replace a store while its cache is active")
+	}
+	oldRead, oldWrite := s.readDB, s.writeDB
+	s.readDB, s.writeDB, s.remote, s.memory, s.cache = replacement.readDB, replacement.writeDB, replacement.remote, replacement.memory, replacement.cache
+	replacement.readDB, replacement.writeDB, replacement.remote, replacement.memory, replacement.cache = nil, nil, false, false, nil
+	replacement.dbMu.Unlock()
+	s.dbMu.Unlock()
+	return errors.Join(closeDatabase(oldRead), closeDatabase(oldWrite))
+}
+
+func closeDatabase(db *sql.DB) error {
+	if db == nil {
+		return nil
+	}
+	return db.Close()
+}
+
 // Snapshot creates a consistent SQLite snapshot through the serialized write
 // handle. Remote databases cannot be snapshotted through this local file API.
 func (s *Store) Snapshot(ctx context.Context, destination string) error {
 	if s == nil {
 		return errors.New("SQLite snapshot requires a local database")
 	}
+	s.dbMu.RLock()
+	defer s.dbMu.RUnlock()
 	if s.remote {
 		if s.cache == nil {
 			return errors.New("remote database has no local cache snapshot")
@@ -407,7 +519,12 @@ func (s *Store) Snapshot(ctx context.Context, destination string) error {
 
 // HasLocalSnapshot reports whether this store has a local SQLite database that can be backed up.
 func (s *Store) HasLocalSnapshot() bool {
-	return s != nil && (!s.remote || s.cache != nil)
+	if s == nil {
+		return false
+	}
+	s.dbMu.RLock()
+	defer s.dbMu.RUnlock()
+	return !s.remote || s.cache != nil
 }
 
 func (s *Store) writeOnce(ctx context.Context, fn func(*sql.Tx) error) error {
@@ -655,29 +772,38 @@ func tableColumnNames(ctx context.Context, tx *sql.Tx, table string, remote bool
 func (s *Store) Close() error {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultWriteTimeout)
 	defer cancel()
+	if s.cache != nil {
+		s.cache.mu.RLock()
+		stopCache, done := s.cache.cancel, s.cache.done
+		s.cache.mu.RUnlock()
+		if stopCache != nil {
+			stopCache()
+			<-done
+		}
+	}
+	s.dbMu.Lock()
+	defer s.dbMu.Unlock()
 	var checkpointErr error
-	if !s.remote {
+	if !s.remote && !s.memory && s.writeDB != nil {
 		_, checkpointErr = s.writeDB.ExecContext(ctx, "PRAGMA wal_checkpoint(TRUNCATE)")
 	}
 	var cacheErr error
 	if s.cache != nil {
-		s.cache.mu.RLock()
-		cancel, done := s.cache.cancel, s.cache.done
-		s.cache.mu.RUnlock()
-		if cancel != nil {
-			cancel()
-			<-done
-		}
 		cacheErr = s.cache.store.Close()
 	}
-	readErr := s.readDB.Close()
-	writeErr := s.writeDB.Close()
+	readErr := closeDatabase(s.readDB)
+	writeErr := closeDatabase(s.writeDB)
 	return errors.Join(checkpointErr, cacheErr, readErr, writeErr)
 }
 
 // PoolStats reports open and in-use database connections across the read and write pools.
 func (s *Store) PoolStats() (open, inUse int) {
 	if s == nil {
+		return 0, 0
+	}
+	s.dbMu.RLock()
+	defer s.dbMu.RUnlock()
+	if s.readDB == nil || s.writeDB == nil {
 		return 0, 0
 	}
 	readStats := s.readDB.Stats()

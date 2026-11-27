@@ -348,13 +348,26 @@ type TwitterConfig struct {
 	Creator string `yaml:"creator"`
 }
 
-// MaintenanceConfig controls scheduled cleanup retention policies.
+// MaintenanceConfig controls self-healing and disk-pressure cleanup.
 type MaintenanceConfig struct {
-	Cleanup MaintenanceCleanupConfig `yaml:"cleanup"`
+	SelfHealing MaintenanceSelfHealingConfig `yaml:"self_healing"`
+	Cleanup     MaintenanceCleanupConfig     `yaml:"cleanup"`
+	Notify      MaintenanceNotifyConfig      `yaml:"notify"`
 }
+
+type MaintenanceSelfHealingConfig struct {
+	RetryInterval string `yaml:"retry_interval"`
+	MaxAttempts   int    `yaml:"max_attempts"`
+}
+
 type MaintenanceCleanupConfig struct {
+	DiskThreshold    int `yaml:"disk_threshold"`
 	LogRetentionDays int `yaml:"log_retention_days"`
-	BackupKeepCount  int `yaml:"backup_keep_count"`
+}
+
+type MaintenanceNotifyConfig struct {
+	OnEnter bool `yaml:"on_enter"`
+	OnExit  bool `yaml:"on_exit"`
 }
 
 // ComplianceConfig enables optional compliance reporting standards.
@@ -952,12 +965,16 @@ func DefaultConfig() *Config {
 				OpenGraph:      OpenGraphConfig{Enabled: true, Type: "website"},
 				Twitter:        TwitterConfig{Enabled: true, Card: "summary_large_image"},
 			},
-			Maintenance: MaintenanceConfig{Cleanup: MaintenanceCleanupConfig{LogRetentionDays: 7, BackupKeepCount: 5}},
-			Backup:      BackupConfig{Retention: BackupRetentionConfig{MaxBackups: 1, MaxTotalSize: "10%"}, DiskThreshold: 90},
-			Restore:     RestoreConfig{MaxArchiveSize: "1G", MaxExpandedSize: "4G", MaxFiles: 10000, MaxFileSize: "512M", MaxRatio: 100},
-			Security:    SecurityConfig{Reports: SecurityReportsConfig{RetentionDays: 365}, Blocklists: SecurityBlocklistsConfig{Enabled: true}},
-			GeoIP:       GeoIPConfig{Enabled: true},
-			Update:      UpdateConfig{Branch: "stable"},
+			Maintenance: MaintenanceConfig{
+				SelfHealing: MaintenanceSelfHealingConfig{RetryInterval: "30s"},
+				Cleanup:     MaintenanceCleanupConfig{DiskThreshold: 90, LogRetentionDays: 7},
+				Notify:      MaintenanceNotifyConfig{OnEnter: true, OnExit: true},
+			},
+			Backup:   BackupConfig{Retention: BackupRetentionConfig{MaxBackups: 1, MaxTotalSize: "10%"}, DiskThreshold: 90},
+			Restore:  RestoreConfig{MaxArchiveSize: "1G", MaxExpandedSize: "4G", MaxFiles: 10000, MaxFileSize: "512M", MaxRatio: 100},
+			Security: SecurityConfig{Reports: SecurityReportsConfig{RetentionDays: 365}, Blocklists: SecurityBlocklistsConfig{Enabled: true}},
+			GeoIP:    GeoIPConfig{Enabled: true},
+			Update:   UpdateConfig{Branch: "stable"},
 			Scheduler: SchedulerConfig{
 				Timezone: "America/New_York", CatchUpWindow: "1h",
 				Tasks: map[string]SchedulerTask{
@@ -978,6 +995,8 @@ func DefaultConfig() *Config {
 					"branding_image_refresh": {Schedule: "0 4 * * *", Enabled: true, RetryOnFail: true, RetryDelay: "1h"},
 					"tor_health":             {Schedule: "@every 10m", Enabled: true},
 					"i2p_health":             {Schedule: "@every 10m", Enabled: true},
+					"dataset_health":         {Schedule: "@every 60s", Enabled: true},
+					"maintenance_health":     {Schedule: "@every 10s", Enabled: true},
 				},
 			},
 			Tor: TorConfig{
@@ -1064,6 +1083,7 @@ Tool tips and input limits:
 					"ssl_expiring": true, "ssl_renewed": false, "ssl_renewal_failed": true,
 					"security_alert": true, "scheduler_error": true, "database_error": true, "update_available": false,
 					"update_installed": true, "update_failed": true, "update_staged": true, "disk_low": true,
+					"maintenance_entered": true, "maintenance_exited": true, "self_healing_exhausted": true,
 				},
 			}},
 			CORS: CORSConfig{AllowedOrigins: []string{"*"}, AllowCredentials: true, MaxAge: 86400},
@@ -1228,13 +1248,15 @@ func Load(path string) (*Config, error) {
 	validateI18n(cfg, path)
 	validateUpdate(cfg, path)
 	validateScheduler(cfg, path)
+	validateMaintenance(cfg, path)
 	validateDatabaseErrorNotification(cfg, path)
 	validateTokens(cfg, path)
 	validateMetrics(cfg, path)
 	validateSEO(cfg, path)
 	validatePrivacy(cfg, path)
 	if err := ValidateTracking(&cfg.Server.Tracking); err != nil {
-		return cfg, fmt.Errorf("invalid server.tracking configuration in %s: %w", path, err)
+		log.Printf("invalid server.tracking configuration in %s; using defaults: %v", path, err)
+		cfg.Server.Tracking = DefaultConfig().Server.Tracking
 	}
 	if err := validateContact(cfg, path); err != nil {
 		return cfg, err
@@ -1398,11 +1420,13 @@ func LoadBasic(path string) (*Config, error) {
 	validateI18n(cfg, path)
 	validateUpdate(cfg, path)
 	validateScheduler(cfg, path)
+	validateMaintenance(cfg, path)
 	validateDatabaseErrorNotification(cfg, path)
 	validateTokens(cfg, path)
 	validatePrivacy(cfg, path)
 	if err := ValidateTracking(&cfg.Server.Tracking); err != nil {
-		return cfg, fmt.Errorf("invalid server.tracking configuration in %s: %w", path, err)
+		log.Printf("invalid server.tracking configuration in %s; using defaults: %v", path, err)
+		cfg.Server.Tracking = DefaultConfig().Server.Tracking
 	}
 	validateSMTP(cfg, path)
 	return cfg, nil
@@ -1614,7 +1638,7 @@ func validateScheduler(cfg *Config, path string) {
 	defaults := DefaultConfig().Server.Scheduler
 	nonSkippable := map[string]struct{}{
 		"ssl_renewal": {}, "security_cleanup": {}, "keyserver_retry": {}, "token_cleanup": {},
-		"log_rotation": {}, "healthcheck_self": {}, "branding_image_refresh": {},
+		"log_rotation": {}, "healthcheck_self": {}, "branding_image_refresh": {}, "dataset_health": {}, "maintenance_health": {},
 	}
 	schedulerConfig := &cfg.Server.Scheduler
 	if legacyTask, ok := schedulerConfig.Tasks["pgp_publish_retry"]; ok {
@@ -1648,6 +1672,14 @@ func validateScheduler(cfg *Config, path string) {
 			log.Printf("warning: server.scheduler.tasks.%s has a fixed schedule in %s; using %s", name, path, defaultTask.Schedule)
 			task.Schedule = defaultTask.Schedule
 		}
+		if name == "dataset_health" && task.Schedule != defaultTask.Schedule {
+			log.Printf("warning: server.scheduler.tasks.%s has a fixed schedule in %s; using %s", name, path, defaultTask.Schedule)
+			task.Schedule = defaultTask.Schedule
+		}
+		if name == "maintenance_health" && task.Schedule != defaultTask.Schedule {
+			log.Printf("warning: server.scheduler.tasks.%s has a fixed schedule in %s; using %s", name, path, defaultTask.Schedule)
+			task.Schedule = defaultTask.Schedule
+		}
 		if _, required := nonSkippable[name]; required && !task.Enabled {
 			log.Printf("warning: server.scheduler.tasks.%s cannot be disabled in %s; enabling it", name, path)
 			task.Enabled = true
@@ -1663,6 +1695,28 @@ func validateScheduler(cfg *Config, path string) {
 			}
 		}
 		schedulerConfig.Tasks[name] = task
+	}
+}
+
+func validateMaintenance(cfg *Config, path string) {
+	defaults := DefaultConfig().Server.Maintenance
+	settings := &cfg.Server.Maintenance
+	retry, err := time.ParseDuration(settings.SelfHealing.RetryInterval)
+	if err != nil || retry < 10*time.Second {
+		log.Printf("warning: invalid server.maintenance.self_healing.retry_interval in %s; using %s", path, defaults.SelfHealing.RetryInterval)
+		settings.SelfHealing.RetryInterval = defaults.SelfHealing.RetryInterval
+	}
+	if settings.SelfHealing.MaxAttempts < 0 {
+		log.Printf("warning: invalid server.maintenance.self_healing.max_attempts in %s; using 0", path)
+		settings.SelfHealing.MaxAttempts = 0
+	}
+	if settings.Cleanup.DiskThreshold < 1 || settings.Cleanup.DiskThreshold > 99 {
+		log.Printf("warning: invalid server.maintenance.cleanup.disk_threshold in %s; using %d", path, defaults.Cleanup.DiskThreshold)
+		settings.Cleanup.DiskThreshold = defaults.Cleanup.DiskThreshold
+	}
+	if settings.Cleanup.LogRetentionDays < 1 {
+		log.Printf("warning: invalid server.maintenance.cleanup.log_retention_days in %s; using %d", path, defaults.Cleanup.LogRetentionDays)
+		settings.Cleanup.LogRetentionDays = defaults.Cleanup.LogRetentionDays
 	}
 }
 

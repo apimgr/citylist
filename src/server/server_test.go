@@ -89,6 +89,70 @@ func TestTLSListenerSelection(t *testing.T) {
 	}
 }
 
+func TestMaintenanceMiddlewareKeepsReadsAndHealthAvailable(t *testing.T) {
+	srv := testServer(t)
+	srv.maintenance = &maintenanceState{reason: "database_connection", since: time.Now().UTC()}
+	called := false
+	handler := srv.maintenanceMiddleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		called = true
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	read := httptest.NewRecorder()
+	handler.ServeHTTP(read, httptest.NewRequest(http.MethodGet, "/server/healthz", nil))
+	if !called || read.Code != http.StatusNoContent {
+		t.Fatalf("read was not passed through: called=%v status=%d", called, read.Code)
+	}
+	for _, path := range []string{"/api/v1/cities/coordinates", "/api/v1/server/graphql", "/api/v1/server/mcp"} {
+		called = false
+		readOnlyPost := httptest.NewRecorder()
+		handler.ServeHTTP(readOnlyPost, httptest.NewRequest(http.MethodPost, path, nil))
+		if !called || readOnlyPost.Code != http.StatusNoContent {
+			t.Errorf("read-only POST %s was blocked: called=%v status=%d", path, called, readOnlyPost.Code)
+		}
+	}
+	called = false
+	write := httptest.NewRecorder()
+	handler.ServeHTTP(write, httptest.NewRequest(http.MethodPost, "/server/contact", nil))
+	if called || write.Code != http.StatusServiceUnavailable || write.Header().Get("X-Maintenance-Mode") != "true" || write.Header().Get("Retry-After") == "" {
+		t.Fatalf("write was not blocked with maintenance metadata: called=%v status=%d headers=%v", called, write.Code, write.Header())
+	}
+	var body map[string]any
+	if err := json.Unmarshal(write.Body.Bytes(), &body); err != nil || body["error"] != "MAINTENANCE" {
+		t.Fatalf("maintenance error body = %s, parse error = %v", write.Body.String(), err)
+	}
+	details, ok := body["details"].(map[string]any)
+	if !ok || details["reason"] != "database_connection" || details["self_healing"] != true {
+		t.Fatalf("maintenance details = %#v", body["details"])
+	}
+}
+
+func TestMaintenanceAttemptsStopAtConfiguredLimit(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.Server.Maintenance.SelfHealing.MaxAttempts = 2
+	srv := testServerWithConfig(t, cfg)
+	srv.maintenance = &maintenanceState{reason: "database_connection", since: time.Now().UTC()}
+	first := srv.BeginMaintenanceAttempt()
+	if first.Exhausted || first.State == nil || first.State.SelfHealing.Attempts != 1 {
+		t.Fatalf("first attempt state = %+v", first)
+	}
+	future := time.Now().UTC().Add(time.Minute)
+	srv.maintenance.nextAttempt = &future
+	deferred := srv.BeginMaintenanceAttempt()
+	if deferred.Attempted || deferred.State == nil || deferred.State.SelfHealing.Attempts != 1 {
+		t.Fatalf("retry ran before configured interval: %+v", deferred)
+	}
+	past := time.Now().UTC().Add(-time.Second)
+	srv.maintenance.nextAttempt = &past
+	second := srv.BeginMaintenanceAttempt()
+	if !second.Attempted || second.State == nil || second.State.SelfHealing.Attempts != 2 {
+		t.Fatalf("second attempt state = %+v", second)
+	}
+	last := srv.BeginMaintenanceAttempt()
+	if !last.Exhausted || last.State == nil || !last.State.SelfHealing.Exhausted || last.State.SelfHealing.NextAttempt != nil {
+		t.Fatalf("exhausted attempt state = %+v", last)
+	}
+}
+
 func doRequest(t *testing.T, s *Server, method, path string, body []byte) *httptest.ResponseRecorder {
 	t.Helper()
 	var req *http.Request
@@ -264,6 +328,9 @@ func TestDirectHTMLPageGetsBuildCacheHeaders(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("GET /server/about = %d, want 200", rec.Code)
 	}
+	if !strings.Contains(rec.Body.String(), "GeoNames") || !strings.Contains(rec.Body.String(), "creativecommons.org/licenses/by/4.0") {
+		t.Fatal("about page is missing the GeoNames source and CC BY 4.0 attribution")
+	}
 	if got := rec.Header().Get("Cache-Control"); got != "no-store" {
 		t.Errorf("about page Cache-Control = %q, want no-store", got)
 	}
@@ -375,23 +442,95 @@ func TestHealthz(t *testing.T) {
 		if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
 			t.Fatalf("decode GET %s health: %v", path, err)
 		}
-		for _, key := range []string{"project", "status", "version", "go_version", "build", "uptime", "mode", "timestamp", "cluster", "features", "checks", "stats"} {
+		for _, key := range []string{"project", "status", "version", "go_version", "build", "uptime", "mode", "timestamp", "features", "checks", "stats"} {
 			if _, ok := payload[key]; !ok {
 				t.Errorf("GET %s health response omitted %q", path, key)
 			}
 		}
-		var features map[string]map[string]interface{}
+		var checks map[string]string
+		if err := json.Unmarshal(payload["checks"], &checks); err != nil {
+			t.Fatalf("decode health checks: %v", err)
+		}
+		for _, name := range []string{"database", "cache", "disk", "scheduler", "data_cities"} {
+			if _, ok := checks[name]; !ok {
+				t.Errorf("health checks omitted %q: %#v", name, checks)
+			}
+		}
+		var features struct {
+			Tor   map[string]interface{} `json:"tor"`
+			I2P   map[string]interface{} `json:"i2p"`
+			GeoIP bool                   `json:"geoip"`
+		}
 		if err := json.Unmarshal(payload["features"], &features); err != nil {
 			t.Fatalf("decode health features: %v", err)
 		}
-		for _, name := range []string{"tor", "i2p"} {
-			if features[name]["status"] != "disabled" || features[name]["enabled"] != false || features[name]["running"] != false {
-				t.Errorf("default %s health feature = %#v, want disabled", name, features[name])
+		for _, feature := range []struct {
+			name  string
+			value map[string]interface{}
+		}{{"tor", features.Tor}, {"i2p", features.I2P}} {
+			if feature.value["status"] != "disabled" || feature.value["enabled"] != false || feature.value["running"] != false {
+				t.Errorf("default %s health feature = %#v, want disabled", feature.name, feature.value)
 			}
 		}
 	}
 	if rec := doRequest(t, s, http.MethodGet, "/healthz", nil); rec.Code != http.StatusNotFound {
 		t.Errorf("GET /healthz = %d, want 404 while root alias is disabled", rec.Code)
+	}
+}
+
+func TestHealthzHTMLUsesTheDedicatedStatusPage(t *testing.T) {
+	s := testServer(t)
+	request := httptest.NewRequest(http.MethodGet, "/server/healthz", nil)
+	request.Header.Set("Accept", "text/html")
+	recorder := httptest.NewRecorder()
+	s.Router().ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("GET /server/healthz HTML = %d, want 200", recorder.Code)
+	}
+	for _, expected := range []string{
+		`<h1>citylist</h1>`, `class="status-banner status-ok"`,
+		`Version and runtime`, `aria-labelledby="health-features-title"`,
+		`aria-labelledby="health-checks-title"`, `City data`, `Total requests`,
+	} {
+		if !strings.Contains(recorder.Body.String(), expected) {
+			t.Errorf("health page omitted %q", expected)
+		}
+	}
+	if strings.Contains(recorder.Body.String(), `"checks"`) {
+		t.Error("health HTML page unexpectedly rendered the JSON response")
+	}
+}
+
+func TestHealthChecksJSONUsesCanonicalOrder(t *testing.T) {
+	checks := HealthChecks{
+		Database: "ok", Cache: "ok", Disk: "ok", Scheduler: "ok", Tor: "ok",
+		Datasets: []HealthCheck{{Key: "data_cities", Value: "ok"}, {Key: "data_zipcodes", Value: "ok"}},
+	}
+	encoded, err := json.Marshal(checks)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := `{"database":"ok","cache":"ok","disk":"ok","scheduler":"ok","tor":"ok","data_cities":"ok","data_zipcodes":"ok"}`
+	if string(encoded) != want {
+		t.Fatalf("health checks JSON = %s, want %s", encoded, want)
+	}
+}
+
+func TestHealthHTTPStatus(t *testing.T) {
+	for _, test := range []struct {
+		status string
+		want   int
+	}{
+		{status: "healthy", want: http.StatusOK},
+		{status: "degraded", want: http.StatusOK},
+		{status: "restart_required", want: http.StatusOK},
+		{status: "unhealthy", want: http.StatusServiceUnavailable},
+		{status: "maintenance", want: http.StatusServiceUnavailable},
+		{status: "shutting_down", want: http.StatusServiceUnavailable},
+	} {
+		if got := healthHTTPStatus(test.status); got != test.want {
+			t.Errorf("healthHTTPStatus(%q) = %d, want %d", test.status, got, test.want)
+		}
 	}
 }
 
