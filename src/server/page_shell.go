@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"net/http"
@@ -70,6 +71,13 @@ func (s *Server) applySharedPageShell(r *http.Request, rendered string, data map
 		returnTo = r.URL.RequestURI()
 	}
 	torAddress, i2pAddress := s.publishedOverlayAddresses()
+	offlineJSON, _ := json.Marshal(map[string]string{
+		"lang": lang, "dir": i18n.Direction(lang),
+		"title":   i18n.Translate(lang, "offline.title"),
+		"heading": i18n.Translate(lang, "offline.heading"),
+		"message": i18n.Translate(lang, "offline.message"),
+		"reload":  i18n.Translate(lang, "offline.reload"),
+	})
 	values := map[string]interface{}{
 		"Head": template.HTML(head), "MainClass": mainClass, "MainContent": template.HTML(mainContent), "PageScripts": template.HTML(scripts.String()),
 		"Lang": lang, "Dir": i18n.Direction(lang), "Theme": themePreference(r), "BaseURL": strings.TrimSuffix(s.baseURL, "/"),
@@ -77,6 +85,7 @@ func (s *Server) applySharedPageShell(r *http.Request, rendered string, data map
 		"LanguageName": languageName, "Version": s.version, "BuildDate": s.buildDate, "TorAddress": torAddress, "I2PAddress": i2pAddress,
 		"ReturnTo": returnTo, "NextTheme": nextTheme(themePreference(r)), "TrackingNoscript": data["TrackingNoscript"],
 		"SiteBanners": data["SiteBanners"], "ConsentBanner": data["ConsentBanner"],
+		"OfflineStrings": template.JS(offlineJSON),
 	}
 	var output strings.Builder
 	page, err := sharedPageShell.Clone()

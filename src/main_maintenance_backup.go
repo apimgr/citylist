@@ -170,6 +170,28 @@ func verifyBackupPGP(backupPath, password, configDir, tempDir string, limits bac
 }
 
 func runRestoreCommand(backupPath, configPath, configDir, dataDir, backupDir string, cfg *config.Config) error {
+	password := ""
+	passwordResolved := false
+	if backupPath == "" {
+		candidate, err := newestFullBackupCandidate(backupDir)
+		if err != nil {
+			return err
+		}
+		password, err = backupPassword(candidate)
+		if err != nil {
+			return err
+		}
+		passwordResolved = true
+		tempDir, cleanup, err := newBackupTempDir()
+		if err != nil {
+			return err
+		}
+		defer cleanup()
+		backupPath, _, _, err = latestFullBackup(context.Background(), backupDir, password, tempDir, cfg)
+		if err != nil {
+			return err
+		}
+	}
 	if !filepath.IsAbs(backupPath) {
 		backupPath = filepath.Join(backupDir, backupPath)
 	}
@@ -212,9 +234,11 @@ func runRestoreCommand(backupPath, configPath, configDir, dataDir, backupDir str
 			}
 		}
 	}
-	password, err := backupPassword(backupPath)
-	if err != nil {
-		return err
+	if !passwordResolved {
+		password, err = backupPassword(backupPath)
+		if err != nil {
+			return err
+		}
 	}
 	tempDir, cleanup, err := newBackupTempDir()
 	if err != nil {
@@ -260,6 +284,32 @@ func runRestoreCommand(backupPath, configPath, configDir, dataDir, backupDir str
 	}
 	fmt.Println(serverOutputText("backup_restored", "Restore completed successfully"))
 	return nil
+}
+
+func newestFullBackupCandidate(directory string) (string, error) {
+	entries, err := os.ReadDir(directory)
+	if err != nil {
+		return "", err
+	}
+	var selected string
+	var selectedTime time.Time
+	for _, entry := range entries {
+		if entry.IsDir() || entry.Type()&os.ModeSymlink != 0 || !strings.HasPrefix(entry.Name(), projectName+"_backup_") {
+			continue
+		}
+		info, err := entry.Info()
+		if err != nil {
+			continue
+		}
+		if selected == "" || info.ModTime().After(selectedTime) {
+			selected = filepath.Join(directory, entry.Name())
+			selectedTime = info.ModTime()
+		}
+	}
+	if selected == "" {
+		return "", errNoFullBackup
+	}
+	return selected, nil
 }
 
 func backupOptions(configPath, configDir, dataDir, databasePath, backupDir string, cfg *config.Config, includeSSL, includeData bool, store *database.Store) (backup.Options, func(), error) {

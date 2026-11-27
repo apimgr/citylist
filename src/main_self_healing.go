@@ -219,13 +219,15 @@ func recordMaintenanceEvent(ctx context.Context, notify operatorEventNotifier, a
 		}
 	}
 	severity := "warning"
-	if auditEvent == "server.maintenance_exited" {
+	switch auditEvent {
+	case "server.maintenance_exited":
 		severity = "info"
-	} else if auditEvent == "server.self_healing_exhausted" {
+	case "server.self_healing_exhausted":
 		severity = "error"
 	}
 	details := map[string]any{"reason": reason, "attempts": attempts}
-	if auditEvent == "server.maintenance_exited" {
+	switch auditEvent {
+	case "server.maintenance_exited":
 		details["duration"] = duration
 	}
 	if err := writeAuditEvent(auditEvent, severity, "success", "scheduler", "127.0.0.1", nil, details); err != nil {

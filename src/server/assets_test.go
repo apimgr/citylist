@@ -64,6 +64,12 @@ func TestHTMLHeadersAndVersionPurge(t *testing.T) {
 	if cookie := rec.Result().Cookies()[0]; cookie.Name != "citylist_build" || !cookie.Secure || cookie.HttpOnly || cookie.SameSite != http.SameSiteLaxMode {
 		t.Errorf("build cookie attributes are incorrect: %+v", cookie)
 	}
+	i2p := httptest.NewRequest("GET", "http://citylist.b32.i2p/", nil)
+	i2pResponse := httptest.NewRecorder()
+	setHTMLCacheHeaders(i2pResponse, i2p, http.StatusOK)
+	if cookie := i2pResponse.Result().Cookies()[0]; cookie.Secure {
+		t.Errorf("I2P build cookie Secure = true, want omitted: %+v", cookie)
+	}
 
 	for _, test := range []struct {
 		name   string

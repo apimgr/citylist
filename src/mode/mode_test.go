@@ -3,6 +3,7 @@ package mode
 import (
 	"errors"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -287,6 +288,8 @@ func TestGetPanicRecoveryBehavior(t *testing.T) {
 
 func TestGetStartupMessage(t *testing.T) {
 	resetMode(t)
+	t.Setenv("TERM", "xterm")
+	t.Setenv("NO_COLOR", "")
 
 	Set("development")
 	devMsg := GetStartupMessage("1.0.0", "localhost:8080")
@@ -302,5 +305,9 @@ func TestGetStartupMessage(t *testing.T) {
 
 	if devMsg == prodMsg {
 		t.Error("expected different startup messages for dev and prod modes")
+	}
+	noEmoji := false
+	if message := GetStartupMessage("1.0.0", "localhost:8080", &noEmoji); strings.Contains(message, "🔒") || strings.Contains(message, "🔧") {
+		t.Errorf("explicitly disabled emoji remains in startup message: %q", message)
 	}
 }

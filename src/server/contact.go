@@ -1568,11 +1568,8 @@ func (s *Server) contactHostAllowed(r *http.Request, host string) bool {
 	if s.cfg.Server.FQDN != "" {
 		allowed[strings.ToLower(s.cfg.Server.FQDN)] = true
 	}
-	for _, domain := range strings.Split(os.Getenv("DOMAIN"), ",") {
-		domain = strings.TrimSpace(strings.ToLower(domain))
-		if domain != "" {
-			allowed[domain] = true
-		}
+	for _, domain := range GetAllDomains() {
+		allowed[strings.ToLower(domain)] = true
 	}
 	if s.contactRequestOnPrivateNetwork(r) {
 		allowed[strings.ToLower(hostnameOnly(r.Host))] = true
@@ -1788,7 +1785,7 @@ func (s *Server) deliverContact(ctx context.Context, r *http.Request, kind strin
 		role = "security"
 		to = strings.TrimSpace(s.cfg.Server.Contact.Security.Email)
 	}
-	if to == "" && role != "general" {
+	if to == "" {
 		to = strings.TrimSpace(s.cfg.Server.Contact.General.Email)
 	}
 	if to == "" {

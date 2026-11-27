@@ -40,6 +40,12 @@ BIN_DIR="${CITYLIST_BIN_DIR:-}"
 # latest stable Alpine release (update both when new stable releases ship)
 INCUS_IMAGE_SYSTEMD="images:debian/trixie"
 INCUS_IMAGE_OPENRC="images:alpine/3.24"
+INCUS_CPUS="${INCUS_CPUS:-2}"
+INCUS_MEM="${INCUS_MEM:-4GiB}"
+INCUS_CPU_PRIORITY="${INCUS_CPU_PRIORITY:-2}"
+INCUS_OP_TIMEOUT="${INCUS_OP_TIMEOUT:-60}"
+INCUS_INSTALL_TIMEOUT="${INCUS_INSTALL_TIMEOUT:-900}"
+INCUS_RUN_TIMEOUT="${INCUS_RUN_TIMEOUT:-3600}"
 
 cleanup() {
     local status=$?
@@ -50,6 +56,12 @@ cleanup() {
     exit "$status"
 }
 trap cleanup EXIT INT TERM
+
+iexec() {
+    local seconds="$1" container="$2"
+    shift 2
+    timeout "$seconds" incus exec "$container" -- "$@"
+}
 
 if [[ -z "$BIN_DIR" ]]; then
     TEMP_ROOT="${TMPDIR:-/tmp}/${PROJECT_ORG}"
@@ -253,9 +265,7 @@ done
 for route in /api/v1/server/preferences/tokens/primary/reveal \
   /api/v1/server/preferences/tokens/primary/rotate \
   /api/v1/server/preferences/tokens/nonexistent/reveal \
-  /api/v1/server/preferences/tokens/nonexistent/rotate \
-  /api/v1/server/preferences/tokens/nonexistent/update \
-  /api/v1/server/preferences/tokens/nonexistent/revoke; do
+  /api/v1/server/preferences/tokens/nonexistent/rotate; do
     status=$(curl -q -LSs -o /dev/null -w '%{http_code}' -X POST \
       "http://localhost:$(port)$route")
     if [ "$status" = 401 ] || [ "$status" = 403 ]; then
@@ -575,7 +585,7 @@ REMOTE_AFTER_EOF
 # Run a script inside the container with the init mode and project names
 remote() {
     local container="$1" init="$2" script="$3"
-    printf '%s\n' "$script" | incus exec "$container" -- env INIT_MODE="$init" PROJECT_NAME="$PROJECT_NAME" PROJECT_ORG="$PROJECT_ORG" \
+    printf '%s\n' "$script" | iexec "$INCUS_RUN_TIMEOUT" "$container" env INIT_MODE="$init" PROJECT_NAME="$PROJECT_NAME" PROJECT_ORG="$PROJECT_ORG" \
         INTERNAL_NAME="$INTERNAL_NAME" INTERNAL_ORG="$INTERNAL_ORG" REQUIRE_OVERLAY="${REQUIRE_OVERLAY:-0}" \
         TOR_WAIT="${TOR_WAIT:-300}" I2P_WAIT="${I2P_WAIT:-600}" bash -s
 }
@@ -583,18 +593,18 @@ remote() {
 # Wait until the container accepts commands, its init system finished booting and the network is up
 wait_boot() {
     local container="$1" init="$2" i state
-    for i in $(seq 1 60); do incus exec "$container" -- true 2>/dev/null && break; sleep 1; done
+    for i in $(seq 1 60); do iexec "$INCUS_OP_TIMEOUT" "$container" true 2>/dev/null && break; sleep 1; done
     if [ "$init" = "systemd" ]; then
         # "degraded" is normal in a container; only "starting" means boot is unfinished
         for i in $(seq 1 90); do
-            state=$(incus exec "$container" -- systemctl is-system-running 2>/dev/null || true)
+            state=$(iexec "$INCUS_OP_TIMEOUT" "$container" systemctl is-system-running 2>/dev/null || true)
             [ -n "$state" ] && [ "$state" != "starting" ] && break
             sleep 1
         done
     else
-        for i in $(seq 1 60); do incus exec "$container" -- test -d /run/openrc 2>/dev/null && break; sleep 1; done
+        for i in $(seq 1 60); do iexec "$INCUS_OP_TIMEOUT" "$container" test -d /run/openrc 2>/dev/null && break; sleep 1; done
     fi
-    for ((i = 0; i < 60; i++)); do incus exec "$container" -- sh -c 'ip route | grep -q "^default"' 2>/dev/null && break; sleep 1; done
+    for ((i = 0; i < 60; i++)); do iexec "$INCUS_OP_TIMEOUT" "$container" sh -c 'ip route | grep -q "^default"' 2>/dev/null && break; sleep 1; done
 }
 
 run_mode() {
@@ -602,32 +612,32 @@ run_mode() {
     if [ "$init" = "systemd" ]; then image="$INCUS_IMAGE_SYSTEMD"; else image="$INCUS_IMAGE_OPENRC"; fi
     container="$CONTAINER_PREFIX"
     if [ "$init" = "openrc" ]; then container="${CONTAINER_PREFIX}-openrc"; fi
+    CONTAINERS+=("$container")
 
     echo "=== [$init] Launching Incus container ($image) ==="
-    if incus info "$container" >/dev/null 2>&1; then
+    if timeout "$INCUS_OP_TIMEOUT" incus info "$container" >/dev/null 2>&1; then
         echo "ERROR: generated Incus test name already exists: $container" >&2
         return 1
     fi
-    incus launch "$image" "$container" -c limits.cpu=2 -c limits.memory=4GiB --config security.privileged=true
-    CONTAINERS+=("$container")
+    incus launch "$image" "$container" -c limits.cpu="$INCUS_CPUS" -c limits.cpu.priority="$INCUS_CPU_PRIORITY" -c limits.memory="$INCUS_MEM"
     wait_boot "$container" "$init"
 
     echo "=== [$init] Installing test tools, tor and i2pd ==="
     if [ "$init" = "systemd" ]; then
-        incus exec "$container" -- bash -c 'apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq curl jq file tor i2pd' >/dev/null
+        iexec "$INCUS_INSTALL_TIMEOUT" "$container" bash -c 'apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq curl jq file tor i2pd' >/dev/null
         # The distro tor/i2pd services are NOT what is tested: the server runs its own dedicated, isolated instances (PART 31)
-        incus exec "$container" -- systemctl disable --now tor.service tor@default.service i2pd.service 2>/dev/null || true
+        iexec "$INCUS_OP_TIMEOUT" "$container" systemctl disable --now tor.service tor@default.service i2pd.service 2>/dev/null || true
     else
-        incus exec "$container" -- sh -c 'apk add --no-cache bash curl jq file tor i2pd tzdata ca-certificates' >/dev/null
-        incus exec "$container" -- sh -c 'rc-service tor stop; rc-service i2pd stop; rc-update del tor; rc-update del i2pd' 2>/dev/null || true
+        iexec "$INCUS_INSTALL_TIMEOUT" "$container" sh -c 'apk add --no-cache bash curl jq file tor i2pd tzdata ca-certificates' >/dev/null
+        iexec "$INCUS_OP_TIMEOUT" "$container" sh -c 'rc-service tor stop; rc-service i2pd stop; rc-update del tor; rc-update del i2pd' 2>/dev/null || true
     fi
 
     echo "=== [$init] Copying binaries to container ==="
     incus file push "${BIN_DIR}/${PROJECT_NAME}" "$container/usr/local/bin/"
-    incus exec "$container" -- chmod +x "/usr/local/bin/${PROJECT_NAME}"
+    iexec "$INCUS_OP_TIMEOUT" "$container" chmod +x "/usr/local/bin/${PROJECT_NAME}"
     if [ -f "${BIN_DIR}/${PROJECT_NAME}-cli" ]; then
         incus file push "${BIN_DIR}/${PROJECT_NAME}-cli" "$container/usr/local/bin/"
-        incus exec "$container" -- chmod +x "/usr/local/bin/${PROJECT_NAME}-cli"
+        iexec "$INCUS_OP_TIMEOUT" "$container" chmod +x "/usr/local/bin/${PROJECT_NAME}-cli"
     fi
 
     echo "=== [$init] Running tests in Incus ==="

@@ -93,7 +93,7 @@ var grafanaDashboard = map[string]any{
 	"id":            nil,
 	"uid":           "citylist-metrics",
 	"title":         "Citylist Metrics",
-	"schemaVersion": 41,
+	"schemaVersion": 42,
 	"version":       1,
 	"refresh":       "30s",
 	"time":          map[string]string{"from": "now-1h", "to": "now"},

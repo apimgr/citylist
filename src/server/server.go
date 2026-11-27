@@ -863,6 +863,19 @@ func (s *Server) setupRoutes() {
 		s.cfg.Server.APIVersion = "v1"
 	}
 	apiPrefix := "/api/" + s.cfg.Server.APIVersion
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			if req.Method == http.MethodGet && req.URL.Path == apiPrefix+"/" {
+				target := apiPrefix
+				if req.URL.RawQuery != "" {
+					target += "?" + req.URL.RawQuery
+				}
+				http.Redirect(w, req, target, http.StatusMovedPermanently)
+				return
+			}
+			next.ServeHTTP(w, req)
+		})
+	})
 
 	// Middleware
 
@@ -893,6 +906,10 @@ func (s *Server) setupRoutes() {
 		s.renderError(w, r, http.StatusNotFound, "This page could not be found.")
 	})
 	r.MethodNotAllowed(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/server/tor/") {
+			s.respondJSON(w, http.StatusNotFound, APIResponse{Success: false, Error: "NOT_FOUND", Message: "This page could not be found."})
+			return
+		}
 		s.renderError(w, r, http.StatusMethodNotAllowed, "This request method is not supported.")
 	})
 
@@ -903,7 +920,7 @@ func (s *Server) setupRoutes() {
 	r.Head("/static/css/accent.css", s.handleAccentCSS)
 	r.Get("/static/css/common.css", s.handleCommonCSS)
 	r.Head("/static/css/common.css", s.handleCommonCSS)
-	r.Handle("/static/*", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	staticHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		file, err := staticContent.Open(strings.TrimPrefix(r.URL.Path, "/static/"))
 		if err != nil {
 			http.NotFound(w, r)
@@ -915,16 +932,15 @@ func (s *Server) setupRoutes() {
 			http.NotFound(w, r)
 			return
 		}
-		if r.Method != http.MethodGet && r.Method != http.MethodHead {
-			staticFiles.ServeHTTP(w, r)
-			return
-		}
 		if setAssetCacheHeaders(w, r) {
 			return
 		}
 		staticFiles.ServeHTTP(w, r)
-	}))
+	})
+	r.Get("/static/*", staticHandler)
+	r.Head("/static/*", staticHandler)
 	r.Get("/locales/{lang}.json", s.handleLocale)
+	r.Head("/locales/{lang}.json", s.handleLocale)
 
 	// Health check endpoints
 	r.Get("/api/autodiscover", s.handleAutoDiscover)
@@ -964,7 +980,10 @@ func (s *Server) setupRoutes() {
 	r.Post("/server/preferences/token/rotate", s.handleOwnerTokenPrimaryAction)
 	r.Post("/server/preferences/token/revoke", s.handleOwnerTokenRevokePrimary)
 	r.Post("/server/preferences/tokens", s.handleOwnerTokenLinkedCreateWeb)
-	r.Post("/server/preferences/tokens/{id}/{action}", s.handleOwnerTokenLinkedAction)
+	r.Post("/server/preferences/tokens/{id}/reveal", s.handleOwnerTokenLinkedAction)
+	r.Post("/server/preferences/tokens/{id}/rotate", s.handleOwnerTokenLinkedAction)
+	r.Post("/server/preferences/tokens/{id}/update", s.handleOwnerTokenLinkedAction)
+	r.Post("/server/preferences/tokens/{id}/revoke", s.handleOwnerTokenLinkedAction)
 	r.Get(apiPrefix+"/server/about", s.apiPage(s.handleAboutPage))
 	r.Get(apiPrefix+"/server/help", s.apiPage(s.handleHelpPage))
 	r.Get(apiPrefix+"/server/help/mcp", s.apiPage(s.handleMCPHelp))
@@ -980,9 +999,11 @@ func (s *Server) setupRoutes() {
 	r.Get(apiPrefix+"/server/preferences/tokens", s.handleOwnerTokensAPI)
 	r.Post(apiPrefix+"/server/preferences/tokens", s.handleOwnerTokensAPI)
 	r.Post(apiPrefix+"/server/preferences/tokens/primary", s.handleOwnerTokenIssueAPI)
-	r.Post(apiPrefix+"/server/preferences/tokens/primary/{action}", s.handleOwnerTokenPrimaryAction)
+	r.Post(apiPrefix+"/server/preferences/tokens/primary/reveal", s.handleOwnerTokenPrimaryAction)
+	r.Post(apiPrefix+"/server/preferences/tokens/primary/rotate", s.handleOwnerTokenPrimaryAction)
 	r.Delete(apiPrefix+"/server/preferences/tokens/primary", s.handleOwnerTokenRevokePrimary)
-	r.Post(apiPrefix+"/server/preferences/tokens/{id}/{action}", s.handleOwnerTokenLinkedAction)
+	r.Post(apiPrefix+"/server/preferences/tokens/{id}/reveal", s.handleOwnerTokenLinkedAction)
+	r.Post(apiPrefix+"/server/preferences/tokens/{id}/rotate", s.handleOwnerTokenLinkedAction)
 	r.Patch(apiPrefix+"/server/preferences/tokens/{id}", s.handleOwnerTokenLinkedAction)
 	r.Delete(apiPrefix+"/server/preferences/tokens/{id}", s.handleOwnerTokenLinkedAction)
 	r.Get(apiPrefix+"/server/dpo", s.apiPage(s.handleDPOPage))
@@ -993,6 +1014,7 @@ func (s *Server) setupRoutes() {
 	r.Post("/server/ccpa", s.handleCCPAPost)
 	r.Post("/server/preferences/sync", s.handlePreferencesSyncPost)
 	r.Get("/server/healthz", s.handleHealthz)
+	s.registerTorControlRoutes(r)
 	s.registerMetricsRoutes()
 
 	// PWA routes
@@ -1027,38 +1049,34 @@ func (s *Server) setupRoutes() {
 	r.Post(apiPrefix+"/server/graphql", s.handleGraphQL)
 	r.Get("/api/graphql", s.handleGraphQL)
 	r.Post("/api/graphql", s.handleGraphQL)
-	r.Handle(apiPrefix+"/server/mcp", http.HandlerFunc(s.handleMCP))
-	r.Handle("/api/mcp", http.HandlerFunc(s.handleMCP))
-	r.Handle("/mcp", http.HandlerFunc(s.handleMCP))
+	r.Post(apiPrefix+"/server/mcp", s.handleMCP)
+	r.Post("/api/mcp", s.handleMCP)
+	r.Post("/mcp", s.handleMCP)
 
 	// API routes
-	r.Route(apiPrefix, func(r chi.Router) {
-		r.Get("/server/auth/check", s.handleAuthCheck)
+	r.Get(apiPrefix+"/server/auth/check", s.handleAuthCheck)
 
-		// Info
-		r.Get("/", s.handleAPIInfo)
+	// Cities
+	r.Get(apiPrefix+"/cities", s.handleGetCities)
+	r.Get(apiPrefix+"/cities/search", s.handleSearchCities)
+	r.Get(apiPrefix+"/cities/{id}", s.handleGetCityByID)
+	r.Get(apiPrefix+"/cities/country/{code}", s.handleGetCitiesByCountry)
+	r.Get(apiPrefix+"/cities/coordinates", s.handleFindNearestGET)
+	r.Post(apiPrefix+"/cities/coordinates", s.handleFindNearestPOST)
+	r.Get(apiPrefix+"/cities/nearby", s.handleFindNearby)
 
-		// Cities
-		r.Get("/cities", s.handleGetCities)
-		r.Get("/cities/search", s.handleSearchCities)
-		r.Get("/cities/{id}", s.handleGetCityByID)
-		r.Get("/cities/country/{code}", s.handleGetCitiesByCountry)
-		r.Get("/cities/coordinates", s.handleFindNearestGET)
-		r.Post("/cities/coordinates", s.handleFindNearestPOST)
-		r.Get("/cities/nearby", s.handleFindNearby)
+	// US postal codes
+	r.Get(apiPrefix+"/zipcodes/{zip}", s.handleGetZipcode)
+	r.Get(apiPrefix+"/zipcodes/search", s.handleSearchZipcodes)
+	r.Get(apiPrefix+"/zipcodes/state/{state}", s.handleGetZipcodesByState)
+	r.Get(apiPrefix+"/zipcodes/nearby", s.handleNearbyZipcodes)
 
-		// US postal codes
-		r.Get("/zipcodes/{zip}", s.handleGetZipcode)
-		r.Get("/zipcodes/search", s.handleSearchZipcodes)
-		r.Get("/zipcodes/state/{state}", s.handleGetZipcodesByState)
-		r.Get("/zipcodes/nearby", s.handleNearbyZipcodes)
-
-		// Stats
-		r.Get("/stats", s.handleStats)
-		r.Get("/stats.txt", s.handleStatsTxt)
-		r.Get("/count", s.handleCount)
-		r.Get("/count.txt", s.handleCountTxt)
-	})
+	// Stats
+	r.Get(apiPrefix+"/stats", s.handleStats)
+	r.Get(apiPrefix+"/stats.txt", s.handleStatsTxt)
+	r.Get(apiPrefix+"/count", s.handleCount)
+	r.Get(apiPrefix+"/count.txt", s.handleCountTxt)
+	r.Get(apiPrefix, s.handleAPIInfo)
 
 	// Versioned convenience endpoints
 	r.Get(apiPrefix+"/random", s.handleRandomCity)
@@ -1536,9 +1554,9 @@ func (s *Server) respondSuccess(w http.ResponseWriter, data interface{}, count i
 }
 
 func (s *Server) respondError(w http.ResponseWriter, status int, code, message string) {
-	if key := errorTranslationKey(status); key != "" {
-		if translated := i18n.Translate(w.Header().Get("Content-Language"), key); translated != key {
-			message = translated
+	if strings.TrimSpace(message) == "" {
+		if key := errorTranslationKey(status); key != "" {
+			message = i18n.Translate(w.Header().Get("Content-Language"), key)
 		}
 	}
 	if tracked, ok := w.(*panicResponseWriter); ok && tracked.request != nil && !strings.HasPrefix(tracked.request.URL.Path, "/api/") && strings.Contains(strings.ToLower(tracked.request.Header.Get("Accept")), "text/html") {
@@ -1547,9 +1565,41 @@ func (s *Server) respondError(w http.ResponseWriter, status int, code, message s
 	}
 	s.respondJSON(w, status, APIResponse{
 		Success: false,
-		Error:   code,
+		Error:   canonicalAPIErrorCode(status, code),
 		Message: message,
 	})
+}
+
+func canonicalAPIErrorCode(status int, code string) string {
+	switch code {
+	case "BAD_REQUEST", "VALIDATION_FAILED", "UNAUTHORIZED", "TOKEN_EXPIRED", "TOKEN_INVALID",
+		"FORBIDDEN", "CSRF_FAILED", "ACCOUNT_LOCKED", "NOT_FOUND", "METHOD_NOT_ALLOWED",
+		"CONFLICT", "RATE_LIMITED", "SERVER_ERROR", "MAINTENANCE":
+		return code
+	}
+	switch status {
+	case http.StatusBadRequest, http.StatusRequestEntityTooLarge:
+		if code == "INVALID_JSON" || code == "INVALID_GRAPHQL_REQUEST" || code == "MISSING_QUERY" || code == "REQUEST_TOO_LARGE" {
+			return "BAD_REQUEST"
+		}
+		return "VALIDATION_FAILED"
+	case http.StatusUnauthorized:
+		return "UNAUTHORIZED"
+	case http.StatusForbidden:
+		return "FORBIDDEN"
+	case http.StatusNotFound:
+		return "NOT_FOUND"
+	case http.StatusMethodNotAllowed:
+		return "METHOD_NOT_ALLOWED"
+	case http.StatusConflict:
+		return "CONFLICT"
+	case http.StatusTooManyRequests:
+		return "RATE_LIMITED"
+	case http.StatusServiceUnavailable:
+		return "MAINTENANCE"
+	default:
+		return "SERVER_ERROR"
+	}
 }
 
 func errorTranslationKey(status int) string {
@@ -2305,6 +2355,12 @@ func (s *Server) handleRandomCityTxt(w http.ResponseWriter, r *http.Request) {
 // Web handlers
 
 func (s *Server) handleHome(w http.ResponseWriter, r *http.Request) {
+	if acceptsMediaType(r.Header.Get("Accept"), "application/json") {
+		s.respondSuccess(w, map[string]interface{}{
+			"total_cities": s.citySvc.Count(), "total_countries": s.citySvc.CountryCount(), "version": s.version, "data_source": "GeoNames",
+		}, 0)
+		return
+	}
 	s.renderPage(w, r, "home.tmpl", map[string]interface{}{
 		"Version":        s.version,
 		"TotalCities":    s.citySvc.Count(),
@@ -2328,28 +2384,35 @@ func (s *Server) handleSearchPage(w http.ResponseWriter, r *http.Request) {
 	}
 	if query != "" {
 		searchStatus := http.StatusBadRequest
+		searchErrorCode := ""
 		if searchType == "zip" {
 			if !validUSZIP(query) {
 				data["SearchError"] = i18n.Translate(i18n.LangFromRequest(r), "search.zip_invalid")
+				searchErrorCode = "INVALID_ZIP"
 			} else if s.zipSvc == nil {
 				data["SearchError"] = i18n.Translate(i18n.LangFromRequest(r), "search.zip_unavailable")
+				searchErrorCode = "MAINTENANCE"
 				searchStatus = http.StatusServiceUnavailable
 			} else if record, ok := s.zipSvc.Lookup(query); ok {
 				data["ZIPRecord"] = record
 			}
 		} else if searchType != "city" {
 			data["SearchError"] = i18n.Translate(i18n.LangFromRequest(r), "search.type_invalid")
+			searchErrorCode = "INVALID_TYPE"
 		} else {
 			switch {
 			case len(query) < 2 || len(query) > 100:
 				data["SearchError"] = i18n.Translate(i18n.LangFromRequest(r), "search.query_invalid")
+				searchErrorCode = "INVALID_QUERY"
 			case country != "" && len(country) != 2:
 				data["SearchError"] = i18n.Translate(i18n.LangFromRequest(r), "search.country_invalid")
+				searchErrorCode = "INVALID_COUNTRY"
 			default:
 				var err error
 				limit, err = parseBoundedInt(r.URL.Query().Get("limit"), 20, 1, 100)
 				if err != nil {
 					data["SearchError"] = i18n.Translate(i18n.LangFromRequest(r), "search.limit_invalid")
+					searchErrorCode = "INVALID_LIMIT"
 				} else {
 					data["Limit"] = limit
 					data["Cities"] = s.citySvc.SearchByCountry(query, country, limit)
@@ -2357,8 +2420,30 @@ func (s *Server) handleSearchPage(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if data["SearchError"] != nil {
+			if acceptsMediaType(r.Header.Get("Accept"), "application/json") {
+				s.respondError(w, searchStatus, searchErrorCode, data["SearchError"].(string))
+				return
+			}
 			w.WriteHeader(searchStatus)
 		}
+	}
+	if acceptsMediaType(r.Header.Get("Accept"), "application/json") {
+		if searchType == "zip" {
+			if s.zipSvc == nil {
+				s.respondError(w, http.StatusServiceUnavailable, "MAINTENANCE", "US postal data is unavailable")
+				return
+			}
+			if record, ok := data["ZIPRecord"]; ok {
+				s.respondSuccess(w, record, 1)
+				return
+			}
+			results := s.zipSvc.Search(query, "", 20)
+			s.respondSuccess(w, results, len(results))
+			return
+		}
+		results, _ := data["Cities"].([]cities.City)
+		s.respondSuccess(w, results, len(results))
+		return
 	}
 	s.renderPage(w, r, "search.tmpl", data)
 }
@@ -2372,6 +2457,7 @@ func (s *Server) handleCoordinatesPage(w http.ResponseWriter, r *http.Request) {
 	hasCoordinates := query.Has("lat") || query.Has("lon") || query.Has("radius") || query.Has("limit")
 	data["HasCoordinates"] = hasCoordinates
 	if hasCoordinates {
+		searchErrorCode := ""
 		latitude, latErr := strconv.ParseFloat(query.Get("lat"), 64)
 		longitude, lonErr := strconv.ParseFloat(query.Get("lon"), 64)
 		radius, radiusErr := strconv.ParseFloat(query.Get("radius"), 64)
@@ -2382,19 +2468,35 @@ func (s *Server) handleCoordinatesPage(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case latErr != nil || math.IsNaN(latitude) || math.IsInf(latitude, 0) || latitude < -90 || latitude > 90:
 			data["SearchError"] = i18n.Translate(i18n.LangFromRequest(r), "coordinates.latitude_invalid")
+			searchErrorCode = "INVALID_LATITUDE"
 		case lonErr != nil || math.IsNaN(longitude) || math.IsInf(longitude, 0) || longitude < -180 || longitude > 180:
 			data["SearchError"] = i18n.Translate(i18n.LangFromRequest(r), "coordinates.longitude_invalid")
+			searchErrorCode = "INVALID_LONGITUDE"
 		case radiusErr != nil || math.IsNaN(radius) || math.IsInf(radius, 0) || radius <= 0 || radius > 20000:
 			data["SearchError"] = i18n.Translate(i18n.LangFromRequest(r), "coordinates.radius_invalid")
+			searchErrorCode = "INVALID_RADIUS"
 		case limitErr != nil:
 			data["SearchError"] = i18n.Translate(i18n.LangFromRequest(r), "coordinates.max_results_invalid")
+			searchErrorCode = "INVALID_LIMIT"
 		default:
 			data["Radius"], data["Limit"] = strconv.FormatFloat(radius, 'f', -1, 64), limit
 			data["Nearby"] = s.citySvc.FindNearby(latitude, longitude, radius, limit)
 		}
 		if data["SearchError"] != nil {
+			if acceptsMediaType(r.Header.Get("Accept"), "application/json") {
+				s.respondError(w, http.StatusBadRequest, searchErrorCode, data["SearchError"].(string))
+				return
+			}
 			w.WriteHeader(http.StatusBadRequest)
 		}
+	}
+	if acceptsMediaType(r.Header.Get("Accept"), "application/json") {
+		results, ok := data["Nearby"].([]cities.CityWithDistance)
+		if !ok {
+			results = []cities.CityWithDistance{}
+		}
+		s.respondSuccess(w, results, len(results))
+		return
 	}
 	s.renderPage(w, r, "coordinates.tmpl", data)
 }
@@ -2566,8 +2668,10 @@ func writeFallbackError(w http.ResponseWriter, r *http.Request, status int) {
 
 func fallbackErrorCode(status int) string {
 	switch status {
-	case http.StatusBadRequest:
+	case http.StatusBadRequest, http.StatusRequestEntityTooLarge:
 		return "BAD_REQUEST"
+	case http.StatusUnprocessableEntity:
+		return "VALIDATION_FAILED"
 	case http.StatusUnauthorized:
 		return "UNAUTHORIZED"
 	case http.StatusForbidden:
@@ -2578,12 +2682,10 @@ func fallbackErrorCode(status int) string {
 		return "METHOD_NOT_ALLOWED"
 	case http.StatusTooManyRequests:
 		return "RATE_LIMITED"
-	case http.StatusBadGateway:
-		return "BAD_GATEWAY"
 	case http.StatusServiceUnavailable:
-		return "SERVICE_UNAVAILABLE"
+		return "MAINTENANCE"
 	default:
-		return "INTERNAL_SERVER_ERROR"
+		return "SERVER_ERROR"
 	}
 }
 
@@ -2639,6 +2741,8 @@ const CACHE_VERSION = ` + string(stamp) + `;
 const CACHE_NAME = "citylist-cache-" + CACHE_VERSION;
 const PRECACHE_ASSETS = [
   BASE + "/static/css/common.css?v=" + encodeURIComponent(CACHE_VERSION),
+  BASE + "/static/css/components.css?v=" + encodeURIComponent(CACHE_VERSION),
+  BASE + "/static/css/public.css?v=" + encodeURIComponent(CACHE_VERSION),
   BASE + "/static/js/app.js?v=" + encodeURIComponent(CACHE_VERSION),
   BASE + "/static/images/icon.svg?v=" + encodeURIComponent(CACHE_VERSION),
   BASE + "/static/vendor/swagger-ui/swagger-ui.css?v=" + encodeURIComponent(CACHE_VERSION),
@@ -2664,9 +2768,25 @@ function withTimeout(promise, milliseconds) {
   });
 }
 function offlineFallbackResponse() {
-  return new Response("<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Offline</title></head><body><main><h1>You are offline</h1><p>This page could not be loaded. Check your connection and try again.</p></main></body></html>", {
-    status: 503, statusText: "Service Unavailable", headers: { "Content-Type": "text/html; charset=utf-8" }
-  });
+  const defaults = {
+    lang: "en", dir: "ltr", title: "Offline", heading: "You are offline",
+    message: "This page could not be loaded and no cached copy is available. Check your connection and try again.",
+    reload: "Reload"
+  };
+  return caches.open("citylist-offline-strings").then((cache) => cache.match("/offline-strings.json")).catch(() => null)
+    .then(async (response) => {
+      let strings = defaults;
+      try {
+        if (response) strings = Object.assign({}, defaults, await response.json());
+      } catch {
+        strings = defaults;
+      }
+      const escapeHTML = (value) => String(value).replace(/[&<>\"]/g, (character) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;"
+      }[character]));
+      const body = "<!doctype html><html lang=\"" + escapeHTML(strings.lang) + "\" dir=\"" + escapeHTML(strings.dir) + "\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>" + escapeHTML(strings.title) + "</title></head><body><main><h1>" + escapeHTML(strings.heading) + "</h1><p>" + escapeHTML(strings.message) + "</p><a href=\"" + escapeHTML(BASE + "/") + "\">" + escapeHTML(strings.reload) + "</a></main></body></html>";
+      return new Response(body, { status: 503, statusText: "Service Unavailable", headers: { "Content-Type": "text/html; charset=utf-8" } });
+    });
 }
 self.addEventListener("fetch", (event) => {
   const request = event.request;
@@ -2770,7 +2890,8 @@ func (s *Server) handleOpenAPISpec(w http.ResponseWriter, r *http.Request) {
 func openAPIPaths(router *chi.Mux, apiPrefix, lang string) map[string]interface{} {
 	paths := make(map[string]interface{})
 	_ = chi.Walk(router, func(method, route string, _ http.Handler, _ ...func(http.Handler) http.Handler) error {
-		if strings.Contains(route, "*") || !strings.HasPrefix(route, "/api/") && route != "/server/healthz" && route != "/healthz" {
+		if strings.Contains(route, "*") || isInternalRoutePath(route) ||
+			!strings.HasPrefix(route, "/api/") && route != "/mcp" {
 			return nil
 		}
 		if route == "/api/v1" || strings.HasPrefix(route, "/api/v1/") {
@@ -2822,6 +2943,10 @@ func openAPIPaths(router *chi.Mux, apiPrefix, lang string) map[string]interface{
 		return nil
 	})
 	return paths
+}
+
+func isInternalRoutePath(route string) bool {
+	return strings.Contains(route, "/metrics") || strings.HasPrefix(route, "/debug/") || strings.Contains(route, "/server/tor/")
 }
 
 func openAPIEndpointKey(route, apiPrefix string) string {

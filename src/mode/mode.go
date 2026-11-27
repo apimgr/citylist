@@ -6,6 +6,8 @@ import (
 	"os"
 	"strings"
 	"sync"
+
+	"github.com/apimgr/citylist/src/common/theme"
 )
 
 // appName is the application name
@@ -222,14 +224,20 @@ func GetPanicRecoveryBehavior() string {
 }
 
 // GetStartupMessage returns the appropriate startup message for the current mode
-func GetStartupMessage(version, address string) string {
-	icon := "🔒"
-	if IsDevelopment() || IsDebugMode() {
-		icon = "🔧"
+func GetStartupMessage(version, address string, emoji ...*bool) string {
+	icon := ""
+	if theme.EmojiEnabled(emoji...) {
+		icon = "🔒"
+		if IsDevelopment() || IsDebugMode() {
+			icon = "🔧"
+		}
 	}
 	debugSuffix := ""
 	if IsDebugEnabled() {
 		debugSuffix = " [debugging]"
 	}
-	return fmt.Sprintf("%s Running in mode: %s%s\n%s v%s\nListening on: %s", icon, Get(), debugSuffix, appName, version, address)
+	if icon != "" {
+		icon += " "
+	}
+	return fmt.Sprintf("%sRunning in mode: %s%s\n%s v%s\nListening on: %s", icon, Get(), debugSuffix, appName, version, address)
 }

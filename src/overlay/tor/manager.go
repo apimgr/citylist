@@ -79,6 +79,7 @@ type Snapshot struct {
 	Enabled            bool   `json:"enabled"`
 	Running            bool   `json:"running"`
 	Status             string `json:"status"`
+	Version            string `json:"version"`
 	Hostname           string `json:"hostname,omitempty"`
 	BootstrapPercent   int    `json:"bootstrap_percent"`
 	CircuitEstablished bool   `json:"circuit_established"`
@@ -103,6 +104,9 @@ type Manager struct {
 	dialer        proxy.ContextDialer
 	closed        bool
 	closeOnce     sync.Once
+	controlMu     sync.Mutex
+	vanityMu      sync.RWMutex
+	vanity        *vanitySearch
 	ctx           context.Context
 	cancel        context.CancelFunc
 	restart       chan struct{}
@@ -124,15 +128,18 @@ func Start(ctx context.Context, options Options) (*Manager, error) {
 	managerCtx, cancel := context.WithCancel(ctx)
 	m := &Manager{options: options, logger: logger, ctx: managerCtx, cancel: cancel, restart: make(chan struct{}, 1)}
 	m.snapshot.Status = statusStarting
-	if _, err := resolveBinary(options.TorBinary); err != nil {
+	binary, err := resolveBinary(options.TorBinary)
+	if err != nil {
 		if errors.Is(err, ErrBinaryNotFound) {
 			m.snapshot.Status = statusDisabled
+			m.snapshot.Version = "unavailable"
 			logger.Info("Tor binary not found, hidden service disabled")
 			return m, nil
 		}
 		cancel()
 		return nil, err
 	}
+	m.snapshot.Version = torBinaryVersion(ctx, binary)
 	backend, port, err := bindBackend()
 	if err != nil {
 		cancel()
@@ -207,6 +214,7 @@ func (m *Manager) GetHTTPClient(useTor bool) *http.Client {
 // Close stops startup work, closes the backend, and shuts down the Tor child.
 func (m *Manager) Close() error {
 	var closeErr error
+	m.StopVanitySearch()
 	m.closeOnce.Do(func() {
 		m.mu.Lock()
 		m.closed = true

@@ -233,7 +233,7 @@ Metrics remain internal operational endpoints and are not advertised by the publ
 | Endpoint | Response | Token |
 |---|---|---|
 | `/server/metrics` and `/server/metrics/prometheus` | Prometheus text exposition | `server.metrics.auth.tokens.prometheus` |
-| `/server/metrics/grafana` | Importable Grafana dashboard JSON | `server.metrics.auth.tokens.grafana` |
+| `/server/metrics/grafana` | Importable Grafana 12+ dashboard JSON (`schemaVersion` 42) | `server.metrics.auth.tokens.grafana` |
 | `/server/metrics/loki` | Recent bounded Loki-compatible JSON log stream | `server.metrics.auth.tokens.loki` |
 
 The same handlers are mounted at `/api/{api_version}/server/metrics[/{service}]` and `/api/metrics[/{service}]`. When `server.metrics.root.enabled` is true, they are also mounted at `/metrics[/{service}]`. These aliases respond directly and do not redirect. Send credentials only in `Authorization: Bearer <token>`; query-string tokens are not accepted. Set `server.metrics.auth.allow_unauthenticated: true` only when network controls already restrict all metrics routes to trusted monitoring systems.

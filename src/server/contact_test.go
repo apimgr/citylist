@@ -486,6 +486,46 @@ func TestContactAPIReviewConfirmDeliversOnceAndDropsDuplicates(t *testing.T) {
 	}
 }
 
+func TestPrivacyContactRecipientFallback(t *testing.T) {
+	var lastRecipient string
+	previousSender := contactMailSender
+	contactMailSender = func(_ context.Context, _ config.SMTPConfig, message contactMailMessage, _ string) error {
+		lastRecipient = message.To
+		return nil
+	}
+	t.Cleanup(func() { contactMailSender = previousSender })
+
+	for _, test := range []struct {
+		name       string
+		dpo        string
+		general    string
+		admin      string
+		want       string
+	}{
+		{name: "DPO recipient", dpo: "dpo@example.com", general: "general@example.com", admin: "admin@example.com", want: "dpo@example.com"},
+		{name: "general fallback", general: "general@example.com", admin: "admin@example.com", want: "general@example.com"},
+		{name: "admin fallback", admin: "admin@example.com", want: "admin@example.com"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			cfg := config.DefaultConfig()
+			cfg.Server.Contact.DPO.Email = test.dpo
+			cfg.Server.Contact.General.Email = test.general
+			cfg.Server.Contact.Admin.Email = test.admin
+			cfg.Server.Notifications.Email.From.Email = "no-reply@example.com"
+			cfg.Server.Notifications.Email.SMTP.Host = "smtp.example.com"
+			server := testServerWithConfig(t, cfg)
+			lastRecipient = ""
+			err := server.deliverContact(context.Background(), httptest.NewRequest(http.MethodPost, "/server/contact", nil), "privacy", contactSubmission{"subject": "Privacy request"}, "tracking")
+			if err != nil {
+				t.Fatalf("deliverContact() error: %v", err)
+			}
+			if lastRecipient != test.want {
+				t.Fatalf("recipient = %q, want %q", lastRecipient, test.want)
+			}
+		})
+	}
+}
+
 func postContactJSON(t *testing.T, s *Server, values contactSubmission) *httptest.ResponseRecorder {
 	t.Helper()
 	body, err := json.Marshal(values)

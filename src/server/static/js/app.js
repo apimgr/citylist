@@ -42,6 +42,28 @@ const fallbackClientTranslations = {
     'pwa.reload_page': 'Please reload this page.',
 };
 
+function offlinePageStrings() {
+    try {
+        const element = document.getElementById('offline-strings');
+        return element ? JSON.parse(element.textContent) : null;
+    } catch {
+        return null;
+    }
+}
+
+async function storeOfflinePageStrings() {
+    const values = offlinePageStrings();
+    if (!values || !('caches' in window)) return;
+    try {
+        const cache = await caches.open('citylist-offline-strings');
+        await cache.put('/offline-strings.json', new Response(JSON.stringify(values), {
+            headers: { 'Content-Type': 'application/json' },
+        }));
+    } catch {
+        // Offline page text is an enhancement; the worker has English defaults.
+    }
+}
+
 function clientText(key) {
     const value = key.includes('.')
         ? key.split('.').reduce((messages, part) => messages?.[part], clientMessages)
@@ -118,15 +140,22 @@ const bootWatchdog = window.setTimeout(async () => {
         recovered = true;
     }
     if (recovered) {
-        clientMessages = await getClientTranslations();
-        const title = clientText('pwa.page_unavailable');
+        const strings = offlinePageStrings() || {
+            title: 'Offline', heading: 'You are offline',
+            message: 'This page could not be loaded and no cached copy is available. Check your connection and try again.',
+            reload: 'Reload',
+        };
+        const title = strings.title;
         document.title = title;
         const main = document.createElement('main');
         const heading = document.createElement('h1');
-        heading.textContent = title;
+        heading.textContent = strings.heading;
         const message = document.createElement('p');
-        message.textContent = clientText('pwa.reload_page');
-        main.append(heading, message);
+        message.textContent = strings.message;
+        const reload = document.createElement('a');
+        reload.href = window.location.href;
+        reload.textContent = strings.reload;
+        main.append(heading, message, reload);
         document.body.replaceChildren(main);
         return;
     }
@@ -622,6 +651,7 @@ document.addEventListener('click', async (event) => {
 
 document.addEventListener('DOMContentLoaded', () => {
     window.clearTimeout(bootWatchdog);
+    void storeOfflinePageStrings();
     document.querySelectorAll('.stat-value').forEach((element) => {
         const value = parseInt(element.textContent.replace(/,/g, ''), 10);
         if (!Number.isNaN(value)) element.textContent = formatNumber(value);

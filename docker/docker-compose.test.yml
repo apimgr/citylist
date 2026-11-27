@@ -9,7 +9,9 @@ x-logging: &default-logging
 services:
   citylist:
     image: ${CITYLIST_TEST_IMAGE:-ghcr.io/apimgr/citylist:devel}
+    container_name: citylist-app
     hostname: citylist
+    pull_policy: always
     restart: "no"
     mem_limit: 2g
     cpus: 2
@@ -40,6 +42,7 @@ services:
 
   citylist-cache:
     image: valkey/valkey:alpine
+    container_name: citylist-cache
     pull_policy: always
     restart: "no"
     mem_limit: 512m
@@ -58,5 +61,5 @@ services:
 
 networks:
   citylist:
-    name: ${CITYLIST_TEST_NETWORK:-citylist}
+    name: citylist
     external: false

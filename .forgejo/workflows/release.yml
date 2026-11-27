@@ -18,7 +18,28 @@ env:
   PROJECT_NAME: citylist
 
 jobs:
+  preflight:
+    runs-on: ubuntu-26.04
+    env:
+      RELEASE_SHA: ${{ forgejo.sha }}
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - name: Require an existing immutable release tag
+        run: |
+          if [[ "${FORGEJO_REF_TYPE}" != "tag" ]]; then
+            echo "::error::release.yml runs for an existing release tag only" >&2
+            exit 1
+          fi
+          remote_tag_sha="$(git ls-remote origin "refs/tags/${FORGEJO_REF_NAME}" "refs/tags/${FORGEJO_REF_NAME}^{}" | awk '$2 ~ /\^\{\}$/ { peeled=$1 } $2 !~ /\^\{\}$/ { direct=$1 } END { if (peeled != "") print peeled; else print direct }')"
+          if [[ -z "$remote_tag_sha" || "$remote_tag_sha" != "$RELEASE_SHA" ]]; then
+            echo "::error::release tag no longer points at the commit that triggered this run" >&2
+            exit 1
+          fi
+
   build:
+    needs: [preflight]
     runs-on: ubuntu-26.04
     container:
       image: casjaysdev/go:latest
@@ -115,13 +136,23 @@ jobs:
 
 
   release:
-    needs: build
+    needs: [preflight, build]
     runs-on: ubuntu-26.04
+    env:
+      RELEASE_SHA: ${{ forgejo.sha }}
     permissions:
       contents: write
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - name: Recheck immutable release tag before publishing
+        run: |
+          remote_tag_sha="$(git ls-remote origin "refs/tags/${FORGEJO_REF_NAME}" "refs/tags/${FORGEJO_REF_NAME}^{}" | awk '$2 ~ /\^\{\}$/ { peeled=$1 } $2 !~ /\^\{\}$/ { direct=$1 } END { if (peeled != "") print peeled; else print direct }')"
+          if [[ -z "$remote_tag_sha" || "$remote_tag_sha" != "$RELEASE_SHA" ]]; then
+            echo "::error::release tag moved after preflight; refusing to publish mismatched artifacts" >&2
+            exit 1
+          fi
 
       - name: Download all artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8.0.1

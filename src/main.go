@@ -366,15 +366,65 @@ func runServer(args []string) {
 	daemonize := (*daemon || earlyConfig.Server.Daemonize) && os.Getenv("_DAEMON_CHILD") != "1" && !isApplicationContainer() && !serviceManagedStart()
 	if *status {
 		checkPort := strings.Split(serverPort, ",")[0]
-		if err := checkHealth(checkPort); err != nil {
+		health, err := readHealth(checkPort)
+		if err != nil {
 			fmt.Fprintln(os.Stderr, serverOutputFormat("status_failed", "Health check failed: {error}", map[string]string{"error": err.Error()}))
 			os.Exit(1)
 		}
-		fmt.Println(serverOutputText("status_ok", "OK"))
+		fmt.Printf("%s: %s\n  %s: %s\n  %s: %s\n  %s: %s\n",
+			serverOutputText("status_server", "Server Status"), serverOutputText("status_running", "Running"),
+			serverOutputText("status_port", "Port"), checkPort, serverOutputText("status_mode", "Mode"), health.Mode,
+			serverOutputText("status_uptime", "Uptime"), health.Uptime)
+		torRunning, torAddress := health.Features.Tor.Running, health.Features.Tor.Hostname
+		if response, requestErr := requestTorControl(checkPort, http.MethodGet, "/server/tor/status", nil); requestErr == nil && response.OK {
+			var torStatus torStatusResponse
+			if json.Unmarshal(response.Data, &torStatus) == nil {
+				torRunning = torStatus.Running
+				if torStatus.OnionAddress != "" {
+					torAddress = torStatus.OnionAddress
+				}
+			}
+		}
+		if torRunning {
+			fmt.Printf("\n%s: %s\n", serverOutputText("status_tor", "Tor Hidden Service"), serverOutputText("status_connected", "Connected"))
+			if torAddress != "" {
+				fmt.Printf("  %s: %s\n", serverOutputText("status_address", "Address"), torAddress)
+			}
+		} else if health.Features.Tor.Status == "unavailable" {
+			fmt.Printf("\n%s: %s\n", serverOutputText("status_tor", "Tor Hidden Service"), serverOutputText("status_error", "Error"))
+		} else {
+			fmt.Printf("\n%s: %s\n", serverOutputText("status_tor", "Tor Hidden Service"), serverOutputText("status_disabled", "Disabled"))
+		}
+		i2pStatus := serverOutputText("status_disabled", "Disabled")
+		switch health.Features.I2P.State {
+		case "no_provider":
+			i2pStatus = serverOutputText("status_no_provider", "No Provider")
+		case "starting", "building":
+			i2pStatus = serverOutputText("status_starting", "Starting")
+		case "error":
+			i2pStatus = serverOutputText("status_error", "Error")
+		case "running":
+			i2pStatus = serverOutputFormat("status_running_provider", "Running ({provider})", map[string]string{"provider": health.Features.I2P.Provider})
+		}
+		fmt.Printf("\n%s: %s\n", serverOutputText("status_i2p", "I2P Eepsite"), i2pStatus)
+		if health.Features.I2P.Hostname != "" {
+			fmt.Printf("  %s: %s\n", serverOutputText("status_address", "Address"), health.Features.I2P.Hostname)
+		}
 		os.Exit(0)
 	}
 	var privilegedListeners []net.Listener
-	if systemMode {
+	if *maintenanceCmd == "tor" {
+		// Tor maintenance talks to the already-running listener and must not bind
+		// the server ports or drop privileges before checking operator authority.
+		for _, directory := range []string{configDir, dataDir, cacheDir, logsDir, backupDir, paths.GetDatabaseDir(dataDir)} {
+			if err := os.MkdirAll(directory, 0700); err != nil {
+				log.Fatal(serverOutputFormat("error_create_private_directory", "Failed to create private directory {path}: {error}", map[string]string{"path": directory, "error": err.Error()}))
+			}
+			if err := os.Chmod(directory, 0700); err != nil {
+				log.Fatal(serverOutputFormat("error_secure_private_directory", "Failed to secure private directory {path}: {error}", map[string]string{"path": directory, "error": err.Error()}))
+			}
+		}
+	} else if systemMode {
 		if daemonize {
 			if err := startDaemon(logsDir); err != nil {
 				log.Fatal(serverOutputFormat("error_start_daemon", "Failed to start daemon: {error}", map[string]string{"error": err.Error()}))
@@ -405,11 +455,13 @@ func runServer(args []string) {
 			return
 		}
 	}
-	privilegedListeners, err = bindRemainingPorts(serverAddress, serverPort, privilegedListeners)
-	if err != nil {
-		log.Fatal(serverOutputFormat("error_bind_server_ports", "Failed to bind server ports: {error}", map[string]string{"error": err.Error()}))
+	if *maintenanceCmd != "tor" {
+		privilegedListeners, err = bindRemainingPorts(serverAddress, serverPort, privilegedListeners)
+		if err != nil {
+			log.Fatal(serverOutputFormat("error_bind_server_ports", "Failed to bind server ports: {error}", map[string]string{"error": err.Error()}))
+		}
 	}
-	if !isApplicationContainer() {
+	if !isApplicationContainer() && *maintenanceCmd != "tor" {
 		pidPath := *pidFile
 		if pidPath == "" {
 			if systemMode {
@@ -440,10 +492,14 @@ func runServer(args []string) {
 	if err != nil {
 		log.Fatal(serverOutputFormat("error_load_config", "Failed to load configuration: {error}", map[string]string{"error": err.Error()}))
 	}
+	mode.InitializeWithSettings(*modeFlag, cfg.Server.Mode, debugFlagSet, *debug)
+	server.WarnInvalidEnvironmentHosts(projectName)
 	if strings.TrimSpace(cfg.Server.FQDN) == "" {
 		cfg.Server.FQDN = server.GetFQDN(projectName)
+		if cfg.Server.FQDN == "" {
+			log.Printf("WARN server FQDN could not be resolved; absolute URLs will omit the host")
+		}
 	}
-	mode.InitializeWithSettings(*modeFlag, cfg.Server.Mode, debugFlagSet, *debug)
 	if *port != "" || os.Getenv("PORT") != "" || cfg.Server.Port == "" {
 		cfg.Server.Port = serverPort
 	}
@@ -490,7 +546,7 @@ func runServer(args []string) {
 			cfg.Server.I18n.DefaultLanguage = "en"
 		}
 	}
-	if cfg.InitialToken != "" {
+	if cfg.InitialToken != "" && *maintenanceCmd == "" {
 		if _, err := fmt.Fprintln(os.Stdout, serverOutputFormat("startup_initial_token", "Initial operator token (save this value): {token}", map[string]string{"token": cfg.InitialToken})); err != nil {
 			log.Print(serverOutputText("error_print_initial_token", "Unable to print initial operator token"))
 		}
@@ -498,6 +554,13 @@ func runServer(args []string) {
 
 	// Handle maintenance commands
 	if *maintenanceCmd != "" {
+		if *maintenanceCmd == "tor" {
+			if err := maintenanceTor(flag.Args(), configDir, dataDir, strings.Split(serverPort, ",")[0], cfg); err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+			return
+		}
 		handleMaintenanceCommand(*maintenanceCmd, configDir, dataDir, logsDir, backupDir, configPath, cfg, *includeSSL, *includeData)
 		return
 	}
@@ -965,7 +1028,7 @@ func runServer(args []string) {
 	}
 
 	addr := net.JoinHostPort(strings.Trim(serverAddress, "[]"), strings.Split(serverPort, ",")[0])
-	log.Print(mode.GetStartupMessage(Version, addr))
+	log.Print(mode.GetStartupMessage(Version, addr, cfg.Output.Emoji))
 	log.Print(serverOutputFormat("startup_listening", "Starting citylist server on {address}", map[string]string{"address": addr}))
 
 	if torManager != nil && torManager.Listener() != nil {
@@ -1242,7 +1305,7 @@ func commandHelp(args []string, commands ...string) (string, bool) {
 func printMaintenanceHelp() {
 	fmt.Println(serverOutputText("maintenance_help", `Maintenance commands:
   --maintenance backup [file]
-  --maintenance restore <file>
+  --maintenance restore [file]
   --maintenance update [check|yes|branch {stable|beta|devel}]
   --maintenance mode
   --maintenance setup
@@ -1254,6 +1317,7 @@ func printMaintenanceHelp() {
 
 PGP key export, import, secret rotation, and token revocation require operator authorization and typed confirmation.
 Token revocation and data deletion accept --yes to skip the typed confirmation in scripts.`))
+	fmt.Println(serverOutputText("tor_maintenance_help", "  --maintenance tor {status|validate|restart|regenerate|vanity|import-keys}"))
 }
 
 func checkHealth(port string) error {
@@ -1364,14 +1428,14 @@ func handleMaintenanceCommand(cmd, configDir, dataDir, logsDir, backupDir, confi
 			os.Exit(2)
 		}
 	case "restore":
-		if len(args) == 0 {
-			fmt.Println(serverOutputText("restore_usage", "Usage: citylist --maintenance restore <backup-file>"))
-			os.Exit(1)
+		if len(args) > 1 {
+			log.Fatal(serverOutputText("restore_usage", "Usage: citylist --maintenance restore [backup-file]"))
 		}
-		if len(args) != 1 {
-			log.Fatal(serverOutputText("restore_usage", "Usage: citylist --maintenance restore <backup-file>"))
+		backupFile := ""
+		if len(args) == 1 {
+			backupFile = args[0]
 		}
-		if err := runRestoreCommand(args[0], configPath, configDir, dataDir, backupDir, cfg); err != nil {
+		if err := runRestoreCommand(backupFile, configPath, configDir, dataDir, backupDir, cfg); err != nil {
 			log.Fatal(serverOutputFormat("error_restore", "Restore failed: {error}", map[string]string{"error": err.Error()}))
 		}
 	case "update":
@@ -1417,7 +1481,7 @@ func handleMaintenanceCommand(cmd, configDir, dataDir, logsDir, backupDir, confi
 		}
 	default:
 		fmt.Println(serverOutputFormat("maintenance_unknown_command", "Unknown maintenance command: {command}", map[string]string{"command": cmd}))
-		fmt.Println(serverOutputText("maintenance_available_commands", "Available commands: backup, restore, update, mode, setup, pgp, secret, token, data, compliance"))
+		fmt.Println(serverOutputText("maintenance_available_commands", "Available commands: backup, restore, update, mode, setup, pgp, secret, token, data, compliance, tor"))
 		os.Exit(1)
 	}
 }

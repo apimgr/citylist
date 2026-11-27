@@ -17,7 +17,7 @@ TEST_DIR=$(mktemp -d "$TEMP_ROOT/${INTERNAL_NAME}-docker-XXXXXX")
 chmod 700 "$TEST_DIR"
 SUFFIX=${TEST_DIR##*-}
 TEST_IMAGE="${PROJECT_NAME}:test-${SUFFIX,,}"
-TEST_NETWORK="${PROJECT_NAME}-test-net-${SUFFIX,,}"
+TEST_NETWORK="${PROJECT_NAME}"
 PORT=$((64000 + RANDOM % 1000))
 VOLUME_DIR="$TEST_DIR/volumes"
 ARTIFACT_DIR="$TEST_DIR/artifacts"
@@ -28,8 +28,8 @@ chmod 700 "$VOLUME_DIR" "$ARTIFACT_DIR"
 chmod 711 "$VOLUME_DIR/config" "$VOLUME_DIR/data"
 
 compose() {
-  CITYLIST_TEST_IMAGE="$TEST_IMAGE" CITYLIST_TEST_PORT="$PORT" CITYLIST_TEST_VOLUME_DIR="$VOLUME_DIR" CITYLIST_TEST_NETWORK="$TEST_NETWORK" \
-    docker compose --project-name "${PROJECT_NAME}-test-${SUFFIX,,}" --file "$PROJECT_ROOT/docker/docker-compose.test.yml" "$@"
+  CITYLIST_TEST_IMAGE="$TEST_IMAGE" CITYLIST_TEST_PORT="$PORT" CITYLIST_TEST_VOLUME_DIR="$VOLUME_DIR" \
+    docker compose --file "$PROJECT_ROOT/docker/docker-compose.test.yml" "$@"
 }
 cleanup() {
   status=$?
@@ -46,11 +46,12 @@ echo '=== Building server and client into project-scoped temp storage ==='
 make build BINDIR="$BIN_DIR" RELDIR="$TEST_DIR/releases"
 
 echo '=== Building and starting the application container ==='
-docker build --tag "$TEST_IMAGE" --file docker/Dockerfile .
-compose up --detach
+timeout -k 30 "${DOCKER_TIMEOUT:-3600}" docker build --tag "$TEST_IMAGE" --file docker/Dockerfile .
+compose up --detach --pull never
 
 # The test runner lives on the same isolated network as the application and Valkey.
-docker run --rm --name "citylist-$(tr -dc 'a-z0-9' </dev/urandom | head -c8)" \
+# shellcheck disable=SC2016
+timeout -k 30 "${DOCKER_TIMEOUT:-3600}" docker run --rm --name "citylist-$(tr -dc 'a-z0-9' </dev/urandom | head -c8)" \
   --network "$TEST_NETWORK" --memory=4g --cpus=2 --user 0:0 \
   -v "$BIN_DIR:/app:ro" -v "$VOLUME_DIR/config:/config:ro" -v "$ARTIFACT_DIR:/artifacts" \
   -e CITYLIST_BASE_URL="http://citylist" -e CITYLIST_PORT="$PORT" \

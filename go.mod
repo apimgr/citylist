@@ -6,6 +6,7 @@ require (
 	charm.land/bubbles/v2 v2.2.2
 	charm.land/bubbletea/v2 v2.1.2
 	charm.land/lipgloss/v2 v2.1.1
+	filippo.io/edwards25519 v1.1.0
 	github.com/ProtonMail/go-crypto v1.5.2
 	github.com/chromedp/cdproto v0.160.8
 	github.com/chromedp/chromedp v0.24.0
@@ -21,10 +22,10 @@ require (
 	github.com/pires/go-proxyproto v0.14.0
 	github.com/prometheus/client_golang v1.25.0
 	github.com/shirou/gopsutil/v3 v3.24.5
-	github.com/swaggest/swgui v1.8.9
 	github.com/tursodatabase/libsql-client-go v0.0.0-20260528064733-9d5d30a29a60
 	github.com/yuin/goldmark v1.8.7
 	golang.org/x/crypto v0.59.0
+	golang.org/x/image v0.45.0
 	golang.org/x/term v0.48.0
 	golang.org/x/text v0.44.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -238,7 +239,6 @@ require (
 	github.com/transip/gotransip/v6 v6.29.0 // indirect
 	github.com/ucloud/ucloud-sdk-go v0.22.150 // indirect
 	github.com/ultradns/ultradns-go-sdk v1.8.6-20261009044533-535b847 // indirect
-	github.com/vearutop/statigz v1.4.0 // indirect
 	github.com/vinyldns/go-vinyldns v0.9.18 // indirect
 	github.com/volcengine/volc-sdk-golang v1.0.259 // indirect
 	github.com/vultr/govultr/v3 v3.34.0 // indirect
@@ -260,7 +260,6 @@ require (
 	go.uber.org/zap v1.28.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.6 // indirect
 	golang.org/x/exp v0.0.0-20260410095643-746e56fc9e2f // indirect
-	golang.org/x/image v0.45.0 // indirect
 	golang.org/x/oauth2 v0.38.0 // indirect
 	golang.org/x/sync v0.25.0 // indirect
 	golang.org/x/time v0.16.0 // indirect

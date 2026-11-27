@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="{{.Lang}}" dir="{{.Dir}}" class="theme-{{.Theme}}">
-<head>{{.Head}}</head>
+<head>{{.Head}}<link rel="stylesheet" href="{{asset (printf "%s/static/css/public.css" .BaseURL)}}"></head>
 <body>
   <a class="skip-link" href="#main-content">{{t .Lang "common.skip_main"}}</a>
   <a class="skip-link" href="#navigation">{{t .Lang "common.skip_navigation"}}</a>
@@ -16,6 +16,7 @@
   <main id="main-content" class="{{.MainClass}}">{{.MainContent}}</main>
   {{template "public-footer" .}}
   {{.ConsentBanner}}
+  <script id="offline-strings" type="application/json">{{.OfflineStrings}}</script>
   <script src="{{asset (printf "%s/static/js/app.js" .BaseURL)}}" defer></script>
   {{.PageScripts}}
 </body>

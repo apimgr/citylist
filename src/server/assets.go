@@ -65,8 +65,12 @@ func setHTMLCacheHeaders(w http.ResponseWriter, r *http.Request, status int) {
 	}
 	http.SetCookie(w, &http.Cookie{
 		Name: "citylist_build", Value: AssetStamp(), Path: "/", MaxAge: 31536000,
-		Secure: true, SameSite: http.SameSiteLaxMode,
+		Secure: !onI2P(r), SameSite: http.SameSiteLaxMode,
 	})
+}
+
+func onI2P(r *http.Request) bool {
+	return strings.HasSuffix(strings.ToLower(strings.TrimSuffix(hostnameOnly(r.Host), ".")), ".i2p")
 }
 
 func isTopLevelNavigation(r *http.Request) bool {

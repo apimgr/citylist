@@ -7,7 +7,24 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
+
+func TestOutputEmojiConfigPreservesExplicitBoolean(t *testing.T) {
+	for _, test := range []struct {
+		value string
+		want  bool
+	}{{value: "true", want: true}, {value: "false", want: false}} {
+		var cfg Config
+		if err := yaml.Unmarshal([]byte("output:\n  emoji: "+test.value+"\n"), &cfg); err != nil {
+			t.Fatal(err)
+		}
+		if cfg.Output.Emoji == nil || *cfg.Output.Emoji != test.want {
+			t.Errorf("output.emoji %s decoded as %v, want %t", test.value, cfg.Output.Emoji, test.want)
+		}
+	}
+}
 
 func TestDefaultConfig(t *testing.T) {
 	cfg := DefaultConfig()

@@ -16,9 +16,8 @@ e2e_dir=$(mktemp -d "$temp_root/${project_name}-XXXXXX")
 chmod 700 "$e2e_dir"
 suffix=${e2e_dir##*-}
 suffix=${suffix,,}
-compose_project="citylist-e2e-$suffix"
 test_image="citylist:e2e-$suffix"
-test_network="citylist-e2e-net-$suffix"
+test_network="citylist"
 port=$((64000 + RANDOM % 1000))
 volume_dir="$e2e_dir/volumes"
 artifact_dir="$e2e_dir/artifacts"
@@ -46,17 +45,18 @@ networks:
 EOF
 
 compose() {
-  CITYLIST_TEST_IMAGE="$test_image" CITYLIST_TEST_PORT="$port" CITYLIST_TEST_VOLUME_DIR="$volume_dir" CITYLIST_TEST_NETWORK="$test_network" \
-    docker compose --project-name "$compose_project" --file "$project_root/docker/docker-compose.test.yml" --file "$compose_override" "$@"
+  CITYLIST_TEST_IMAGE="$test_image" CITYLIST_TEST_PORT="$port" CITYLIST_TEST_VOLUME_DIR="$volume_dir" \
+    docker compose --file "$project_root/docker/docker-compose.test.yml" --file "$compose_override" "$@"
 }
 random_suffix() {
   printf '%08x' "$(((RANDOM << 15) | RANDOM))"
 }
+browser_container="citylist-$(random_suffix)"
 cleanup() {
   status=$?
   if [[ "$status" -ne 0 ]]; then compose logs >"$artifact_dir/server.log" 2>&1 || true; fi
   compose down --volumes --remove-orphans >/dev/null 2>&1 || true
-  docker rm --force "citylist-e2e-browser-$suffix" >/dev/null 2>&1 || true
+  docker rm --force "$browser_container" >/dev/null 2>&1 || true
   docker image rm "$test_image" >/dev/null 2>&1 || true
   rm -rf -- "$volume_dir"
   if [[ "$status" -eq 0 ]]; then rm -rf -- "$e2e_dir"; else printf 'Failure artifacts retained at %s\n' "$artifact_dir" >&2; fi
@@ -71,11 +71,15 @@ if ! command -v docker >/dev/null 2>&1 || ! docker info >/dev/null 2>&1; then
   exit 1
 fi
 
-docker build --tag "$test_image" --file "$project_root/docker/Dockerfile.dev" "$project_root"
-compose up --detach
+timeout -k 30 "${DOCKER_TIMEOUT:-3600}" docker build --tag "$test_image" --file "$project_root/docker/Dockerfile.dev" "$project_root"
+compose up --detach --pull never
+app_container=$(compose ps --all --quiet citylist)
 ready=false
 for _ in {1..60}; do
-  health_status=$(docker inspect --format '{{.State.Health.Status}}' citylist-app 2>/dev/null || true)
+	health_status=""
+	if [[ -n "$app_container" ]]; then
+		health_status=$(docker inspect --format '{{.State.Health.Status}}' "$app_container" 2>/dev/null || true)
+	fi
   if [[ "$health_status" == healthy ]]; then
     ready=true
     break
@@ -87,7 +91,7 @@ if [[ "$ready" != true ]]; then
   printf '%s\n' 'Citylist did not become healthy in the allotted time.' >&2
   exit 1
 fi
-app_ip=$(docker inspect --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' citylist-app)
+app_ip=$(docker inspect --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$app_container")
 cat >"$hosts_file" <<EOF
 127.0.0.1 localhost
 ::1 localhost ip6-localhost ip6-loopback
@@ -95,14 +99,14 @@ $app_ip citylist
 EOF
 chmod 600 "$hosts_file"
 
-docker run --detach --name "citylist-e2e-browser-$suffix" --network "$test_network" --memory=2g --cpus=2 \
+timeout -k 30 "${DOCKER_TIMEOUT:-3600}" docker run --detach --name "$browser_container" --network "$test_network" --memory=2g --cpus=2 \
   --add-host="citylist:$app_ip" \
   chromedp/headless-shell:latest
-browser_ip=$(docker inspect --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "citylist-e2e-browser-$suffix")
+browser_ip=$(docker inspect --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$browser_container")
 browser_ready=false
 for _ in {1..30}; do
   curl_container="citylist-$(random_suffix)"
-  if docker run --rm --name "$curl_container" --network "$test_network" --memory=128m --cpus=0.5 \
+  if timeout -k 10 60 docker run --rm --name "$curl_container" --network "$test_network" --memory=128m --cpus=0.5 \
     curlimages/curl:latest --fail --silent "http://$browser_ip:9222/json/version" >/dev/null 2>&1; then
     browser_ready=true
     break
@@ -110,7 +114,7 @@ for _ in {1..30}; do
   sleep 1
 done
 if [[ "$browser_ready" != true ]]; then
-  docker logs "citylist-e2e-browser-$suffix" >&2 || true
+  docker logs "$browser_container" >&2 || true
   printf '%s\n' 'Headless Chromium did not become ready.' >&2
   exit 1
 fi

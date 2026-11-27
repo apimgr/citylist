@@ -99,25 +99,23 @@ release: release-check build
 		-czf $(RELDIR)/$(PROJECT_NAME)-$(VERSION)-source.tar.gz .
 	@cd $(RELDIR) && sha256sum $(PROJECT_NAME)-linux-* $(PROJECT_NAME)-darwin-* $(PROJECT_NAME)-windows-* $(PROJECT_NAME)-freebsd-* $(PROJECT_NAME)-cli-linux-* $(PROJECT_NAME)-cli-darwin-* $(PROJECT_NAME)-cli-windows-* $(PROJECT_NAME)-cli-freebsd-* $(PROJECT_NAME)-cli-gui-linux-* $(PROJECT_NAME)-cli-gui-darwin-* $(PROJECT_NAME)-cli-gui-windows-* > sha256.txt
 	@cd $(RELDIR) && sha512sum $(PROJECT_NAME)-linux-* $(PROJECT_NAME)-darwin-* $(PROJECT_NAME)-windows-* $(PROJECT_NAME)-freebsd-* $(PROJECT_NAME)-cli-linux-* $(PROJECT_NAME)-cli-darwin-* $(PROJECT_NAME)-cli-windows-* $(PROJECT_NAME)-cli-freebsd-* $(PROJECT_NAME)-cli-gui-linux-* $(PROJECT_NAME)-cli-gui-darwin-* $(PROJECT_NAME)-cli-gui-windows-* > sha512.txt
-	@RELEASE_TAG=$$(case "$(VERSION)" in v*) printf '%s' "$(VERSION)" ;; *) \
-		if printf '%s' "$(VERSION)" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+'; then printf 'v%s' "$(VERSION)"; \
-		else printf '%s' "$(VERSION)"; fi ;; esac); \
-		gh release delete "$$RELEASE_TAG" --yes --cleanup-tag 2>/dev/null || true; \
-		gh release create "$$RELEASE_TAG" $(RELDIR)/* --title "$$RELEASE_TAG" --notes "Release $$RELEASE_TAG" --latest
+	@if git rev-parse -q --verify "refs/tags/v$(VERSION)" >/dev/null || git ls-remote --exit-code --tags origin "refs/tags/v$(VERSION)" >/dev/null 2>&1; then echo "ERROR: tag v$(VERSION) already exists; release tags are never moved or recreated" >&2; exit 1; fi
+	@git tag "v$(VERSION)"
+	@git push origin "refs/tags/v$(VERSION)"
+	@echo "Pushed v$(VERSION); the release workflow publishes the immutable release."
 
-# OCI metadata is supplied at build time; the Dockerfile contains no LABEL directives.
+# Build the host-platform image locally; CI/CD publishes images to the registry.
 docker:
 	@docker buildx version >/dev/null 2>&1 || { echo "docker buildx required" >&2; exit 1; }
 	@docker buildx create --name multiarch-builder --use 2>/dev/null || docker buildx use multiarch-builder
-	@docker buildx build -f docker/Dockerfile --platform linux/amd64,linux/arm64 --push \
+	@docker buildx build -f docker/Dockerfile --platform "$$(docker version --format '{{.Server.Os}}/{{.Server.Arch}}')" --load \
 		--build-arg VERSION="$(VERSION)" --build-arg BUILD_EPOCH="$(BUILD_EPOCH)" --build-arg COMMIT_ID="$(COMMIT_ID)" \
 		--build-arg OFFICIAL_SITE="$(OFFICIAL_SITE)" \
 		--annotation "org.opencontainers.image.version=$(VERSION)" \
 		--annotation "org.opencontainers.image.revision=$(COMMIT_ID)" \
 		--annotation "org.opencontainers.image.created=$(BUILD_DATE)" \
 		--annotation "org.opencontainers.image.licenses=MIT" \
-		-t $(REGISTRY):$(VERSION) -t $(REGISTRY):latest .
-	@docker pull $(REGISTRY):$(VERSION)
+		-t $(REGISTRY):$(VERSION) .
 	@tests/check-image.sh $(REGISTRY):$(VERSION)
 
 clean:

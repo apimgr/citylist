@@ -4,9 +4,11 @@ set -eu
 
 IMAGE=${1:?usage: tests/check-image.sh <image>}
 TIMEOUT=${TOR_BOOTSTRAP_TIMEOUT:-180}
+RUN_TIMEOUT=${DOCKER_TIMEOUT:-3600}
 REQUIRE_OVERLAY=${REQUIRE_OVERLAY:-0}
-CONTAINER="citylist-image-check-$(tr -dc 'a-z0-9' </dev/urandom | head -c8)"
-PACKAGE_CONTAINER="citylist-image-package-check-$(tr -dc 'a-z0-9' </dev/urandom | head -c8)"
+random_suffix() { od -An -N4 -tx1 /dev/urandom | tr -d ' \n'; }
+CONTAINER="citylist-$(random_suffix)"
+PACKAGE_CONTAINER="citylist-$(random_suffix)"
 NETWORK="citylist-image-check-net-$(tr -dc 'a-z0-9' </dev/urandom | head -c8)"
 TOR_STATUS=""
 OUTBOUND=false
@@ -15,19 +17,24 @@ case "$TIMEOUT" in
   ''|*[!0-9]*) echo "FAIL: TOR_BOOTSTRAP_TIMEOUT must be a positive integer" >&2; exit 1 ;;
 esac
 [ "$TIMEOUT" -gt 0 ] || { echo "FAIL: TOR_BOOTSTRAP_TIMEOUT must be a positive integer" >&2; exit 1; }
+case "$RUN_TIMEOUT" in
+  ''|*[!0-9]*) echo "FAIL: DOCKER_TIMEOUT must be a positive integer" >&2; exit 1 ;;
+esac
+[ "$RUN_TIMEOUT" -gt 0 ] || { echo "FAIL: DOCKER_TIMEOUT must be a positive integer" >&2; exit 1; }
 
 cleanup() {
 	docker stop --time 60 "$CONTAINER" >/dev/null 2>&1 || true
 	docker rm "$CONTAINER" >/dev/null 2>&1 || true
   docker network rm "$NETWORK" >/dev/null 2>&1 || true
 }
-trap cleanup 0
+trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
 docker network create --driver bridge "$NETWORK" >/dev/null
-docker run --rm --name "$PACKAGE_CONTAINER" --network "$NETWORK" --memory=128m --cpus=0.5 --entrypoint sh "$IMAGE" -c 'for c in bash curl tor i2pd tini; do command -v "$c" || exit 1; done'
-docker run -d --name "$CONTAINER" --network "$NETWORK" --memory=2g --cpus=2 --stop-timeout=60 "$IMAGE" >/dev/null
+# shellcheck disable=SC2016
+timeout -k 30 "$RUN_TIMEOUT" docker run --rm --name "$PACKAGE_CONTAINER" --network "$NETWORK" --memory=128m --cpus=0.5 --entrypoint sh "$IMAGE" -c 'for c in bash curl tor i2pd tini; do command -v "$c" || exit 1; done'
+timeout -k 30 "$RUN_TIMEOUT" docker run -d --name "$CONTAINER" --network "$NETWORK" --memory=2g --cpus=2 --stop-timeout=60 "$IMAGE" >/dev/null
 
 if docker exec "$CONTAINER" curl -kfsS --max-time 5 https://1.1.1.1/cdn-cgi/trace >/dev/null 2>&1; then
   OUTBOUND=true

@@ -2,11 +2,13 @@ package server
 
 import (
 	"fmt"
+	"log/slog"
 	"net"
 	"net/netip"
 	"os"
 	"strings"
 
+	"github.com/apimgr/citylist/src/mode"
 	"golang.org/x/net/publicsuffix"
 )
 
@@ -18,13 +20,13 @@ var devOnlyTLDs = map[string]struct{}{
 
 // GetFQDN resolves the configured domain for startup and background tasks.
 func GetFQDN(projectName string) string {
-	if domains := GetAllDomains(); len(domains) > 0 {
+	if domains := getAllDomains(projectName); len(domains) > 0 {
 		return domains[0]
 	}
-	if hostname, err := os.Hostname(); err == nil && hostname != "" && !isLoopback(hostname) {
+	if hostname, err := os.Hostname(); err == nil && IsValidHost(hostname, mode.IsDevelopment(), projectName) && !isOverlayHost(hostname) && !isLoopback(hostname) {
 		return hostname
 	}
-	if hostname := strings.TrimSpace(os.Getenv("HOSTNAME")); hostname != "" && !isLoopback(hostname) {
+	if hostname := strings.TrimSpace(os.Getenv("HOSTNAME")); hostname != "" && IsValidHost(hostname, mode.IsDevelopment(), projectName) && !isOverlayHost(hostname) {
 		return hostname
 	}
 	if address := getGlobalIPv6(); address != "" {
@@ -33,19 +35,84 @@ func GetFQDN(projectName string) string {
 	if address := getGlobalIPv4(); address != "" {
 		return address
 	}
-	return "localhost"
+	return ""
 }
 
 // GetAllDomains returns the comma-separated DOMAIN values in configured order.
 func GetAllDomains() []string {
+	return getAllDomains("citylist")
+}
+
+func getAllDomains(projectName string) []string {
 	parts := strings.Split(os.Getenv("DOMAIN"), ",")
 	domains := make([]string, 0, len(parts))
 	for _, part := range parts {
-		if domain := strings.TrimSpace(part); domain != "" {
+		if domain := strings.TrimSpace(part); IsValidHost(domain, mode.IsDevelopment(), projectName) && !isOverlayHost(domain) {
 			domains = append(domains, domain)
 		}
 	}
 	return domains
+}
+
+// WarnInvalidEnvironmentHosts records one startup warning for invalid host settings.
+func WarnInvalidEnvironmentHosts(projectName string) {
+	development := mode.IsDevelopment()
+	invalidDomains := make([]string, 0)
+	for _, value := range strings.Split(os.Getenv("DOMAIN"), ",") {
+		value = strings.TrimSpace(value)
+		if value != "" && (!IsValidHost(value, development, projectName) || isOverlayHost(value)) {
+			invalidDomains = append(invalidDomains, value)
+		}
+	}
+	hostname := strings.TrimSpace(os.Getenv("HOSTNAME"))
+	invalidHostname := hostname != "" && (!IsValidHost(hostname, development, projectName) || isOverlayHost(hostname))
+	if len(invalidDomains) > 0 || invalidHostname {
+		fields := []any{}
+		if len(invalidDomains) > 0 {
+			fields = append(fields, "DOMAIN", strings.Join(invalidDomains, ","))
+		}
+		if invalidHostname {
+			fields = append(fields, "HOSTNAME", hostname)
+		}
+		slog.Warn("invalid host environment values skipped", fields...)
+	}
+}
+
+// IsValidHost validates a hostname for the active application mode.
+func IsValidHost(host string, devMode bool, projectName string) bool {
+	lower := strings.ToLower(strings.TrimSpace(host))
+	if lower == "" {
+		return false
+	}
+	if _, err := netip.ParseAddr(lower); err == nil {
+		return false
+	}
+	if lower == "localhost" {
+		return devMode
+	}
+	if !strings.Contains(lower, ".") {
+		return false
+	}
+	if isOverlayHost(lower) {
+		return true
+	}
+	if projectName != "" && strings.HasSuffix(lower, "."+strings.ToLower(projectName)) {
+		return devMode
+	}
+	suffix, icann := publicsuffix.PublicSuffix(lower)
+	if _, devOnly := devOnlyTLDs[suffix]; devOnly {
+		return devMode
+	}
+	if !devMode && !icann {
+		return false
+	}
+	etldPlusOne, err := publicsuffix.EffectiveTLDPlusOne(lower)
+	return err == nil && etldPlusOne != ""
+}
+
+func isOverlayHost(host string) bool {
+	lower := strings.ToLower(strings.TrimSuffix(strings.TrimSpace(host), "."))
+	return strings.HasSuffix(lower, ".onion") || strings.HasSuffix(lower, ".i2p") || strings.HasSuffix(lower, ".exit")
 }
 
 func appendUniqueDomain(domains []string, domain string) []string {

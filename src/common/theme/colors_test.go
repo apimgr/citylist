@@ -27,3 +27,23 @@ func TestColorEnabledPrecedence(t *testing.T) {
 		t.Fatal("NO_COLOR should disable color")
 	}
 }
+
+func TestEmojiEnabledPrecedence(t *testing.T) {
+	t.Setenv("TERM", "xterm")
+	t.Setenv("NO_COLOR", "1")
+	force := true
+	if !EmojiEnabled(&force) {
+		t.Fatal("explicit emoji configuration did not override NO_COLOR")
+	}
+	force = false
+	if EmojiEnabled(&force) {
+		t.Fatal("explicit false emoji configuration was ignored")
+	}
+	if EmojiEnabled() {
+		t.Fatal("NO_COLOR should disable emojis by default")
+	}
+	t.Setenv("TERM", "dumb")
+	if EmojiEnabled(&force) {
+		t.Fatal("TERM=dumb must take precedence over explicit emoji configuration")
+	}
+}

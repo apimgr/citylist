@@ -752,9 +752,7 @@ func TestTier3OwnerTokenBrowserLifecycle(t *testing.T) {
 		{http.MethodPost, "/api/v1/server/preferences/tokens/primary/reveal"},
 		{http.MethodPost, "/api/v1/server/preferences/tokens/primary/rotate"},
 		{http.MethodPost, "/api/v1/server/preferences/tokens/1/reveal"},
-		{http.MethodPost, "/api/v1/server/preferences/tokens/1/update"},
 		{http.MethodPost, "/api/v1/server/preferences/tokens/1/rotate"},
-		{http.MethodPost, "/api/v1/server/preferences/tokens/1/revoke"},
 		{http.MethodPatch, "/api/v1/server/preferences/tokens/1"},
 		{http.MethodDelete, "/api/v1/server/preferences/tokens/1"},
 	} {

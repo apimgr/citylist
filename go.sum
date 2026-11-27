@@ -44,6 +44,8 @@ cloud.google.com/go/storage v1.6.0/go.mod h1:N7U0C8pVQ/+NIKOBQyamJIeKQKkZ+mxpohl
 cloud.google.com/go/storage v1.8.0/go.mod h1:Wv1Oy7z6Yz3DshWRJFhqM/UCfaWIRTdp0RXyy7KQOVs=
 cloud.google.com/go/storage v1.10.0/go.mod h1:FLPqc6j+Ki4BU591ie1oL6qBQGu2Bl/tZ9ullr3+Kg0=
 dmitri.shuralyov.com/gpu/mtl v0.0.0-20190408044501-666a987793e9/go.mod h1:H6x//7gZCb22OMCxBHrMx7a5I7Hp++hsVxbQ4BYO7hU=
+filippo.io/edwards25519 v1.1.0 h1:FNf4tywRC1HmFuKW5xopWpigGjJKiJSV0Cqo0cJWDaA=
+filippo.io/edwards25519 v1.1.0/go.mod h1:BxyFTGdWcka3PhytdK4V28tE5sGfRvvvRV7EaN4VDT4=
 github.com/AdamSLevy/jsonrpc2/v14 v14.1.0 h1:Dy3M9aegiI7d7PF1LUdjbVigJReo+QOceYsMyFh9qoE=
 github.com/AdamSLevy/jsonrpc2/v14 v14.1.0/go.mod h1:ZakZtbCXxCz82NJvq7MoREtiQesnDfrtF6RFUGzQfLo=
 github.com/Azure/azure-sdk-for-go/sdk/azcore v1.24.0 h1:5H6YRLGMoC8z5aXpxqcD6FfswI8mwoVNHSecvIoazt4=
@@ -149,8 +151,6 @@ github.com/aliyun/credentials-go v1.3.6/go.mod h1:1LxUuX7L5YrZUWzBrRyk0SwSdH4OmP
 github.com/aliyun/credentials-go v1.4.5/go.mod h1:Jm6d+xIgwJVLVWT561vy67ZRP4lPTQxMbEYRuT2Ti1U=
 github.com/aliyun/credentials-go v1.4.7 h1:T17dLqEtPUFvjDRRb5giVvLh6dFT8IcNFJJb7MeyCxw=
 github.com/aliyun/credentials-go v1.4.7/go.mod h1:Jm6d+xIgwJVLVWT561vy67ZRP4lPTQxMbEYRuT2Ti1U=
-github.com/andybalholm/brotli v1.0.5 h1:8uQZIdzKmjc/iuPu7O2ioW48L81FgatrcpfFmiq/cCs=
-github.com/andybalholm/brotli v1.0.5/go.mod h1:fO7iG3H7G2nSZ7m0zPUDn85XEX2GTukHGRSepvi9Eig=
 github.com/antihax/optional v1.0.0/go.mod h1:uupD/76wgC+ih3iEmQUL+0Ugr19nfwCT1kdvxnR2qWY=
 github.com/antlr4-go/antlr/v4 v4.13.0 h1:lxCg3LAv+EUK6t1i0y1V6/SLeUi0eKEKdhQAlS8TVTI=
 github.com/antlr4-go/antlr/v4 v4.13.0/go.mod h1:pfChB/xh/Unjila75QW7+VU4TSnWnnk9UTnmpPaOR2g=
@@ -221,8 +221,6 @@ github.com/bodgit/gssapi v0.0.4 h1:FPou0NHDdn+HM1PpBlocDhtQXj0RVcZ4gc3frfYx1FE=
 github.com/bodgit/gssapi v0.0.4/go.mod h1:UwGfip4+LKhpIn3Y6tNw/12l1IVJkZvVOsJ1efNEEKo=
 github.com/bodgit/tsig v1.3.1 h1:wvyR60AWCH0wdJiloB9dPfg8M3NV42HGW8dce3Z0GDE=
 github.com/bodgit/tsig v1.3.1/go.mod h1:Ez+xu0W5Ew/D28XqthucLOX8k9A0UGVPETvagYxbIHU=
-github.com/bool64/dev v0.2.45 h1:3nLKhAS/6Oklk3Mt2lHYSN/Cb4tdAD77KLwzeP+6eYE=
-github.com/bool64/dev v0.2.45/go.mod h1:iJbh1y/HkunEPhgebWRNcs8wfGq7sjvJ6W5iabL8ACg=
 github.com/boombuler/barcode v1.0.1-0.20190219062509-6c824513bacc/go.mod h1:paBWMcWSl3LHKBqUq+rly7CNSldXjb2rDl3JlRe0mD8=
 github.com/boombuler/barcode v1.0.1 h1:NDBbPmhS+EqABEs5Kg3n/5ZNjy73Pz7SIV+KCeqyXcs=
 github.com/boombuler/barcode v1.0.1/go.mod h1:paBWMcWSl3LHKBqUq+rly7CNSldXjb2rDl3JlRe0mD8=
@@ -1007,8 +1005,6 @@ github.com/stretchr/testify v1.12.1/go.mod h1:MDEgiDPPsNp5cuIrHPPCyornHKgEVbtFUm
 github.com/subosito/gotenv v1.2.0/go.mod h1:N0PQaV/YGNqwC0u51sEeR/aUtSLEXKX9iv69rRypqCw=
 github.com/subosito/gotenv v1.6.0 h1:9NlTDc1FTs4qu0DDq7AEtTPNw6SVm7uBMsUCUjABIf8=
 github.com/subosito/gotenv v1.6.0/go.mod h1:Dk4QP5c2W3ibzajGcXpNraDfq2IrhjMIvMSWPKKo0FU=
-github.com/swaggest/swgui v1.8.9 h1:cxAgIwouPpZPlvX68jY5fpwarzLbkc8/IL6DMj+H460=
-github.com/swaggest/swgui v1.8.9/go.mod h1:eTJfgwudbyw9xMwqO26vs82ei2u6//JnUAofx2vGB3M=
 github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.3.131/go.mod h1:r5r4xbfxSaeR04b166HGsBa/R4U3SueirEUpXGuw+Q0=
 github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.3.186/go.mod h1:r5r4xbfxSaeR04b166HGsBa/R4U3SueirEUpXGuw+Q0=
 github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.3.213 h1:6FC0FeqV/5pkdD0kq/kWNceuuRg/kq8dKZUlp8oPDxs=
@@ -1031,8 +1027,6 @@ github.com/ucloud/ucloud-sdk-go v0.22.150/go.mod h1:dyLmFHmUfgb4RZKYQP9IArlvQ2px
 github.com/ultradns/ultradns-go-sdk v1.8.6-20261009044533-535b847 h1:GF7E5Gne3ZsmE0erTV3elMrB6ZZZjzQUQl1T1QkmV+A=
 github.com/ultradns/ultradns-go-sdk v1.8.6-20261009044533-535b847/go.mod h1:QN0/PdenvYWB0GRMz6JJbPeZz2Lph2iys1p8AFVHm2c=
 github.com/urfave/cli/v2 v2.3.0/go.mod h1:LJmUH05zAU44vOAcrfzZQKsZbVcdbOG8rtL3/XcUArI=
-github.com/vearutop/statigz v1.4.0 h1:RQL0KG3j/uyA/PFpHeZ/L6l2ta920/MxlOAIGEOuwmU=
-github.com/vearutop/statigz v1.4.0/go.mod h1:LYTolBLiz9oJISwiVKnOQoIwhO1LWX1A7OECawGS8XE=
 github.com/vinyldns/go-vinyldns v0.9.18 h1:U3Nl1NEeqhbaQ4W1+V6Qm6iSmAEfEHaOgN/zSV4DtNY=
 github.com/vinyldns/go-vinyldns v0.9.18/go.mod h1:pwWhE9K/leGDOIduVhRGvQ3ecVMHWRfEnKYUTEU3gB4=
 github.com/vmihailenco/msgpack/v5 v5.4.1 h1:cQriyiUvjTwOHg8QZaPihLWeRAAVoCpE00IUPn0Bjt8=

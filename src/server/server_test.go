@@ -758,8 +758,28 @@ func TestMetricsRoutesRequireServiceTokensAndShareHandlers(t *testing.T) {
 		if rec.Code != http.StatusOK || !strings.Contains(rec.Header().Get("Content-Type"), service.contentType) {
 			t.Errorf("GET %s = %d, content type %q", path, rec.Code, rec.Header().Get("Content-Type"))
 		}
-		if service.name == "grafana" && (!strings.Contains(rec.Body.String(), "schemaVersion") || !strings.Contains(rec.Body.String(), "citylist_db_connections_open")) {
-			t.Error("Grafana dashboard is missing its schema version or database panels")
+		if service.name == "grafana" {
+			var dashboard struct {
+				SchemaVersion int `json:"schemaVersion"`
+				Panels        []struct {
+					Type string `json:"type"`
+				} `json:"panels"`
+			}
+			if err := json.Unmarshal(rec.Body.Bytes(), &dashboard); err != nil {
+				t.Errorf("Grafana dashboard is invalid JSON: %v", err)
+			} else {
+				if dashboard.SchemaVersion != 42 {
+					t.Errorf("Grafana dashboard schemaVersion = %d, want 42", dashboard.SchemaVersion)
+				}
+				if !strings.Contains(rec.Body.String(), "citylist_db_connections_open") {
+					t.Error("Grafana dashboard is missing database panels")
+				}
+				for _, panel := range dashboard.Panels {
+					if panel.Type == "graph" {
+						t.Error("Grafana dashboard uses a legacy graph panel; want Grafana 12 timeseries panels")
+					}
+				}
+			}
 		}
 		if service.name == "loki" && !strings.Contains(rec.Body.String(), `"streams"`) {
 			t.Error("Loki response is missing streams")
@@ -828,7 +848,11 @@ func TestAPIErrorMessageUsesResolvedLanguage(t *testing.T) {
 	if response.Code != http.StatusBadRequest {
 		t.Fatalf("GET invalid city limit = %d, want 400", response.Code)
 	}
-	if response.Header().Get("Content-Language") != "es" || !strings.Contains(response.Body.String(), "La solicitud no es válida.") {
+	var payload APIResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("GET invalid city limit JSON: %v", err)
+	}
+	if response.Header().Get("Content-Language") != "es" || payload.Error != "VALIDATION_FAILED" || payload.Message != i18n.Translate("es", "api_errors.invalid_limit") {
 		t.Fatalf("Spanish error response is incomplete: %s", response.Body.String())
 	}
 }
@@ -1378,6 +1402,71 @@ func TestHandleCoordinatesPage(t *testing.T) {
 	}
 }
 
+func TestDataPagesNegotiateJSON(t *testing.T) {
+	s := testServer(t)
+	for _, path := range []string{"/", "/search?q=London", "/coordinates?lat=51.5&lon=-0.1"} {
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		req.Header.Set("Accept", "application/json")
+		rec := httptest.NewRecorder()
+		s.Router().ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK || !strings.HasPrefix(rec.Header().Get("Content-Type"), "application/json") {
+			t.Errorf("GET %s = %d %q, want JSON 200", path, rec.Code, rec.Header().Get("Content-Type"))
+		}
+		var response APIResponse
+		if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil || !response.Success {
+			t.Errorf("GET %s JSON = %s, want successful API envelope (error: %v)", path, rec.Body.String(), err)
+		}
+	}
+}
+
+func TestDataPageJSONErrorsUseCanonicalCodesAndLocalizedMessages(t *testing.T) {
+	s := testServer(t)
+	for _, test := range []struct {
+		path       string
+		messageKey string
+	}{
+		{path: "/search?q=London&country=GBR", messageKey: "search.country_invalid"},
+		{path: "/search?q=London&limit=101", messageKey: "search.limit_invalid"},
+		{path: "/coordinates?lat=bad&lon=0", messageKey: "coordinates.latitude_invalid"},
+	} {
+		req := httptest.NewRequest(http.MethodGet, test.path, nil)
+		req.Header.Set("Accept", "application/json")
+		req.Header.Set("Accept-Language", "de")
+		rec := httptest.NewRecorder()
+		s.Router().ServeHTTP(rec, req)
+		var response APIResponse
+		if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+			t.Errorf("GET %s returned invalid JSON: %v", test.path, err)
+			continue
+		}
+		if rec.Code != http.StatusBadRequest || response.Error != "VALIDATION_FAILED" {
+			t.Errorf("GET %s = %d error %q, want 400 error VALIDATION_FAILED", test.path, rec.Code, response.Error)
+		}
+		if want := i18n.Translate("de", test.messageKey); response.Message != want {
+			t.Errorf("GET %s message = %q, want localized %q", test.path, response.Message, want)
+		}
+	}
+}
+
+func TestCanonicalAPIErrorCode(t *testing.T) {
+	tests := []struct {
+		status int
+		code   string
+		want   string
+	}{
+		{http.StatusBadRequest, "INVALID_QUERY", "VALIDATION_FAILED"},
+		{http.StatusBadRequest, "INVALID_JSON", "BAD_REQUEST"},
+		{http.StatusUnauthorized, "TOKEN_INVALID", "TOKEN_INVALID"},
+		{http.StatusServiceUnavailable, "CONTACT_UNAVAILABLE", "MAINTENANCE"},
+		{http.StatusInternalServerError, "CONTACT_DELIVERY_FAILED", "SERVER_ERROR"},
+	}
+	for _, test := range tests {
+		if got := canonicalAPIErrorCode(test.status, test.code); got != test.want {
+			t.Errorf("canonicalAPIErrorCode(%d, %q) = %q, want %q", test.status, test.code, got, test.want)
+		}
+	}
+}
+
 func TestPublicServerPagesAndAPIMirrors(t *testing.T) {
 	s := testServer(t)
 	for _, path := range []string{
@@ -1441,6 +1530,11 @@ func TestHandleServiceWorker(t *testing.T) {
 	rec := doRequest(t, s, http.MethodGet, "/sw.js", nil)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	for _, required := range []string{"components.css", "public.css", "citylist-offline-strings", "offline-strings.json", "strings.reload"} {
+		if !strings.Contains(rec.Body.String(), required) {
+			t.Errorf("service worker is missing %q", required)
+		}
 	}
 }
 
@@ -1702,6 +1796,11 @@ func TestHandleOpenAPISpec(t *testing.T) {
 	if _, ok := spec.Paths["/api/v1/server/auth/check"]["get"]; !ok {
 		t.Fatal("OpenAPI document is missing the operator token check route")
 	}
+	for _, pageRoute := range []string{"/server/healthz", "/healthz"} {
+		if _, ok := spec.Paths[pageRoute]; ok {
+			t.Errorf("OpenAPI document must not include the page-only %s route", pageRoute)
+		}
+	}
 	for _, route := range []string{"/api/graphql", "/api/v1/server/graphql"} {
 		operations, ok := spec.Paths[route]
 		if !ok {
@@ -1775,13 +1874,13 @@ func TestCORSMiddlewareUsesResolvedOrigins(t *testing.T) {
 
 	domainConfig := config.DefaultConfig()
 	domainConfig.Server.CORS.AllowedOrigins = nil
-	t.Setenv("DOMAIN", "api.city.example")
+	t.Setenv("DOMAIN", "api.city.example.com")
 	domainServer := testServerWithConfig(t, domainConfig)
 	domainRequest := httptest.NewRequest(http.MethodGet, "/api/v1/cities", nil)
-	domainRequest.Header.Set("Origin", "https://api.city.example")
+	domainRequest.Header.Set("Origin", "https://api.city.example.com")
 	domainRec := httptest.NewRecorder()
 	domainServer.Router().ServeHTTP(domainRec, domainRequest)
-	if domainRec.Header().Get("Access-Control-Allow-Origin") != "https://api.city.example" {
+	if domainRec.Header().Get("Access-Control-Allow-Origin") != "https://api.city.example.com" {
 		t.Fatalf("DOMAIN origin was not resolved: %q", domainRec.Header().Get("Access-Control-Allow-Origin"))
 	}
 

@@ -41,7 +41,7 @@ func (r *capturedResponse) Write(body []byte) (int, error) {
 
 func (s *Server) contentNegotiationMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if isMCPRoute(r.URL.Path) {
+		if isMCPRoute(r.URL.Path) || strings.HasPrefix(r.URL.Path, "/server/tor/") {
 			next.ServeHTTP(w, r)
 			return
 		}

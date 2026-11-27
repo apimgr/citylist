@@ -93,3 +93,14 @@ func ColorEnabled(forceColor *bool, configs ...*ColorConfig) bool {
 	}
 	return term.IsTerminal(int(os.Stdout.Fd()))
 }
+
+// EmojiEnabled follows terminal emoji preferences; TERM=dumb always disables them.
+func EmojiEnabled(configured ...*bool) bool {
+	if os.Getenv("TERM") == "dumb" {
+		return false
+	}
+	if len(configured) > 0 && configured[0] != nil {
+		return *configured[0]
+	}
+	return os.Getenv("NO_COLOR") == ""
+}

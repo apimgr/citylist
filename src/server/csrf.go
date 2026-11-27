@@ -78,7 +78,7 @@ func (s *Server) csrfToken(w http.ResponseWriter, r *http.Request) string {
 }
 
 func isFrontendRoute(path string) bool {
-	if strings.HasPrefix(path, "/api/") || strings.HasPrefix(path, "/graphql") || path == "/mcp" {
+	if strings.HasPrefix(path, "/api/") || strings.HasPrefix(path, "/graphql") || path == "/mcp" || strings.HasPrefix(path, "/server/tor/") {
 		return false
 	}
 	return true

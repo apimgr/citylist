@@ -31,8 +31,14 @@ type Config struct {
 	Server           ServerConfig `yaml:"server"`
 	Web              WebConfig    `yaml:"web"`
 	Data             DataConfig   `yaml:"data"`
+	Output           OutputConfig `yaml:"output"`
 	InitialToken     string       `yaml:"-"`
 	GeneratedSecrets []string     `yaml:"-"`
+}
+
+// OutputConfig controls optional terminal output behavior.
+type OutputConfig struct {
+	Emoji *bool `yaml:"emoji,omitempty"`
 }
 
 // DataConfig contains configuration for external security data sources.

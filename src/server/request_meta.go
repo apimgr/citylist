@@ -355,15 +355,7 @@ func (s *Server) requestUsesHTTPS(r *http.Request) bool {
 }
 
 func configuredDomains() []string {
-	parts := strings.Split(os.Getenv("DOMAIN"), ",")
-	domains := make([]string, 0, len(parts))
-	for _, part := range parts {
-		part = strings.TrimSpace(part)
-		if validHostPort(part) {
-			domains = append(domains, part)
-		}
-	}
-	return domains
+	return GetAllDomains()
 }
 
 func allowedDomain(host string, domains []string) bool {

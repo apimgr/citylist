@@ -130,6 +130,18 @@ func TestTextBrowserGetsNoJavaScriptHTML(t *testing.T) {
 	}
 }
 
+func TestRenderedPageStoresTranslatedOfflineStrings(t *testing.T) {
+	request := httptest.NewRequest(http.MethodGet, "/", nil)
+	request.Header.Set("Accept", "text/html")
+	response := httptest.NewRecorder()
+	testServer(t).Router().ServeHTTP(response, request)
+	for _, value := range []string{`id="offline-strings"`, `"title":"Offline"`, `"heading":"You are offline"`, `"reload":"Reload"`} {
+		if !strings.Contains(response.Body.String(), value) {
+			t.Errorf("rendered page is missing offline string %q", value)
+		}
+	}
+}
+
 func clearDynamicCSRF(node *htmlparser.Node) {
 	walkHTML(node, func(child *htmlparser.Node) {
 		if child.Type != htmlparser.ElementNode || child.Data != "input" || attrValue(child, "name") != "csrf_token" {
@@ -201,7 +213,7 @@ func assertPageConformance(t *testing.T, body []byte, path string, resolveLink f
 			}
 		case "script":
 			typeValue := strings.ToLower(attrValue(node, "type"))
-			if attrValue(node, "src") == "" && typeValue != "application/ld+json" && strings.TrimSpace(nodeText(node)) != "" {
+			if attrValue(node, "src") == "" && typeValue != "application/ld+json" && typeValue != "application/json" && strings.TrimSpace(nodeText(node)) != "" {
 				t.Errorf("%s contains an executable inline script", path)
 			}
 		case "style":
