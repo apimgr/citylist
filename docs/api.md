@@ -4,6 +4,8 @@ Citylist serves public, read-only geographic data. Lookup endpoints require no v
 
 All successful JSON responses use the `ok`, `data`, and optional `count` envelope. Errors use `ok: false` with an `error` code and human-readable `message`. Requests are bounded and rate-limited to 120 requests per minute per client address by the current in-memory fixed-window limiter; limited responses include `Retry-After`.
 
+Error codes stay stable across languages; the `message` is translated using the resolved request language. The server uses `BAD_REQUEST` and `VALIDATION_FAILED` for invalid input, `UNAUTHORIZED`, `TOKEN_EXPIRED`, and `TOKEN_INVALID` for authentication failures, `FORBIDDEN`, `CSRF_FAILED`, and `ACCOUNT_LOCKED` for denied requests, `NOT_FOUND`, `METHOD_NOT_ALLOWED`, `CONFLICT`, `RATE_LIMITED`, `MAINTENANCE`, and `SERVER_ERROR` for the corresponding HTTP outcomes.
+
 ## Cities
 
 | Method and path | Query/body | Purpose and limits |
