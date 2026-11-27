@@ -96,6 +96,10 @@ server:
         duplicate_window_hours: 24
       success_message: "Thank you for your report."
   notifications:
+    webui:
+      position: top-right
+      duration: 3
+      warning_duration: 5
     email:
       smtp:
         host: ""
@@ -265,6 +269,7 @@ The same handlers are mounted at `/api/{api_version}/server/metrics[/{service}]`
 | `server.ssl.letsencrypt.email` | empty | Optional ACME account contact. Set it explicitly when configuring Let's Encrypt; Citylist never invents an admin address. |
 | `server.contact.dpo.name`, `server.contact.dpo.email` | empty | Optional public data-protection contact details used by `/server/dpo`. |
 | `server.notifications.email.smtp.*` | host/credentials empty, port `587`, TLS `auto` | SMTP relay used for contact, security-report, and enabled operator-event notifications. TLS accepts `auto`, `starttls`, `tls`, or `none`. |
+| `server.notifications.webui.*` | top-right, 3s success/info, 5s warning | Controls public toast position and auto-dismiss timing; zero duration keeps that toast visible until dismissed, and error toasts are always manual. |
 | `server.notifications.email.from.*` | empty | Sender name and address used for outbound notification mail. |
 | `server.notifications.email.events.*` | Event-specific | Enables or disables operator notification email by event, including `maintenance_entered`, `maintenance_exited`, and `self_healing_exhausted`. SSL expiry warnings run at 7, 3, and 1 day before expiration; renewal success is logged, while renewal failure can send a separate alert. |
 | `server.notifications.database_error.*` | enabled, 3 failures, `1m` check interval, `24h` repeat | Probes the read and write database handles; consecutive failures trigger a deduplicated operator event, and recovery resets the alert state. |
