@@ -135,15 +135,15 @@ The following routes are part of Citylist's user-facing product. `{api_version}`
 | GET | `/server/preferences/tokens` | Public page; owner actions credential-gated | Issue/restore primary owner token and manage primary/linked tokens in the browser. |
 | POST | `/server/preferences/token/create`, `/server/preferences/token/restore`, `/server/preferences/token/forget`, `/server/preferences/token/reveal`, `/server/preferences/token/rotate`, `/server/preferences/token/revoke` | CSRF-protected; primary owner token required for reveal, rotate, and revoke | Browser primary-token create, restore, forget-this-browser, reveal, rotate, and confirmed revoke actions. |
 | POST | `/server/preferences/tokens` | CSRF-protected; owner token required | Create a linked token. |
-| POST | `/server/preferences/tokens/{id}/{action}` | CSRF-protected; owner token required | Reveal, rotate, update, or revoke a linked token. |
+| POST | `/server/preferences/tokens/{id}/reveal`, `/server/preferences/tokens/{id}/rotate`, `/server/preferences/tokens/{id}/update`, `/server/preferences/tokens/{id}/revoke` | CSRF-protected; owner token required | Reveal, rotate, update, or revoke a linked token. |
 | GET | `/server/preferences/sync` | Public | Export current guest preferences as a URL and short code; HTML, text, or JSON by negotiation. |
 | POST | `/server/preferences/sync` | Public, CSRF-protected | Import preferences from a URL, query string, or short code and redirect safely. |
 | GET | `/server/preferences/sync/import` | Public | Import preferences from URL query parameters; redirects safely. |
 | GET | `/server/docs/swagger`, `/server/docs/graphql` | Public | OpenAPI/Swagger and GraphQL browser documentation. |
 | GET, POST | `/api/graphql`, `/api/{api_version}/server/graphql` | Public | Read-only GraphQL query endpoint; GET accepts `query`, optional JSON `variables`, and `operationName`. |
 | POST | `/api/{api_version}/server/mcp`, `/api/mcp`, `/mcp` | Bearer token required | MCP Streamable HTTP lookup tools; accepts owner or operator credentials. |
-| GET | `/locales/{lang}.json`, `/static/*` | Public | Embedded locale catalog and static web assets. |
-| GET | `/api/{api_version}/` | Public | API description and endpoint discovery. |
+| GET, HEAD | `/locales/{lang}.json`, `/static/*` | Public | Embedded locale catalog and static web assets. |
+| GET | `/api/{api_version}` | Public | API description and endpoint discovery. The trailing-slash form redirects to this canonical route. |
 | GET | `/api/{api_version}/cities` | Public | Paginated city list (`page`, `limit`). |
 | GET | `/api/{api_version}/cities/search` | Public | Search by `q`, optional country code and limit. |
 | GET | `/api/{api_version}/cities/{id}` | Public | Look up a GeoNames city ID. |
@@ -164,9 +164,10 @@ The following routes are part of Citylist's user-facing product. `{api_version}`
 | GET | `/api/{api_version}/server/preferences/sync/import` | Public | Import query or code values and return JSON. |
 | GET | `/api/{api_version}/server/preferences/tokens` | Primary owner Bearer token | List owner tokens. |
 | POST | `/api/{api_version}/server/preferences/tokens`, `/api/{api_version}/server/preferences/tokens/primary` | Primary owner Bearer token for linked-token creation; public for primary-token issuance | Create linked or primary owner tokens. |
-| POST | `/api/{api_version}/server/preferences/tokens/primary/{action}` | Primary owner Bearer token | Reveal or rotate the primary token. |
+| POST | `/api/{api_version}/server/preferences/tokens/primary/reveal`, `/api/{api_version}/server/preferences/tokens/primary/rotate` | Primary owner Bearer token | Reveal or rotate the primary token. |
 | DELETE | `/api/{api_version}/server/preferences/tokens/primary` | Primary owner Bearer token and confirmation of the token's final four characters | Revoke the primary token and delete its owner and linked tokens. |
-| POST, PATCH, DELETE | `/api/{api_version}/server/preferences/tokens/{id}` or `/{id}/{action}` | Primary owner Bearer token | Manage linked tokens; actions include reveal, rotate, update, and revoke. |
+| POST | `/api/{api_version}/server/preferences/tokens/{id}/reveal`, `/api/{api_version}/server/preferences/tokens/{id}/rotate` | Primary owner Bearer token | Reveal or rotate a linked token. |
+| PATCH, DELETE | `/api/{api_version}/server/preferences/tokens/{id}` | Primary owner Bearer token | Rename, change expiry, or revoke a linked token. |
 | GET | `/api/{api_version}/server/auth/check` | Bearer token | Validate operator or owner credentials without returning the raw token. |
 | GET | `/api/{api_version}/server/healthz`, `/api/healthz` | Public | Machine-readable public health response, including maintenance while dependencies recover. |
 | GET | `/api/{api_version}/server/security/policy`, `/api/{api_version}/server/security/thanks` | Public | JSON mirrors of the disclosure policy and researcher acknowledgments. |
