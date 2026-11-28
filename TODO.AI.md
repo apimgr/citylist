@@ -9,3 +9,4 @@ Dependency order: establish the required package boundaries before updating the 
 - [ ] Align the CI workflow gates with PART 27 and the Makefile test contract, while preserving the multi-provider requirements and current provider workflows.
 - [ ] Bring README and all server/developer documentation into agreement with the current Makefile, startup architecture, runtime behavior, and supported server pages/APIs.
 - [ ] Re-audit the complete AI.md checklist against the implementation and fix every remaining applicable requirement before final verification.
+- [ ] Add the 13 required `.claude/rules/` summaries from their assigned AI.md PARTs; the directory is absent.

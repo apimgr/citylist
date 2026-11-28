@@ -20,6 +20,8 @@ tests/e2e.sh
 
 `make build` produces local and cross-platform debug server and CLI binaries for Linux, macOS, Windows, and FreeBSD on amd64 and arm64. These retain symbols and DWARF, disable optimization and inlining, and do not use `-trimpath`. `make test` runs `go vet ./...`, `staticcheck ./...`, `govulncheck ./...`, ShellCheck, `shfmt`, and all Go tests in the Go container, then enforces at least 60% aggregate coverage and runs `tests/run_tests.sh` for basic binary checks. `make release` builds stripped, optimized production artifacts for all eight targets, plus the source archive and checksums; it never creates tags or publishes. Local build metadata and the application version come from the Makefile, `release.txt`, and optional `site.txt`; CI releases derive the version from the pushed tag, while beta and development builds use generated identifiers.
 
+`make docker` builds the host-platform image locally without pushing, then runs `tests/check-image.sh` to check the image's bundled tools, startup, and Tor health. CI/CD handles image publishing.
+
 The GitHub Actions workflow runs `go vet`, `staticcheck`, the coverage-gated test suite, a build, `govulncheck`, secret scanning, workflow pin checks, and a Trivy image scan.
 
 The interactive API pages use locally served pinned assets: Swagger UI 5.36.0 and GraphiQL 4.1.2 with React and ReactDOM 18.3.1. Their startup code is kept in `src/server/static/js/docs-swagger.js` and `docs-graphql.js`; do not load these libraries from a CDN or merge their startup code into `app.js`.

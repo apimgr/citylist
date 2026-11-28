@@ -65,9 +65,3 @@ Purpose:
 - CI/CD: `.claude/rules/cicd-rules.md` (PART 27)
 - Testing, docs, translations: `.claude/rules/testing-rules.md` (PART 28-30)
 - Full specification and final checklist: `AI.md`
-
-## Current Project State
-
-- Last read AI.md: 2026-10-31
-- Current task: bring the repository into alignment with AI.md and verify it.
-- Relevant PARTs: 0-32 and FINAL CHECKPOINT, as applicable to IDEA.md.

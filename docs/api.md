@@ -43,7 +43,8 @@ If the embedded postal dataset cannot be loaded, ZIP routes return `503` with th
 | `GET /api/v1/server/healthz` | Public status, branding, build/runtime metadata, feature state, ordered component and dataset checks, and aggregate request statistics. |
 | `GET /api/healthz` | Direct health alias. |
 | `GET /healthz` | Optional root alias, disabled unless `server.healthz.root.enabled` is true. |
-| `GET /api/autodiscover` | Public server details, configured `cli_min_version`, and the published CLI version/checksum map. The map is currently empty because the server has no defined CLI asset source. |
+| `GET /api/autodiscover` | Public server details, configured `cli_min_version`, and the versions/checksums of verified CLI release assets found in `{data_dir}/cli` (or `cli.binary_download.dir`). |
+| `GET /api/{api_version}/cli/binaries/{filename}` | Streams a matching, checksum-verified CLI release asset. Public by default; requires a bearer token when `cli.binary_download.require_auth` is enabled. An unavailable asset returns `404 NOT_FOUND`. |
 
 `GET /server/healthz` is the browser-facing health page and negotiates HTML, JSON, or text. Health checks are cached and ordered as database, cache, disk, scheduler, enabled overlays, then registered datasets. Tor and I2P report `disabled`, `starting`, `healthy`, or `unavailable`; an unavailable active overlay marks the overall service `degraded`. `healthy`, `degraded`, and `restart_required` return HTTP 200; `unhealthy`, `maintenance`, and `shutting_down` return HTTP 503. Health responses do not expose manager error strings, local paths, or credentials.
 

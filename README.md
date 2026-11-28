@@ -135,6 +135,8 @@ make test
 
 `make build` creates unoptimized debug server and CLI binaries with symbols for all eight OS/architecture targets in `binaries/`. `make test` runs `go vet`, `staticcheck`, `govulncheck`, ShellCheck, `shfmt`, Go tests with the aggregate coverage gate, and the basic Docker binary checks. `make release` creates stripped production artifacts, a source archive, and checksums in `releases/`; it does not tag or publish. Browser and full operating-system integration checks are documented in the [development guide](docs/development.md).
 
+`make docker` builds the host-platform image locally without pushing and checks its bundled tools, startup, and Tor health. CI/CD handles image publishing.
+
 ## Disclaimer
 
 This software is provided "as is" without warranty of any kind. Use at your own risk.

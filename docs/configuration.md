@@ -135,6 +135,15 @@ web:
     publish_pgp_key: true
 ```
 
+The optional CLI download settings belong in `yaml.d/maintenance.yml`, never in `server.yml`:
+
+```yaml
+cli:
+  binary_download:
+    dir: "{data_dir}/cli"
+    require_auth: false
+```
+
 The `?lang=` query parameter selects a supported language for the current request and saves it in the `lang` cookie for one year only when preference-cookie consent is enabled. Subsequent requests use that choice until it is cleared or changed in `/server/preferences`. Without an allowed saved selection, language detection uses the best supported `Accept-Language` match, then `server.i18n.default_language`. `server.i18n` has two settings: `default_language` and `available_languages`; the cookie name (`lang`) and one-year lifetime are fixed. The client uses the same six locale catalogs for localized help, prompts, and messages.
 
 ## Configuration drop-ins
@@ -204,7 +213,9 @@ The owner-token cookie name is the stable `owner_token` project variable in `IDE
 | `server.update.branch` | `stable` | Release channel: `stable`, `beta`, or `devel`. Legacy channel labels `daily`, `rolling`, `dev`, and `development` normalize to `devel`. |
 | `server.update.auto_install` | `false` | Reserved for scheduled updater installation; Citylist currently supports manual update checks and installation only. |
 | `server.update.defer_days` | `0` | Reserved for scheduled stable/beta update eligibility; manual checks and installation are never deferred. |
-| `server.update.cli_min_version` | empty | Minimum companion CLI version published by `/api/autodiscover`. Set it only when compatible CLI binaries are available to users; Citylist does not yet serve CLI binary assets. |
+| `server.update.cli_min_version` | empty | Minimum companion CLI version published by `/api/autodiscover`. Set it only when a compatible release is provisioned. |
+| `cli.binary_download.dir` | `{data_dir}/cli` | Directory containing operator-provisioned CLI release files (`{project_name}-cli-{os}-{arch}[.exe]`, `version.txt`, and `sha256.txt`). |
+| `cli.binary_download.require_auth` | `false` | Require an `Authorization: Bearer` token for CLI binary downloads. Public downloads are the default. |
 | `server.database.driver` | `sqlite` | Database driver: local SQLite or remote libSQL/Turso. |
 | `server.database.url` | derived | SQLite file path or libSQL URL, according to the selected driver. `{data_dir}` is replaced with the selected data directory for SQLite; relative SQLite paths resolve under it. |
 | `server.database.token` | secret file or environment | Authentication token for a remote libSQL/Turso database. Keep it in `secrets.yml` or provide it through the supported environment reference; do not put credentials in a public config file. |
