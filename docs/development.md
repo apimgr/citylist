@@ -30,6 +30,8 @@ Integration and browser checks are developer-initiated checks, separate from the
 
 `make test` invokes `tests/run_tests.sh` for the basic Docker binary checks. The full Incus service lifecycle suite stays explicit through `tests/incus.sh`; it runs Debian/systemd and Alpine/OpenRC sequentially. The Incus and Docker scripts build test binaries in project-scoped OS temporary storage. The Incus runner also accepts prebuilt binaries through `CITYLIST_BIN_DIR`, which is useful when Go builds run in a separate container. The browser check is standalone, requires Docker, and runs the pure-Go chromedp suite in an isolated container. The scripts create temporary data and clean up only resources they created.
 
+If the browser check fails, its project-scoped temporary artifact directory is retained with owner-only permissions. The script prints the artifact path; server startup logs are saved there instead of being dumped to the terminal. Successful runs remove the temporary artifacts.
+
 ## Source layout
 
 - `src/cities` and `src/zipcodes`: immutable dataset lookup services.

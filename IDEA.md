@@ -178,3 +178,11 @@ The following routes are part of Citylist's user-facing product. `{api_version}`
 | GET | `/healthz` | Public, optional | Root health alias when enabled by server configuration. |
 
 The API preferences and sync endpoints act only on guest browser preference cookies. Sync exports theme, language, and valid `citylist_pref_*` values, excluding consent, CCPA, build, CSRF, and credential cookies. Owner-token API routes ignore cookies and require explicit Bearer authentication. No route creates or mutates city or ZIP records.
+
+### UI components
+
+Citylist has no project-specific reusable component blocks. Browser pages compose the shared components defined by `AI.md`; page-specific classes only set layout on the page root and wrappers. City lookup results use the shared info-list, status, and code/copy components rather than a separate result-card component.
+
+| Name | Block and elements | Variants | States |
+|------|-------------------|----------|--------|
+| No project-specific component | Shared component catalog only | As defined by `AI.md` | As defined by `AI.md` |
